@@ -310,9 +310,9 @@ router.beforeEach(async (to, _from, next) => {
 
   let authenticated = isAuthenticated.value;
 
-  // ✅ If authenticated user tries to access UnauthorizedAccess page, redirect to /surveys
+  // ✅ If authenticated user tries to access UnauthorizedAccess page, redirect to /news
   if (to.path === "/" && authenticated) {
-    return next("/surveys");
+    return next("/news");
   }
 
   // ✅ Prevent infinite redirect loops on root path
@@ -335,7 +335,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // ✅ Redirect authenticated users away from guest-only pages (login, register)
   if (requiresGuest && authenticated) {
-    const redirectTo = (to.query.redirect as string) || "/surveys";
+    const redirectTo = (to.query.redirect as string) || "/news";
     return next(redirectTo);
   }
 
@@ -358,9 +358,9 @@ router.beforeEach(async (to, _from, next) => {
     const currentUser = user.value;
     const ADMIN_ROLES = new Set(["admin", "super_admin"]);
     
-    // If user is authenticated but not an admin, redirect to surveys
+    // If user is authenticated but not an admin, redirect to news
     if (!currentUser || !ADMIN_ROLES.has(currentUser.role)) {
-      return next("/surveys");
+      return next("/news");
     }
   }
 

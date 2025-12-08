@@ -125,7 +125,6 @@ const logoSrc = computed(() => isCollapsed.value ? '/logomobile.png' : '/Logo.pn
       <div :class="$style.emblemWrap">
         <img :src="logoSrc" :class="$style.emblem" alt="شعار المجلس الأعلى للأمن الوطني" />
       </div>
-    
     </div>
 
     <nav :class="$style.navArea">
@@ -346,9 +345,11 @@ const logoSrc = computed(() => isCollapsed.value ? '/logomobile.png' : '/Logo.pn
 }
 
 .emblem{
-    padding:0 5px;
-  object-fit:contain;
-  transition: transform .25s ease, inline-size .25s ease, block-size .25s ease;
+  padding:0 5px !important;
+  object-fit:contain !important;
+  max-width: 100% !important;
+  height: auto !important;
+  transition: transform .25s ease, inline-size .25s ease, block-size .25s ease !important;
 }
 .headerText{
   display:flex;
