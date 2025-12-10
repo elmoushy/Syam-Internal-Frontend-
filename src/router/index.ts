@@ -371,7 +371,7 @@ router.beforeEach(async (to, _from, next) => {
    Title Handling
    ========================= */
 router.afterEach(() => {
-  document.title = "WHSO Survey";
+  document.title = "WHSO Hub";
 });
 
 export default router;
