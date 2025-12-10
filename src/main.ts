@@ -5,6 +5,7 @@ import router from './router'
 import './styles/reset.module.css'
 import './styles/theme.css'
 import './styles/rtl-utils.css'
+import './styles/fonts.css'
 
 // Import Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css'
