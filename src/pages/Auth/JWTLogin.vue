@@ -23,7 +23,7 @@
               <span>أهلاً وسهلاً</span>
             </div>
             <h1 :class="styles.title">تسجيل الدخول</h1>
-<p :class="styles.subtitle">تسجيل الدخول عبر البريد الإلكتروني</p>
+<p :class="styles.subtitle">{{ isLdapMode ? 'تسجيل الدخول عبر حساب الشبكة' : 'تسجيل الدخول عبر البريد الإلكتروني' }}</p>
           </div>
 
           <div :class="styles.cardBody">
@@ -81,7 +81,7 @@
                     <input 
                       id="email"
                       v-model="email"
-                      type="email" 
+                      :type="isLdapMode ? 'text' : 'email'" 
                       :class="[styles.formInput, styles.emailInput]"
                       placeholder=""
                       required
@@ -89,7 +89,7 @@
                       dir="ltr"
                     />
                     <label for="email" :class="[styles.floatingLabel, { [styles.active]: email || isLoading }]">
-                      البريد الإلكتروني
+                      {{ isLdapMode ? 'اسم المستخدم' : 'البريد الإلكتروني' }}
                     </label>
                   </div>
                   <div v-if="fieldErrors.email" :class="styles.fieldError">
@@ -180,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSimpleAuth } from '../../composables/useSimpleAuth'
 import SecurityStatusIndicator from '../../components/SecurityStatusIndicator'
@@ -188,6 +188,9 @@ import styles from './JWTLogin.module.css'
 
 const router = useRouter()
 const route = useRoute()
+
+// Check if LDAP mode is enabled
+const isLdapMode = computed(() => import.meta.env.VITE_AUTH_MODE === 'ldap')
 
 // JWT authentication
 const { 

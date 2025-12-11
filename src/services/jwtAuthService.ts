@@ -447,11 +447,15 @@ apiClient.interceptors.response.use(
 export const authAPI = {
   // Login with email and password
   login: async (email: string, password: string): Promise<LoginResponse> => {
+    const authMode = import.meta.env.VITE_AUTH_MODE || 'development'
+    const isLdap = authMode === 'ldap'
+    
+    const endpoint = isLdap ? '/authentication/login/ldap/' : '/auth/login/'
+    // For LDAP, we map the 'email' input field to 'username'
+    const payload = isLdap ? { username: email, password } : { email, password }
+
     try {
-      const response = await apiClient.post<LoginResponse>('/auth/login/', { 
-        email, 
-        password 
-      }, {
+      const response = await apiClient.post<LoginResponse>(endpoint, payload, { 
         validateStatus: (status) => status < 500 // Don't throw for 4xx errors
       })
       

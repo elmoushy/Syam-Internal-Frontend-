@@ -328,6 +328,9 @@ const isAllSelected = computed(() => {
 });
 
 const canBulkDelete = computed(() => {
+  // In LDAP mode, user management is handled by AD
+  if (import.meta.env.VITE_AUTH_MODE === 'ldap') return false;
+
   if (!props.currentUser || props.selectedUsers.length === 0) return false;
 
   // Check if user has admin privileges
@@ -368,6 +371,9 @@ const canEditUser = (user: User) => {
 };
 
 const canDeleteUser = (user: User) => {
+  // In LDAP mode, user management is handled by AD
+  if (import.meta.env.VITE_AUTH_MODE === 'ldap') return false;
+
   if (!props.currentUser) return false;
 
   // Cannot delete self
@@ -388,6 +394,9 @@ const canDeleteUser = (user: User) => {
 };
 
 const canResetPassword = (user: User) => {
+  // In LDAP mode, password management is handled by AD
+  if (import.meta.env.VITE_AUTH_MODE === 'ldap') return false;
+
   if (!props.currentUser) return false;
 
   // Cannot reset own password using this method
