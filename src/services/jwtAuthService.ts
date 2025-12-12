@@ -450,7 +450,7 @@ export const authAPI = {
     const authMode = import.meta.env.VITE_AUTH_MODE || 'development'
     const isLdap = authMode === 'ldap'
 
-    const endpoint = isLdap ? '/authentication/login/ldap/' : '/auth/login/'
+    const endpoint = isLdap ? '/auth/login/ldap/' : '/auth/login/'
     // For LDAP, we map the 'email' input field to 'username'
     const payload = isLdap ? { username: email, password } : { email, password }
 
