@@ -445,9 +445,9 @@
         <!-- Pagination -->
       <div :class="$style.paginationSection">
         <div :class="$style.paginationInfo">
-          {{ t('common.pagination.showing') }}
+          {{ t('survey.pagination.showing') }}
           {{ paginationRange.start }} - {{ paginationRange.end }}
-          {{ t('common.pagination.of') }} {{ pagination.total }}
+          {{ t('survey.pagination.of') }} {{ pagination.total }}
         </div>
 
         <div :class="$style.paginationControls">
@@ -458,7 +458,7 @@
           >
             <i class="fas fa-chevron-right" v-if="isRTL"></i>
             <i class="fas fa-chevron-left" v-else></i>
-            {{ t('common.pagination.previous') }}
+            {{ t('survey.pagination.previous') }}
           </button>
 
           <span :class="$style.pageNumbers">
@@ -479,7 +479,7 @@
             @click="changePage(pagination.currentPage + 1)"
             :disabled="!pagination.hasNext && pagination.currentPage >= pagination.totalPages"
           >
-            {{ t('common.pagination.next') }}
+            {{ t('survey.pagination.next') }}
             <i class="fas fa-chevron-left" v-if="isRTL"></i>
             <i class="fas fa-chevron-right" v-else></i>
           </button>

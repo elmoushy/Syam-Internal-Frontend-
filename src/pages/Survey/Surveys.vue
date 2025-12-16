@@ -284,10 +284,10 @@
       <!-- Pagination -->
       <div :class="$style.paginationSection">
         <div :class="$style.paginationInfo">
-          {{ t('common.pagination.showing') }} 
+          {{ t('survey.pagination.showing') }} 
           {{ (pagination.currentPage - 1) * pagination.pageSize + 1 }} - 
           {{ Math.min(pagination.currentPage * pagination.pageSize, pagination.total) }} 
-          {{ t('common.pagination.of') }} {{ pagination.total }}
+          {{ t('survey.pagination.of') }} {{ pagination.total }}
         </div>
         
         <div :class="$style.paginationControls">
@@ -298,7 +298,7 @@
           >
             <i class="fas fa-chevron-right" v-if="isRTL"></i>
             <i class="fas fa-chevron-left" v-if="!isRTL"></i>
-            {{ t('common.pagination.previous') }}
+            {{ t('survey.pagination.previous') }}
           </button>
           
           <span :class="$style.pageNumbers">
@@ -317,7 +317,7 @@
             @click="changePage(pagination.currentPage + 1)"
             :disabled="pagination.currentPage >= Math.ceil(pagination.total / pagination.pageSize)"
           >
-            {{ t('common.pagination.next') }}
+            {{ t('survey.pagination.next') }}
             <i class="fas fa-chevron-left" v-if="isRTL"></i>
             <i class="fas fa-chevron-right" v-if="!isRTL"></i>
           </button>
