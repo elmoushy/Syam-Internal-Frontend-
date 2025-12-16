@@ -53,6 +53,14 @@ export const getUsers = async (): Promise<UserListResponse> => {
 }
 
 /**
+ * List all assignable users (excludes super_admin)
+ */
+export const getAssignableUsers = async (): Promise<UserListResponse> => {
+  const response: AxiosResponse<UserListResponse> = await apiClient.get('/auth/users/assignable/')
+  return response.data
+}
+
+/**
  * Search users by name or email
  */
 export const searchUsers = async (query: SearchUsersQuery): Promise<SearchUsersResponse> => {

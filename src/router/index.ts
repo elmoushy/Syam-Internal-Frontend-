@@ -21,7 +21,6 @@ declare module "vue-router" {
    ========================= */
 
 // Auth & Public
-const UnauthorizedAccess = () => import("../pages/Auth/UnauthorizedAccess.vue");
 const JWTLogin = () => import("../pages/Auth/JWTLogin.vue");
 // const Register = () => import('../pages/Auth/Register.vue') 
 
@@ -55,6 +54,7 @@ const Notifications = () => import("../pages/Notifications");
 
 // News
 const News = () => import("../pages/News/News.vue");
+const QuickLinksPage = () => import("../pages/QuickLinks/QuickLinksPage.vue");
 // const OrganizationChart = () => import("../pages/OrganizationChart/OrganizationChart.vue");
 // const OrganizationDetails = () => import("../pages/OrganizationChart/OrganizationDetails.vue");
 
@@ -64,9 +64,9 @@ const News = () => import("../pages/News/News.vue");
 const routes: RouteRecordRaw[] = [
   { 
     path: "/", 
-    name: "UnauthorizedAccess",
-    component: UnauthorizedAccess,
-    meta: { title: "Unauthorized Access - WPC | WeaponpowerCloud App" }
+    name: "Home",
+    component: JWTLogin,
+    meta: { title: "Login - WPC | WeaponpowerCloud App", requiresGuest: true }
   },
 
   {
@@ -74,6 +74,13 @@ const routes: RouteRecordRaw[] = [
     name: "Login",
     component: JWTLogin,
     meta: { title: "Login - WPC | WeaponpowerCloud App", requiresGuest: true },
+  },
+  
+  {
+    path: "/quick-links",
+    name: "QuickLinks",
+    component: QuickLinksPage,
+    meta: { title: "Quick Links - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
   /*
   {
@@ -310,15 +317,11 @@ router.beforeEach(async (to, _from, next) => {
 
   let authenticated = isAuthenticated.value;
 
-  // ✅ If authenticated user tries to access UnauthorizedAccess page, redirect to /news
-  if (to.path === "/" && authenticated) {
+  // ✅ If authenticated user tries to access login page, redirect to /news
+  if ((to.path === "/" || to.path === "/login") && authenticated) {
     return next("/news");
   }
 
-  // ✅ Prevent infinite redirect loops on root path
-  if (to.path === "/" && _from.path === "/") {
-    return next();
-  }
   // ✅ Check authentication for protected routes
   if (requiresAuth && !authenticated) {
     try {
@@ -328,8 +331,8 @@ router.beforeEach(async (to, _from, next) => {
     }
 
     if (!authenticated) {
-      // Redirect unauthenticated users to UnauthorizedAccess page
-      return next("/");
+      // Redirect unauthenticated users to login page
+      return next("/login");
     }
   }
 
@@ -351,8 +354,8 @@ router.beforeEach(async (to, _from, next) => {
     }
 
     if (!authenticated) {
-      // Unauthenticated users trying to access admin routes → UnauthorizedAccess
-      return next("/");
+      // Unauthenticated users trying to access admin routes → login page
+      return next("/login");
     }
 
     const currentUser = user.value;

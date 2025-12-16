@@ -88,6 +88,15 @@
           >
             {{ t('userManagement.groups.title') }}
           </button>
+          
+          <!-- Roles Tab - super_admin only -->
+          <button 
+            v-if="isSuperAdmin"
+            :class="[$style.tabBtn, activeTab === 'roles' ? $style.tabBtnActive : '']"
+            @click="setActiveTab('roles')"
+          >
+            {{ t('roleManagement.tabTitle') }}
+          </button>
         </div>
         
     <!-- Main Content Tabs -->
@@ -137,6 +146,17 @@
               @filters-changed="updateGroupFilters"
               @sort-changed="updateGroupSort"
               @group-action="handleGroupAction"
+            />
+          </div>
+
+          <!-- Roles Tab - super_admin only -->
+          <div v-if="activeTab === 'roles' && isSuperAdmin" :class="$style.tabPane">
+            <RoleManagementTable
+              :roles="rolesWithPermissions"
+              :available-pages="availablePages"
+              :loading="rolesLoading"
+              @role-action="handleRoleAction"
+              @create-role="handleCreateRole"
             />
           </div>
         </div>
@@ -199,6 +219,34 @@
       @close="closeResetPasswordModal"
     />
 
+    <!-- Assign Permission Modal (Roles Tab) -->
+    <AssignPermissionModal
+      :visible="assignPermissionModalVisible"
+      :role="selectedRoleForPermissions"
+      :available-pages="availablePages"
+      :loading="assignPermissionLoading"
+      @save="handleAssignPermissionsSave"
+      @close="closeAssignPermissionModal"
+    />
+
+    <!-- Assign Users to Role Modal -->
+    <AssignUsersToRoleModal
+      :visible="assignUsersToRoleModalVisible"
+      :role="selectedRoleForAssignUsers"
+      :users="assignableUsers"
+      :loading-users="loadingAssignableUsers"
+      @success="handleAssignUsersToRoleSuccess"
+      @close="closeAssignUsersToRoleModal"
+    />
+
+    <!-- Create Role Modal -->
+    <CreateRoleModal
+      :visible="createRoleModalVisible"
+      :loading="createRoleLoading"
+      @save="handleCreateRoleSave"
+      @close="closeCreateRoleModal"
+    />
+
     <!-- Loading Overlay -->
     <!-- <div v-if="loading" :class="$style.loadingOverlay">
       <div :class="$style.loadingSpinner">
@@ -225,17 +273,25 @@ import { ref, computed, onMounted } from 'vue'
 import { useAppStore } from '../../../stores/useAppStore'
 import { useUserManagement } from '../../../composables/useUserManagement'
 import { useBulkDelete } from '../../../composables/useBulkDelete'
-import { bulkDeleteUsers, resetUserPassword } from '../../../services/userManagementService'
+import { bulkDeleteUsers, resetUserPassword, getAssignableUsers } from '../../../services/userManagementService'
 import userManagementService from '../../../services/userManagementService'
+import roleManagementService, { 
+  type RoleWithPermissions, 
+  type AvailablePage 
+} from '../../../services/roleManagementService'
 import Swal from 'sweetalert2'
 import UserManagementTable from '../../../components/UserManagementTable/UserManagementTable.vue'
 import GroupManagementTable from '../../../components/GroupManagementTable/GroupManagementTable.vue'
+import RoleManagementTable from '../../../components/RoleManagementTable/RoleManagementTable.vue'
 import UserModal from '../../../components/UserModal/UserModal.vue'
 import GroupModal from '../../../components/GroupModal/GroupModal.vue'
 import BulkActionModal from '../../../components/BulkActionModal/BulkActionModal.vue'
 import AddUsersToGroupModal from '../../../components/AddUsersToGroupModal/AddUsersToGroupModal.vue'
 import UserRoleModal from '../../../components/UserRoleModal/UserRoleModal.vue'
 import ResetPasswordModal from '../../../components/ResetPasswordModal/ResetPasswordModal.vue'
+import AssignPermissionModal from '../../../components/AssignPermissionModal/AssignPermissionModal.vue'
+import AssignUsersToRoleModal from '../../../components/AssignUsersToRoleModal/AssignUsersToRoleModal.vue'
+import CreateRoleModal from '../../../components/CreateRoleModal/CreateRoleModal.vue'
 import type { 
   User, 
   Group,
@@ -265,7 +321,7 @@ const {
   loading,
   error,
   currentUser,
-  // users, // Unused - commenting out
+  users,
   // groups, // Unused - commenting out
   selectedUsers,
   selectedGroups,
@@ -309,7 +365,7 @@ const {
 } = userManagement
 
 // Local state
-const activeTab = ref<'users' | 'groups'>('users')
+const activeTab = ref<'users' | 'groups' | 'roles'>('users')
 const userModalVisible = ref(false)
 const groupModalVisible = ref(false)
 const bulkActionModalVisible = ref(false)
@@ -328,9 +384,31 @@ const resetPasswordModalVisible = ref(false)
 const selectedUserForResetPassword = ref<User | null>(null)
 const resetPasswordLoading = ref(false)
 
+// Role Management State (super_admin only)
+const rolesWithPermissions = ref<RoleWithPermissions[]>([])
+const availablePages = ref<AvailablePage[]>([])
+const rolesLoading = ref(false)
+const assignPermissionModalVisible = ref(false)
+const selectedRoleForPermissions = ref<RoleWithPermissions | null>(null)
+const assignPermissionLoading = ref(false)
+
+// Assign Users to Role Modal State
+const assignUsersToRoleModalVisible = ref(false)
+const selectedRoleForAssignUsers = ref<RoleWithPermissions | null>(null)
+const assignUsersToRoleLoading = ref(false)
+const assignableUsers = ref<User[]>([])
+const loadingAssignableUsers = ref(false)
+
+// Computed: Check if current user is super_admin
+const isSuperAdmin = computed(() => currentUser.value?.role === 'super_admin')
+
 // Methods
-const setActiveTab = (tab: 'users' | 'groups') => {
+const setActiveTab = (tab: 'users' | 'groups' | 'roles') => {
   activeTab.value = tab
+  // Load roles data when switching to roles tab
+  if (tab === 'roles' && isSuperAdmin.value) {
+    loadRolesData()
+  }
 }
 
 const openUserModal = (type: 'create' | 'edit' | 'view' | 'invite', user?: User) => {
@@ -460,6 +538,220 @@ const handleResetPasswordSubmit = async (newPassword: string) => {
   }
 }
 
+/**
+ * Handle updating user's access level role (super_admin/admin/user)
+ * Uses endpoint: PUT /api/auth/users/{id}/role/
+ */
+const handleUpdateAccessLevelRole = async (user: User) => {
+  try {
+    // Get role display names
+    const getRoleDisplayName = (role: string) => {
+      const roleItem = roles.value.find(r => r.value === role)
+      return roleItem?.display || role
+    }
+    
+    // Build options for the dropdown - only access level roles
+    const accessLevelRoles = [
+      { value: 'user', display: t.value('userManagement.users.roles.user') },
+      { value: 'admin', display: t.value('userManagement.users.roles.admin') },
+      { value: 'super_admin', display: t.value('userManagement.users.roles.super_admin') }
+    ]
+    
+    const roleOptions = accessLevelRoles
+      .map(role => `<option value="${role.value}" ${user.role === role.value ? 'selected' : ''}>${role.display}</option>`)
+      .join('')
+    
+    const result = await Swal.fire({
+      title: t.value('userManagement.modals.changeRole.title'),
+      html: `
+        <div style="text-align:right;direction:rtl;">
+          <div style="margin-bottom:16px;padding:12px;background:rgba(183,138,65,0.1);border-radius:8px;">
+            <strong>${user.full_name}</strong>
+            <br/>
+            <span style="color:#6b7280;font-size:0.9rem;">${user.email}</span>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">
+              ${t.value('userManagement.modals.changeRole.currentRole')}
+            </label>
+            <div style="padding:8px 12px;background:#f3f4f6;border-radius:6px;color:#374151;">
+              ${getRoleDisplayName(user.role)}
+            </div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">
+              ${t.value('userManagement.modals.changeRole.newRole')}
+            </label>
+            <select 
+              id="swal-access-role-select" 
+              class="swal2-select" 
+              style="width:100%;margin:0;text-align:right;direction:rtl;padding:10px;border:1px solid #d1d5db;border-radius:8px;"
+            >
+              ${roleOptions}
+            </select>
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: t.value('common.save'),
+      cancelButtonText: t.value('common.cancel'),
+      confirmButtonColor: '#b78a41',
+      cancelButtonColor: '#6b7280',
+      customClass: {
+        popup: 'swal-rtl-popup',
+        title: 'swal-rtl-title',
+        htmlContainer: 'swal-rtl-content'
+      },
+      preConfirm: () => {
+        const select = document.getElementById('swal-access-role-select') as HTMLSelectElement
+        return select?.value || null
+      }
+    })
+    
+    if (result.isConfirmed && result.value) {
+      const selectedRole = result.value as 'super_admin' | 'admin' | 'user'
+      
+      // Only update if role changed
+      if (selectedRole !== user.role) {
+        // Call the updateExistingUserRole function which uses PUT /api/auth/users/{id}/role/
+        await updateExistingUserRole(user.id, { role: selectedRole })
+        
+        await Swal.fire({
+          title: t.value('userManagement.messages.roleUpdated'),
+          icon: 'success',
+          confirmButtonText: t.value('common.ok'),
+          confirmButtonColor: '#28a745'
+        })
+        
+        // Refresh data to show updated role
+        await refreshData()
+      }
+    }
+  } catch (error: any) {
+    console.error('Error updating access level role:', error)
+    await Swal.fire({
+      title: t.value('userManagement.messages.error'),
+      text: error.response?.data?.error || error.message || t.value('userManagement.messages.unknownError'),
+      icon: 'error',
+      confirmButtonText: t.value('common.ok'),
+      confirmButtonColor: '#dc3545'
+    })
+  }
+}
+
+/**
+ * Handle assigning a user to a Role from the Role table
+ * This sets the user_role FK and grants page permissions
+ */
+const handleAssignUserRole = async (user: User) => {
+  try {
+    // First, make sure we have the roles loaded
+    if (rolesWithPermissions.value.length === 0) {
+      await loadRolesData()
+    }
+    
+    // Build options for the dropdown
+    const roleOptions = rolesWithPermissions.value
+      .map(role => `<option value="${role.id}" ${user.user_role_id === role.id ? 'selected' : ''}>${role.display_name || role.name}</option>`)
+      .join('')
+    
+    const currentRoleName = user.user_role_name || t.value('userManagement.assignRole.noRole')
+    
+    const result = await Swal.fire({
+      title: t.value('userManagement.assignRole.title'),
+      html: `
+        <div style="text-align:right;direction:rtl;">
+          <div style="margin-bottom:16px;padding:12px;background:rgba(183,138,65,0.1);border-radius:8px;">
+            <strong>${user.full_name}</strong>
+            <br/>
+            <span style="color:#6b7280;font-size:0.9rem;">${user.email}</span>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">
+              ${t.value('userManagement.assignRole.currentRole')}
+            </label>
+            <div style="padding:8px 12px;background:#f3f4f6;border-radius:6px;color:#374151;">
+              ${currentRoleName}
+            </div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">
+              ${t.value('userManagement.assignRole.selectRole')}
+            </label>
+            <select 
+              id="swal-role-select" 
+              class="swal2-select" 
+              style="width:100%;margin:0;text-align:right;direction:rtl;padding:10px;border:1px solid #d1d5db;border-radius:8px;"
+            >
+              <option value="">${t.value('userManagement.assignRole.noRoleOption')}</option>
+              ${roleOptions}
+            </select>
+          </div>
+          <div style="padding:10px;background:#fef3c7;border-radius:8px;font-size:0.85rem;color:#92400e;">
+            <i class="fas fa-info-circle" style="margin-left:6px;"></i>
+            ${t.value('userManagement.assignRole.infoNote')}
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: t.value('common.save'),
+      cancelButtonText: t.value('common.cancel'),
+      confirmButtonColor: '#b78a41',
+      cancelButtonColor: '#6b7280',
+      customClass: {
+        popup: 'swal-rtl-popup',
+        title: 'swal-rtl-title',
+        htmlContainer: 'swal-rtl-content'
+      },
+      preConfirm: () => {
+        const select = document.getElementById('swal-role-select') as HTMLSelectElement
+        return select?.value || null
+      }
+    })
+    
+    if (result.isConfirmed) {
+      const selectedRoleId = result.value
+      
+      if (selectedRoleId) {
+        // Assign user to the selected role
+        await roleManagementService.assignUserToRole(user.id, { role_id: parseInt(selectedRoleId) })
+        
+        await Swal.fire({
+          title: t.value('userManagement.assignRole.success.title'),
+          text: t.value('userManagement.assignRole.success.text'),
+          icon: 'success',
+          confirmButtonText: t.value('common.ok'),
+          confirmButtonColor: '#28a745'
+        })
+      } else if (user.user_role_id) {
+        // Remove user from current role
+        await roleManagementService.removeUserFromRole(user.id)
+        
+        await Swal.fire({
+          title: t.value('userManagement.assignRole.removed.title'),
+          text: t.value('userManagement.assignRole.removed.text'),
+          icon: 'success',
+          confirmButtonText: t.value('common.ok'),
+          confirmButtonColor: '#28a745'
+        })
+      }
+      
+      // Refresh data to show updated role
+      await refreshData()
+      await loadRolesData()
+    }
+  } catch (error: any) {
+    console.error('Error assigning role:', error)
+    await Swal.fire({
+      title: t.value('userManagement.assignRole.error.title'),
+      text: error.response?.data?.error || error.message || t.value('userManagement.assignRole.error.text'),
+      icon: 'error',
+      confirmButtonText: t.value('common.ok'),
+      confirmButtonColor: '#dc3545'
+    })
+  }
+}
+
 const handleUserAction = async (action: string, user: User) => {
   try {
     switch (action) {
@@ -467,7 +759,8 @@ const handleUserAction = async (action: string, user: User) => {
         openUserModal('view', user)
         break
       case 'edit':
-        openUserModal('edit', user)
+        // Open modal to update access level role (super_admin/admin/user)
+        await handleUpdateAccessLevelRole(user)
         break
       case 'delete':
         const userDeleteResult = await Swal.fire({
@@ -861,6 +1154,339 @@ const handleUserRoleChangeSuccess = async () => {
   
   // You could show a success notification here
   // showNotification(`Changed ${data.user.full_name}'s role from ${data.oldRole} to ${data.newRole}`)
+}
+
+// ============================================================================
+// ROLE MANAGEMENT FUNCTIONS (super_admin only)
+// ============================================================================
+
+const loadRolesData = async () => {
+  if (!isSuperAdmin.value) return
+  
+  try {
+    rolesLoading.value = true
+    
+    // Load roles and available pages in parallel
+    const [rolesResponse, pagesResponse] = await Promise.all([
+      roleManagementService.getRolesWithPermissions(),
+      roleManagementService.getAvailablePages()
+    ])
+    
+    rolesWithPermissions.value = rolesResponse.roles
+    availablePages.value = pagesResponse.pages
+  } catch (err: any) {
+    console.error('Error loading roles data:', err)
+    await Swal.fire({
+      title: t.value('roleManagement.errors.loadFailed'),
+      text: roleManagementService.getErrorMessage(err),
+      icon: 'error',
+      confirmButtonText: t.value('common.ok'),
+      confirmButtonColor: '#dc3545'
+    })
+  } finally {
+    rolesLoading.value = false
+  }
+}
+
+// Create Role Modal State
+const createRoleModalVisible = ref(false)
+const createRoleLoading = ref(false)
+
+/**
+ * Handle opening the create role modal
+ */
+const handleCreateRole = () => {
+  createRoleModalVisible.value = true
+}
+
+/**
+ * Handle closing the create role modal
+ */
+const closeCreateRoleModal = () => {
+  createRoleModalVisible.value = false
+}
+
+/**
+ * Handle saving a new role from the modal
+ */
+const handleCreateRoleSave = async (data: { name: string; display_name?: string; description?: string; is_system_role: boolean }) => {
+  createRoleLoading.value = true
+  try {
+    await roleManagementService.createRole(data)
+    createRoleModalVisible.value = false
+    await Swal.fire({
+      title: t.value('roleManagement.createRole.success'),
+      icon: 'success',
+      confirmButtonText: t.value('common.ok'),
+      confirmButtonColor: '#10b981',
+      timer: 2000
+    })
+    // Refresh roles data
+    await loadRolesData()
+  } catch (error: any) {
+    console.error('Error creating role:', error)
+    await Swal.fire({
+      title: t.value('roleManagement.createRole.error'),
+      text: roleManagementService.getErrorMessage(error),
+      icon: 'error',
+      confirmButtonText: t.value('common.ok'),
+      confirmButtonColor: '#ef4444'
+    })
+  } finally {
+    createRoleLoading.value = false
+  }
+}
+
+const handleRoleAction = async (action: string, role: RoleWithPermissions) => {
+  switch (action) {
+    case 'manage-permissions':
+      openAssignPermissionModal(role)
+      break
+    case 'assign-users':
+      openAssignUsersToRoleModal(role)
+      break
+    case 'view':
+      // Show role details in a Swal modal
+      const pagesHtml = role.pages.length > 0 
+        ? role.pages.map(p => {
+            const page = availablePages.value.find(ap => ap.name === p)
+            return `<span style="display:inline-block;background:rgba(183,138,65,0.12);color:#8b6914;padding:4px 12px;border-radius:20px;margin:4px;font-size:0.85rem;">${page?.display_name || p}</span>`
+          }).join('')
+        : `<span style="color:#9ca3af;font-style:italic;">${t.value('roleManagement.noPages')}</span>`
+      
+      await Swal.fire({
+        title: role.display_name || role.name,
+        html: `
+          <div style="text-align:right;direction:rtl;">
+            <p style="margin-bottom:12px;color:#6b7280;">${role.description || t.value('roleManagement.noDescription')}</p>
+            <div style="margin-top:16px;">
+              <strong style="display:block;margin-bottom:8px;">${t.value('roleManagement.assignedPages')}:</strong>
+              <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;">${pagesHtml}</div>
+            </div>
+            <p style="margin-top:16px;font-size:0.875rem;color:#9ca3af;">
+              ${t.value('roleManagement.usersWithRole')}: <strong>${role.users_count}</strong>
+            </p>
+          </div>
+        `,
+        confirmButtonText: t.value('common.close'),
+        confirmButtonColor: '#b78a41',
+        customClass: {
+          popup: 'swal-rtl-popup',
+          title: 'swal-rtl-title',
+          htmlContainer: 'swal-rtl-content'
+        }
+      })
+      break
+    case 'edit':
+      // Open edit role modal using SweetAlert2
+      if (role.is_system_role) {
+        await Swal.fire({
+          title: t.value('roleManagement.errors.cannotEditSystem'),
+          icon: 'warning',
+          confirmButtonText: t.value('common.ok'),
+          confirmButtonColor: '#ffc107'
+        })
+        return
+      }
+      
+      const editResult = await Swal.fire({
+        title: t.value('roleManagement.editRole.title'),
+        html: `
+          <div style="text-align:right;direction:rtl;">
+            <div style="margin-bottom:16px;">
+              <label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">
+                ${t.value('roleManagement.editRole.displayName')}
+              </label>
+              <input 
+                id="swal-display-name" 
+                class="swal2-input" 
+                style="width:100%;margin:0;text-align:right;direction:rtl;"
+                value="${role.display_name || ''}"
+                placeholder="${t.value('roleManagement.editRole.displayNamePlaceholder')}"
+              >
+            </div>
+            <div style="margin-bottom:16px;">
+              <label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">
+                ${t.value('roleManagement.editRole.description')}
+              </label>
+              <textarea 
+                id="swal-description" 
+                class="swal2-textarea" 
+                style="width:100%;margin:0;text-align:right;direction:rtl;min-height:100px;"
+                placeholder="${t.value('roleManagement.editRole.descriptionPlaceholder')}"
+              >${role.description || ''}</textarea>
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: t.value('common.save'),
+        cancelButtonText: t.value('common.cancel'),
+        confirmButtonColor: '#b78a41',
+        cancelButtonColor: '#6b7280',
+        customClass: {
+          popup: 'swal-rtl-popup',
+          title: 'swal-rtl-title',
+          htmlContainer: 'swal-rtl-content'
+        },
+        preConfirm: () => {
+          const displayName = (document.getElementById('swal-display-name') as HTMLInputElement)?.value
+          const description = (document.getElementById('swal-description') as HTMLTextAreaElement)?.value
+          return { display_name: displayName, description }
+        }
+      })
+      
+      if (editResult.isConfirmed && editResult.value) {
+        try {
+          await roleManagementService.updateRole(role.id, editResult.value)
+          await Swal.fire({
+            title: t.value('roleManagement.editRole.success'),
+            icon: 'success',
+            confirmButtonText: t.value('common.ok'),
+            confirmButtonColor: '#10b981',
+            timer: 2000
+          })
+          // Refresh roles data
+          await loadRolesData()
+        } catch (error) {
+          console.error('Error updating role:', error)
+          await Swal.fire({
+            title: t.value('roleManagement.editRole.error'),
+            icon: 'error',
+            confirmButtonText: t.value('common.ok'),
+            confirmButtonColor: '#ef4444'
+          })
+        }
+      }
+      break
+    case 'delete':
+      if (role.is_system_role) {
+        await Swal.fire({
+          title: t.value('roleManagement.errors.cannotDeleteSystem'),
+          icon: 'warning',
+          confirmButtonText: t.value('common.ok'),
+          confirmButtonColor: '#ffc107'
+        })
+        return
+      }
+      if (role.users_count > 0) {
+        await Swal.fire({
+          title: t.value('roleManagement.errors.cannotDeleteWithUsers'),
+          text: t.value('roleManagement.errors.usersAssigned').replace('{{count}}', String(role.users_count)),
+          icon: 'warning',
+          confirmButtonText: t.value('common.ok'),
+          confirmButtonColor: '#ffc107'
+        })
+        return
+      }
+      // Confirm delete
+      const result = await Swal.fire({
+        title: t.value('roleManagement.confirmDelete.title'),
+        text: t.value('roleManagement.confirmDelete.text').replace('{{name}}', role.display_name || role.name),
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: t.value('common.delete'),
+        cancelButtonText: t.value('common.cancel'),
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d'
+      })
+      
+      if (result.isConfirmed) {
+        try {
+          await roleManagementService.deleteRole(role.id)
+          await loadRolesData()
+          await Swal.fire({
+            title: t.value('roleManagement.deleteSuccess'),
+            icon: 'success',
+            confirmButtonText: t.value('common.ok'),
+            confirmButtonColor: '#28a745'
+          })
+        } catch (err: any) {
+          await Swal.fire({
+            title: t.value('roleManagement.errors.deleteFailed'),
+            text: roleManagementService.getErrorMessage(err),
+            icon: 'error',
+            confirmButtonText: t.value('common.ok'),
+            confirmButtonColor: '#dc3545'
+          })
+        }
+      }
+      break
+  }
+}
+
+const openAssignPermissionModal = (role: RoleWithPermissions) => {
+  selectedRoleForPermissions.value = role
+  assignPermissionModalVisible.value = true
+}
+
+const closeAssignPermissionModal = () => {
+  assignPermissionModalVisible.value = false
+  selectedRoleForPermissions.value = null
+  assignPermissionLoading.value = false
+}
+
+// Assign Users to Role Modal Functions
+const openAssignUsersToRoleModal = async (role: RoleWithPermissions) => {
+  selectedRoleForAssignUsers.value = role
+  assignUsersToRoleModalVisible.value = true
+  
+  try {
+    loadingAssignableUsers.value = true
+    const response = await getAssignableUsers()
+    assignableUsers.value = response.users
+  } catch (err) {
+    console.error('Error loading assignable users:', err)
+  } finally {
+    loadingAssignableUsers.value = false
+  }
+}
+
+const closeAssignUsersToRoleModal = () => {
+  assignUsersToRoleModalVisible.value = false
+  selectedRoleForAssignUsers.value = null
+  assignUsersToRoleLoading.value = false
+}
+
+const handleAssignUsersToRoleSuccess = async () => {
+  // Refresh both users and roles data
+  await Promise.all([initialize(), loadRolesData()])
+  closeAssignUsersToRoleModal()
+}
+
+const handleAssignPermissionsSave = async (data: { role_id: number; page_names: string[] }) => {
+  try {
+    assignPermissionLoading.value = true
+    
+    // Use the replace endpoint to set all pages at once
+    await roleManagementService.replacePagesForRole(data.role_id, {
+      page_names: data.page_names
+    })
+    
+    // Reload roles data
+    await loadRolesData()
+    
+    // Close modal
+    closeAssignPermissionModal()
+    
+    // Show success
+    await Swal.fire({
+      title: t.value('roleManagement.permissionsSaved'),
+      icon: 'success',
+      confirmButtonText: t.value('common.ok'),
+      confirmButtonColor: '#28a745',
+      timer: 2000,
+      showConfirmButton: false
+    })
+  } catch (err: any) {
+    assignPermissionLoading.value = false
+    await Swal.fire({
+      title: t.value('roleManagement.errors.saveFailed'),
+      text: roleManagementService.getErrorMessage(err),
+      icon: 'error',
+      confirmButtonText: t.value('common.ok'),
+      confirmButtonColor: '#dc3545'
+    })
+  }
 }
 
 // Lifecycle

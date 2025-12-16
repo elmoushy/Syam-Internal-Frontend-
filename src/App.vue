@@ -117,6 +117,7 @@ onUnmounted(() => {
 
 const { user, logout } = useSimpleAuth()
 const userRole = computed(() => user.value?.role ?? null)
+const userAllowedPages = computed(() => user.value?.allowed_pages ?? [])
 
 const sidebarCollapsed = ref(false)
 const isRTL = computed(() => document?.dir === 'rtl')
@@ -236,6 +237,7 @@ watch(
       v-model="sidebarCollapsed"
       :theme="sidebarTheme"
       :user-role="userRole"
+      :allowed-pages="userAllowedPages"
       :style="sidebarStyleVars"
       :mobile-overlay="showSidebarToggle"
       @toggleTheme="toggleTheme"

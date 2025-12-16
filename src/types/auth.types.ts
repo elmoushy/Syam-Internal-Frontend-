@@ -1,4 +1,25 @@
 // Authentication and User Types
+
+// Role type for the new dynamic RBAC system
+export interface Role {
+  id: number
+  name: string
+  display_name: string
+  description?: string
+  is_system_role: boolean
+}
+
+// Page permission type for dynamic access control
+export interface PagePermission {
+  id: number
+  name: string
+  display_name: string
+  description?: string
+  role: number
+  role_name: string
+  role_display_name: string
+}
+
 export interface UserProfile {
   id: number
   email: string
@@ -6,6 +27,10 @@ export interface UserProfile {
   last_name: string
   full_name: string
   role: string
+  role_id?: number | null
+  role_display?: string
+  /** List of page names the user has permission to access */
+  allowed_pages?: string[]
   is_active: boolean
   date_joined: string
   last_login: string | null
@@ -18,6 +43,8 @@ export interface UserInfo {
   first_name: string
   last_name: string
   is_active: boolean
+  role?: string
+  allowed_pages?: string[]
 }
 
 export interface UserStats {

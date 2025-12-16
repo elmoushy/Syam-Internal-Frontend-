@@ -1324,9 +1324,14 @@
       "resetPassword": "Reset Password",
       "ok": "OK"
     },
+    "roles": {
+      "super_admin": "Super Admin",
+      "admin": "Admin",
+      "user": "User"
+    },
     "tooltips": {
       "viewUser": "View user details",
-      "editUser": "Edit user information",
+      "editUser": "Change user role",
       "resetPassword": "Reset user password",
       "deleteUser": "Delete user"
     },
@@ -1341,6 +1346,26 @@
         "tooCommon": "This password is too common.",
         "onlyNumbers": "Password cannot contain only numbers",
         "tooSimilar": "Password is too similar to your personal information"
+      }
+    },
+    "assignRole": {
+      "title": "Assign Page Permissions",
+      "currentRole": "Current Role",
+      "selectRole": "Select Role",
+      "noRole": "No page permissions",
+      "noRoleOption": "-- No page permissions --",
+      "infoNote": "Assigning a role will grant access to pages assigned to that role",
+      "success": {
+        "title": "Assignment Successful",
+        "text": "Page permissions assigned successfully"
+      },
+      "removed": {
+        "title": "Removal Successful",
+        "text": "Page permissions removed from user"
+      },
+      "error": {
+        "title": "Assignment Failed",
+        "text": "Failed to assign page permissions"
       }
     },
     "dashboard": {
@@ -1398,6 +1423,35 @@
         },
         "delete": {
           "subtitle": "Are you sure you want to delete this group?"
+        }
+      },
+      "changeRole": {
+        "title": "Change User Role",
+        "currentRole": "Current Role",
+        "newRole": "New Role",
+        "selectRole": "Select Role...",
+        "accessLevelTab": "Access Level",
+        "pageRoleTab": "Page Role",
+        "accessLevel": "Access Level",
+        "pageRole": "Page Role",
+        "accessLevelDescription": "Controls the user's basic access permissions in the system",
+        "pageRoleDescription": "Assign a custom role to the user that grants access to specific pages",
+        "noPageRole": "No Page Role",
+        "selectPageRole": "Select Page Role...",
+        "accessiblePages": "Accessible Pages",
+        "noPagesAssigned": "No pages assigned",
+        "currentlyAssigned": "Currently Assigned",
+        "current": "Current",
+        "removePageRole": "Remove Page Role",
+        "removePageRoleConfirm": "Are you sure you want to remove the page role from this user?",
+        "descriptions": {
+          "user": "Regular user - Limited viewing and basic usage permissions",
+          "admin": "Administrator - Can manage groups and users within their scope",
+          "super_admin": "Super Admin - Full system access and control"
+        },
+        "warnings": {
+          "demoteFromSuperAdmin": "Warning: This will remove all super admin privileges",
+          "promoteToSuperAdmin": "Warning: User will gain full system access"
         }
       }
     },
@@ -1486,5 +1540,110 @@
         }
       }
     }
+  },
+  "roleManagement": {
+    "tabTitle": "Roles & Permissions",
+    "title": "Role Management",
+    "description": "Manage user roles and assign page access permissions",
+    "searchPlaceholder": "Search roles...",
+    "noRolesFound": "No roles found",
+    "noPages": "No pages assigned",
+    "noDescription": "No description",
+    "systemRole": "System Role",
+    "customRole": "Custom Role",
+    "assignedPages": "Assigned Pages",
+    "usersWithRole": "Users with role",
+    "permissionsSaved": "Permissions saved successfully",
+    "deleteSuccess": "Role deleted successfully",
+    "columns": {
+      "name": "Role Name",
+      "displayName": "Display Name",
+      "pages": "Assigned Pages",
+      "usersCount": "Users",
+      "type": "Type",
+      "actions": "Actions"
+    },
+    "actions": {
+      "managePermissions": "Manage Permissions",
+      "assignUsers": "Assign Users",
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "assignPermissions": {
+      "title": "Assign Permissions",
+      "subtitle": "Assign page access permissions for role",
+      "searchPlaceholder": "Search pages...",
+      "filterAll": "All",
+      "filterAssigned": "Assigned",
+      "filterUnassigned": "Unassigned",
+      "noPages": "No matching pages found",
+      "pendingChanges": "Pending changes"
+    },
+    "assignUsers": {
+      "title": "Assign Users to Role",
+      "searchPlaceholder": "Search users...",
+      "noUsersFound": "No users found",
+      "alreadyAssigned": "Already assigned",
+      "noRole": "No role",
+      "selectedCount": "{{count}} user(s) selected",
+      "assignButton": "Assign Users",
+      "success": "Users assigned successfully",
+      "error": "Failed to assign users"
+    },
+    "confirmDelete": {
+      "title": "Confirm Role Deletion",
+      "text": "Are you sure you want to delete the role \"{{name}}\"? This action cannot be undone."
+    },
+    "errors": {
+      "loadFailed": "Failed to load roles data",
+      "saveFailed": "Failed to save permissions",
+      "deleteFailed": "Failed to delete role",
+      "cannotDeleteSystem": "Cannot delete system roles",
+      "cannotEditSystem": "Cannot edit system roles",
+      "cannotDeleteWithUsers": "Cannot delete role",
+      "usersAssigned": "{{count}} users are assigned to this role"
+    },
+    "editRole": {
+      "title": "Edit Role",
+      "displayName": "Display Name",
+      "displayNamePlaceholder": "Enter display name...",
+      "description": "Description",
+      "descriptionPlaceholder": "Enter role description...",
+      "success": "Role updated successfully",
+      "error": "Failed to update role"
+    },
+    "createRole": {
+      "buttonText": "Add New Role",
+      "buttonTitle": "Create a new custom role",
+      "title": "Create New Role",
+      "subtitle": "Add a new custom role to manage user permissions",
+      "name": "Role Name",
+      "namePlaceholder": "e.g., news_editor",
+      "nameHint": "Must be in English without spaces (use _ instead)",
+      "nameInvalid": "Name must start with a letter and contain only letters, numbers, and underscores",
+      "displayName": "Display Name",
+      "displayNamePlaceholder": "e.g., News Editor",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief description of this role's permissions...",
+      "submit": "Create Role",
+      "nameRequired": "Role name is required",
+      "success": "Role created successfully",
+      "error": "Failed to create role",
+      "footerNote": "You can assign permissions to the role after creating it"
+    }
+  },
+  "common": {
+    "loading": "Loading",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "close": "Close",
+    "ok": "OK",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "yes": "Yes",
+    "no": "No"
   }
 }

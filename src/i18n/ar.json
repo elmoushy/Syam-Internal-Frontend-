@@ -1220,6 +1220,20 @@
         "currentRole": "الدور الحالي",
         "newRole": "الدور الجديد",
         "selectRole": "اختر الدور...",
+        "accessLevelTab": "مستوى الوصول",
+        "pageRoleTab": "صلاحيات الصفحات",
+        "accessLevel": "مستوى الوصول",
+        "pageRole": "صلاحيات الصفحات",
+        "accessLevelDescription": "يتحكم في صلاحيات الوصول الأساسية للمستخدم في النظام",
+        "pageRoleDescription": "تعيين دور مخصص للمستخدم يمنحه صلاحيات وصول لصفحات محددة",
+        "noPageRole": "لا توجد صلاحيات صفحات",
+        "selectPageRole": "اختر صلاحيات الصفحات...",
+        "accessiblePages": "الصفحات المتاحة",
+        "noPagesAssigned": "لم يتم تعيين صفحات",
+        "currentlyAssigned": "معين حالياً",
+        "current": "الحالي",
+        "removePageRole": "إزالة صلاحيات الصفحات",
+        "removePageRoleConfirm": "هل أنت متأكد من إزالة صلاحيات الصفحات من هذا المستخدم؟",
         "descriptions": {
           "user": "مستخدم عادي - صلاحيات محدودة للمشاهدة والاستخدام الأساسي",
           "admin": "مدير - صلاحيات إدارة المجموعات والمستخدمين ضمن نطاقه",
@@ -1439,9 +1453,29 @@
         "tooSimilar": "كلمة المرور مشابهة جداً لمعلوماتك الشخصية"
       }
     },
+    "assignRole": {
+      "title": "تعيين صلاحيات الصفحات",
+      "currentRole": "الدور الحالي",
+      "selectRole": "اختر الدور",
+      "noRole": "لا توجد صلاحيات صفحات",
+      "noRoleOption": "-- بدون صلاحيات صفحات --",
+      "infoNote": "تعيين دور للمستخدم سيمنحه صلاحيات الوصول للصفحات المخصصة لهذا الدور",
+      "success": {
+        "title": "تم التعيين بنجاح",
+        "text": "تم تعيين صلاحيات الصفحات للمستخدم بنجاح"
+      },
+      "removed": {
+        "title": "تم الإزالة بنجاح",
+        "text": "تم إزالة صلاحيات الصفحات من المستخدم"
+      },
+      "error": {
+        "title": "فشل في تعيين الدور",
+        "text": "حدث خطأ أثناء تعيين صلاحيات الصفحات"
+      }
+    },
     "tooltips": {
       "viewUser": "عرض تفاصيل المستخدم",
-      "editUser": "تعديل المستخدم",
+      "editUser": "تغيير دور المستخدم",
       "resetPassword": "إعادة تعيين كلمة مرور المستخدم",
       "deleteUser": "حذف المستخدم",
       "changeRole": "تغيير دور المستخدم",
@@ -1525,5 +1559,110 @@
         "member": "عضو"
       }
     }
+  },
+  "roleManagement": {
+    "tabTitle": "الأدوار والصلاحيات",
+    "title": "إدارة الأدوار",
+    "description": "إدارة أدوار المستخدمين وتعيين صلاحيات الوصول للصفحات",
+    "searchPlaceholder": "البحث عن الأدوار...",
+    "noRolesFound": "لا توجد أدوار",
+    "noPages": "لا توجد صفحات مخصصة",
+    "noDescription": "لا يوجد وصف",
+    "systemRole": "دور نظام",
+    "customRole": "دور مخصص",
+    "assignedPages": "الصفحات المخصصة",
+    "usersWithRole": "عدد المستخدمين",
+    "permissionsSaved": "تم حفظ الصلاحيات بنجاح",
+    "deleteSuccess": "تم حذف الدور بنجاح",
+    "columns": {
+      "name": "اسم الدور",
+      "displayName": "الاسم المعروض",
+      "pages": "الصفحات المخصصة",
+      "usersCount": "المستخدمون",
+      "type": "النوع",
+      "actions": "الإجراءات"
+    },
+    "actions": {
+      "managePermissions": "إدارة الصلاحيات",
+      "assignUsers": "تعيين المستخدمين",
+      "view": "عرض",
+      "edit": "تعديل",
+      "delete": "حذف"
+    },
+    "assignPermissions": {
+      "title": "تعيين الصلاحيات",
+      "subtitle": "تعيين صلاحيات الوصول للدور",
+      "searchPlaceholder": "البحث عن الصفحات...",
+      "filterAll": "الكل",
+      "filterAssigned": "المخصصة",
+      "filterUnassigned": "غير المخصصة",
+      "noPages": "لا توجد صفحات متطابقة",
+      "pendingChanges": "التغييرات المعلقة"
+    },
+    "assignUsers": {
+      "title": "تعيين المستخدمين للدور",
+      "searchPlaceholder": "البحث عن المستخدمين...",
+      "noUsersFound": "لا توجد مستخدمون",
+      "alreadyAssigned": "معين حالياً",
+      "noRole": "بدون دور",
+      "selectedCount": "تم اختيار {{count}} مستخدم",
+      "assignButton": "تعيين المستخدمين",
+      "success": "تم تعيين المستخدمين بنجاح",
+      "error": "فشل في تعيين المستخدمين"
+    },
+    "confirmDelete": {
+      "title": "تأكيد حذف الدور",
+      "text": "هل أنت متأكد من حذف الدور \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء."
+    },
+    "errors": {
+      "loadFailed": "فشل في تحميل بيانات الأدوار",
+      "saveFailed": "فشل في حفظ الصلاحيات",
+      "deleteFailed": "فشل في حذف الدور",
+      "cannotDeleteSystem": "لا يمكن حذف أدوار النظام",
+      "cannotEditSystem": "لا يمكن تعديل أدوار النظام",
+      "cannotDeleteWithUsers": "لا يمكن حذف الدور",
+      "usersAssigned": "يوجد {{count}} مستخدم مخصص لهذا الدور"
+    },
+    "editRole": {
+      "title": "تعديل الدور",
+      "displayName": "الاسم المعروض",
+      "displayNamePlaceholder": "أدخل الاسم المعروض...",
+      "description": "الوصف",
+      "descriptionPlaceholder": "أدخل وصف الدور...",
+      "success": "تم تحديث الدور بنجاح",
+      "error": "فشل في تحديث الدور"
+    },
+    "createRole": {
+      "buttonText": "إضافة دور جديد",
+      "buttonTitle": "إنشاء دور مخصص جديد",
+      "title": "إنشاء دور جديد",
+      "subtitle": "أضف دوراً مخصصاً جديداً لإدارة صلاحيات المستخدمين",
+      "name": "اسم الدور",
+      "namePlaceholder": "مثال: news_editor",
+      "nameHint": "يجب أن يكون باللغة الإنجليزية بدون مسافات (استخدم _ بدلاً منها)",
+      "nameInvalid": "يجب أن يبدأ الاسم بحرف ويحتوي على أحرف وأرقام وشرطات سفلية فقط",
+      "displayName": "الاسم المعروض",
+      "displayNamePlaceholder": "مثال: محرر الأخبار",
+      "description": "الوصف",
+      "descriptionPlaceholder": "وصف مختصر لصلاحيات هذا الدور...",
+      "submit": "إنشاء الدور",
+      "nameRequired": "اسم الدور مطلوب",
+      "success": "تم إنشاء الدور بنجاح",
+      "error": "فشل في إنشاء الدور",
+      "footerNote": "يمكنك تعيين الصلاحيات للدور بعد إنشائه"
+    }
+  },
+  "common": {
+    "loading": "جاري التحميل",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "close": "إغلاق",
+    "ok": "موافق",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "yes": "نعم",
+    "no": "لا"
   }
 }

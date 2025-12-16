@@ -379,14 +379,29 @@ apiClient.interceptors.request.use(
       try {
         const newToken = await silentRefreshAccessToken()
         if (newToken) {
+          // Ensure headers exist and set Authorization
+          if (!config.headers) {
+            config.headers = {} as any
+          }
+          config.headers['Authorization'] = `Bearer ${newToken}`
           config.headers.Authorization = `Bearer ${newToken}`
         }
       } catch (error) {
         console.warn('Failed to refresh token in request interceptor:', error)
       }
-    } else if (accessToken && !config.headers.Authorization) {
+    }
+    
+    // Always set Authorization header if we have an access token
+    if (accessToken) {
+      // Ensure headers exist
+      if (!config.headers) {
+        config.headers = {} as any
+      }
+      // Set using both bracket notation and property access for maximum compatibility
+      config.headers['Authorization'] = `Bearer ${accessToken}`
       config.headers.Authorization = `Bearer ${accessToken}`
     }
+    
     return config
   },
   (error) => Promise.reject(error)

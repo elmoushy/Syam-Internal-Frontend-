@@ -6,6 +6,8 @@ import { useChat } from '../../composables/useChat'
 const props = defineProps<{
   theme?: 'day' | 'night'
   userRole?: string | null
+  /** List of page names the user has permission to access (from API) */
+  allowedPages?: string[]
   /** v-model */
   modelValue?: boolean
   mobileOverlay?: boolean
@@ -30,7 +32,8 @@ type NavItem = {
   label: string
   icon: string
   path?: string
-  requiresRole?: 'admin'
+  /** Page permission name for dynamic RBAC (checked against allowedPages from API) */
+  permissionName?: string
   badge?: number | string
   getBadge?: () => number | string | undefined
 }
@@ -45,17 +48,41 @@ watch(totalUnreadCount, () => {
   // totalUnreadCount changed - reactivity will update the UI
 }, { immediate: true })
 
+/**
+ * Check if user has permission to view a nav item.
+ * Priority:
+ * 1. super_admin role always has access to everything
+ * 2. Check allowedPages from database for items with permissionName
+ * 3. Items without permissionName are accessible to all authenticated users
+ */
+const hasPermission = (item: NavItem): boolean => {
+  // Super admin always has access to everything
+  if (props.userRole === 'super_admin') return true
+  
+  // If no permission requirement, allow access (public pages)
+  if (!item.permissionName) return true
+  
+  // Check dynamic permissions from database
+  if (props.allowedPages && props.allowedPages.length > 0) {
+    return props.allowedPages.includes(item.permissionName)
+  }
+  
+  // Fallback: if no allowedPages provided, deny access to permission-protected items
+  return false
+}
+
 const navGroups = computed<NavGroup[]>(() => {
   const primary: NavItem[] = [
-    { name: 'surveys-overview',path:"/surveys", icon: 'fas fa-list-check', label: 'الاستطلاعات' },
     { name: 'news', path: '/news', icon: 'fas fa-newspaper', label: 'الأخبار' },
+    { name: 'quick-links', path: '/quick-links', icon: 'fas fa-link', label: 'الروابط السريعة' },
+    { name: 'surveys-overview', path: '/surveys', icon: 'fas fa-list-check', label: 'الاستطلاعات' },
     // DISABLED FOR NOW - Will enable in future release
-    // { name: 'organization-chart', path: '/organization-chart', icon: 'fas fa-sitemap', label: 'هيكل الشركة' },
-    // { name: 'chat', path: '/chat', icon: 'fas fa-comments', label: 'المحادثات', getBadge: () => totalUnreadCount.value || undefined },
-    { name: 'manage-surveys', path: '/control/surveys', icon: 'fas fa-table-cells-large', label: 'إدارة الاستطلاعات' },
-    { name: 'manage-news', path: '/control/news', icon: 'fas fa-newspaper', label: 'إدارة الأخبار', requiresRole: 'admin' },
-    { name: 'manage-quicklinks', path: '/control/quicklinks', icon: 'fas fa-link', label: 'إدارة الروابط السريعة', requiresRole: 'admin' },
-    { name: 'manage-users', path: '/control/users', icon: 'fas fa-user-group', label: 'إدارة المستخدمين', requiresRole: 'admin' },
+    // { name: 'organization-chart', path: '/organization-chart', icon: 'fas fa-sitemap', label: 'هيكل الشركة', permissionName: 'organization-chart' },
+    // { name: 'chat', path: '/chat', icon: 'fas fa-comments', label: 'المحادثات', permissionName: 'chat', getBadge: () => totalUnreadCount.value || undefined },
+    { name: 'manage-surveys', path: '/control/surveys', icon: 'fas fa-table-cells-large', label: 'إدارة الاستطلاعات', permissionName: 'manage-surveys' },
+    { name: 'manage-news', path: '/control/news', icon: 'fas fa-newspaper', label: 'إدارة الأخبار', permissionName: 'manage-news' },
+    { name: 'manage-quicklinks', path: '/control/quicklinks', icon: 'fas fa-link', label: 'إدارة الروابط السريعة', permissionName: 'manage-quicklinks' },
+    { name: 'manage-users', path: '/control/users', icon: 'fas fa-user-group', label: 'إدارة المستخدمين', permissionName: 'manage-users' },
   ]
 
   const support: NavItem[] = [
@@ -64,11 +91,8 @@ const navGroups = computed<NavGroup[]>(() => {
     // { name: 'support', icon: 'far fa-circle-question', label: 'الدعم والمساعدة' },
   ]
 
-  const allowedRoles = new Set(['admin', 'super_admin'])
-  const filteredPrimary = primary.filter(item => {
-    if (!item.requiresRole) return true
-    return props.userRole !== null && props.userRole !== undefined && allowedRoles.has(props.userRole)
-  })
+  // Filter items based on permissions
+  const filteredPrimary = primary.filter(item => hasPermission(item))
 
   const groups: NavGroup[] = []
   if (filteredPrimary.length) groups.push({ id: 'primary', items: filteredPrimary })

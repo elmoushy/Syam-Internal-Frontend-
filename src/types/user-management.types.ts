@@ -10,6 +10,9 @@ export interface User {
   initials?: string
   role: 'super_admin' | 'admin' | 'user'
   role_display: string
+  user_role_id?: number | null  // FK to Role table
+  user_role_name?: string | null  // Name from Role table (e.g., News_admin)
+  allowed_pages?: string[]  // Pages user has access to
   is_active: boolean
   is_staff?: boolean
   date_joined: string
