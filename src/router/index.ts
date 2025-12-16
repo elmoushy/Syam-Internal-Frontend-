@@ -35,6 +35,7 @@ const Control = () => import("../pages/Control/Control.vue");
 const SurveyControl = () => import("../pages/Control/SurveyControl.vue");
 const UserManagement = () =>
   import("../pages/Control/UserManagement/UserManagement.vue");
+const AuditLog = () => import("../pages/Control/AuditLog.vue");
 
 // Surveys
 const Surveys = () => import("../pages/Survey/Surveys.vue");
@@ -244,6 +245,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import("../pages/Control/QuickLinks/QuickLinksAdmin.vue"),
     meta: {
       title: "Quick Links Management - WPC | WeaponpowerCloud App",
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: "/control/audit",
+    name: "AuditLog",
+    component: AuditLog,
+    meta: {
+      title: "Audit Log - WPC | WeaponpowerCloud App",
       requiresAuth: true,
       requiresAdmin: true,
     },

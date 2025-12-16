@@ -83,6 +83,7 @@ const navGroups = computed<NavGroup[]>(() => {
     { name: 'manage-news', path: '/control/news', icon: 'fas fa-newspaper', label: 'إدارة الأخبار', permissionName: 'manage-news' },
     { name: 'manage-quicklinks', path: '/control/quicklinks', icon: 'fas fa-link', label: 'إدارة الروابط السريعة', permissionName: 'manage-quicklinks' },
     { name: 'manage-users', path: '/control/users', icon: 'fas fa-user-group', label: 'إدارة المستخدمين', permissionName: 'manage-users' },
+    { name: 'manage-audit', path: '/control/audit', icon: 'fas fa-clipboard-list', label: 'سجل التدقيق', permissionName: 'manage-audit' },
   ]
 
   const support: NavItem[] = [

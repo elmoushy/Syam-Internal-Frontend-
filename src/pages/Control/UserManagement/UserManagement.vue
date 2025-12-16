@@ -321,7 +321,6 @@ const {
   loading,
   error,
   currentUser,
-  users,
   // groups, // Unused - commenting out
   selectedUsers,
   selectedGroups,
@@ -639,118 +638,7 @@ const handleUpdateAccessLevelRole = async (user: User) => {
   }
 }
 
-/**
- * Handle assigning a user to a Role from the Role table
- * This sets the user_role FK and grants page permissions
- */
-const handleAssignUserRole = async (user: User) => {
-  try {
-    // First, make sure we have the roles loaded
-    if (rolesWithPermissions.value.length === 0) {
-      await loadRolesData()
-    }
-    
-    // Build options for the dropdown
-    const roleOptions = rolesWithPermissions.value
-      .map(role => `<option value="${role.id}" ${user.user_role_id === role.id ? 'selected' : ''}>${role.display_name || role.name}</option>`)
-      .join('')
-    
-    const currentRoleName = user.user_role_name || t.value('userManagement.assignRole.noRole')
-    
-    const result = await Swal.fire({
-      title: t.value('userManagement.assignRole.title'),
-      html: `
-        <div style="text-align:right;direction:rtl;">
-          <div style="margin-bottom:16px;padding:12px;background:rgba(183,138,65,0.1);border-radius:8px;">
-            <strong>${user.full_name}</strong>
-            <br/>
-            <span style="color:#6b7280;font-size:0.9rem;">${user.email}</span>
-          </div>
-          <div style="margin-bottom:16px;">
-            <label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">
-              ${t.value('userManagement.assignRole.currentRole')}
-            </label>
-            <div style="padding:8px 12px;background:#f3f4f6;border-radius:6px;color:#374151;">
-              ${currentRoleName}
-            </div>
-          </div>
-          <div style="margin-bottom:16px;">
-            <label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">
-              ${t.value('userManagement.assignRole.selectRole')}
-            </label>
-            <select 
-              id="swal-role-select" 
-              class="swal2-select" 
-              style="width:100%;margin:0;text-align:right;direction:rtl;padding:10px;border:1px solid #d1d5db;border-radius:8px;"
-            >
-              <option value="">${t.value('userManagement.assignRole.noRoleOption')}</option>
-              ${roleOptions}
-            </select>
-          </div>
-          <div style="padding:10px;background:#fef3c7;border-radius:8px;font-size:0.85rem;color:#92400e;">
-            <i class="fas fa-info-circle" style="margin-left:6px;"></i>
-            ${t.value('userManagement.assignRole.infoNote')}
-          </div>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: t.value('common.save'),
-      cancelButtonText: t.value('common.cancel'),
-      confirmButtonColor: '#b78a41',
-      cancelButtonColor: '#6b7280',
-      customClass: {
-        popup: 'swal-rtl-popup',
-        title: 'swal-rtl-title',
-        htmlContainer: 'swal-rtl-content'
-      },
-      preConfirm: () => {
-        const select = document.getElementById('swal-role-select') as HTMLSelectElement
-        return select?.value || null
-      }
-    })
-    
-    if (result.isConfirmed) {
-      const selectedRoleId = result.value
-      
-      if (selectedRoleId) {
-        // Assign user to the selected role
-        await roleManagementService.assignUserToRole(user.id, { role_id: parseInt(selectedRoleId) })
-        
-        await Swal.fire({
-          title: t.value('userManagement.assignRole.success.title'),
-          text: t.value('userManagement.assignRole.success.text'),
-          icon: 'success',
-          confirmButtonText: t.value('common.ok'),
-          confirmButtonColor: '#28a745'
-        })
-      } else if (user.user_role_id) {
-        // Remove user from current role
-        await roleManagementService.removeUserFromRole(user.id)
-        
-        await Swal.fire({
-          title: t.value('userManagement.assignRole.removed.title'),
-          text: t.value('userManagement.assignRole.removed.text'),
-          icon: 'success',
-          confirmButtonText: t.value('common.ok'),
-          confirmButtonColor: '#28a745'
-        })
-      }
-      
-      // Refresh data to show updated role
-      await refreshData()
-      await loadRolesData()
-    }
-  } catch (error: any) {
-    console.error('Error assigning role:', error)
-    await Swal.fire({
-      title: t.value('userManagement.assignRole.error.title'),
-      text: error.response?.data?.error || error.message || t.value('userManagement.assignRole.error.text'),
-      icon: 'error',
-      confirmButtonText: t.value('common.ok'),
-      confirmButtonColor: '#dc3545'
-    })
-  }
-}
+
 
 const handleUserAction = async (action: string, user: User) => {
   try {
