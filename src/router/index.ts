@@ -22,6 +22,7 @@ declare module "vue-router" {
 
 // Auth & Public
 const JWTLogin = () => import("../pages/Auth/JWTLogin.vue");
+const HomePage = () => import("../pages/HomePage.vue");
 // const Register = () => import('../pages/Auth/Register.vue') 
 
 // Core
@@ -66,8 +67,8 @@ const routes: RouteRecordRaw[] = [
   { 
     path: "/", 
     name: "Home",
-    component: JWTLogin,
-    meta: { title: "Login - WPC | WeaponpowerCloud App", requiresGuest: true }
+    component: HomePage,
+    meta: { title: "Home - WPC | WeaponpowerCloud App", requiresAuth: true }
   },
 
   {
@@ -297,7 +298,7 @@ const routes: RouteRecordRaw[] = [
   },
 
   // ✅ 404 fallback
-  { path: "/:pathMatch(.*)*", redirect: "/surveys" },
+  { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 
 /* =========================
@@ -328,9 +329,9 @@ router.beforeEach(async (to, _from, next) => {
 
   let authenticated = isAuthenticated.value;
 
-  // ✅ If authenticated user tries to access login page, redirect to /news
-  if ((to.path === "/" || to.path === "/login") && authenticated) {
-    return next("/news");
+  // ✅ If authenticated user tries to access login page, redirect to home
+  if (to.path === "/login" && authenticated) {
+    return next("/");
   }
 
   // ✅ Check authentication for protected routes
@@ -349,7 +350,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // ✅ Redirect authenticated users away from guest-only pages (login, register)
   if (requiresGuest && authenticated) {
-    const redirectTo = (to.query.redirect as string) || "/news";
+    const redirectTo = (to.query.redirect as string) || "/";
     return next(redirectTo);
   }
 
@@ -372,9 +373,9 @@ router.beforeEach(async (to, _from, next) => {
     const currentUser = user.value;
     const ADMIN_ROLES = new Set(["admin", "super_admin"]);
     
-    // If user is authenticated but not an admin, redirect to news
+    // If user is authenticated but not an admin, redirect to home
     if (!currentUser || !ADMIN_ROLES.has(currentUser.role)) {
-      return next("/news");
+      return next("/");
     }
   }
 
