@@ -89,16 +89,11 @@ onMounted(() => {
       
       <!-- Header -->
       <div :class="$style.pageHeader">
-        <div :class="$style.headerContent">
           <div>
             <h1 :class="$style.pageTitle">
               {{ isRTL ? 'الروابط السريعة' : 'Quick Links' }}
             </h1>
-            <p :class="$style.pageSubtitle">
-              {{ isRTL ? 'الوصول السريع إلى الأنظمة والمواقع المهمة' : 'Fast access to important systems and websites' }}
-            </p>
           </div>
-        </div>
       </div>
 
       <!-- Content -->
@@ -262,39 +257,35 @@ onMounted(() => {
 
 /* Dark Mode */
 .page[data-theme="night"] {
-  --panel-background: #1a1d24;
+  --panel-background: 
+    radial-gradient(circle at 20% 20%, rgba(161,125,35,.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(183,138,65,.08) 0%, transparent 50%),
+    #1a1e24;
   --panel-foreground: #E5E8E1;
   --panel-overlay-1: linear-gradient(45deg, rgba(161,125,35,.05) 0%, transparent 100%);
   --panel-overlay-2: linear-gradient(-45deg, rgba(183,138,65,.05) 0%, transparent 100%);
   
-  --section-background: rgba(30, 33, 40, 0.95);
-  --section-shadow: 
-    0 22px 48px rgba(0,0,0,0.7),
-    0 8px 20px rgba(161, 125, 35, 0.08);
-  --section-border: rgba(161, 125, 35, 0.2);
+  --section-background: rgba(27, 30, 36, 0.92);
+  --section-shadow: 0 22px 48px rgba(0, 0, 0, 0.6);
+  --section-border: rgba(161, 125, 35, 0.18);
   
-  --card-background: rgba(42, 45, 53, 0.85);
-  --card-border: rgba(161, 125, 35, 0.15);
-  --card-border-hover: rgba(161, 125, 35, 0.4);
-  --card-shadow-hover: 
-    0 20px 60px rgba(161, 125, 35, 0.25),
-    0 8px 24px rgba(0, 0, 0, 0.4);
+  --card-background: rgba(40, 43, 51, 0.7);
+  --card-border: rgba(226, 232, 240, 0.18);
+  --card-border-hover: rgba(226, 232, 240, 0.32);
+  --card-shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.4);
   --card-title-color: #E5E8E1;
   --card-divider: rgba(255,255,255,0.08);
-  --card-text: rgba(226, 232, 240, 0.85);
+  --card-text: rgba(226, 232, 240, 0.78);
   
-  --control-background: rgba(25, 28, 35, 0.85);
-  --control-border: rgba(161, 125, 35, 0.25);
-  --control-text: rgba(229, 232, 225, 0.9);
-  --control-muted-text: rgba(209, 213, 219, 0.7);
+  --control-background: rgba(17, 24, 39, 0.78);
+  --control-border: rgba(107, 114, 128, 0.32);
+  --control-text: rgba(226, 232, 240, 0.82);
+  --control-muted-text: rgba(209, 213, 219, 0.78);
   
-  --badge-background: rgba(161, 125, 35, 0.15);
+  --badge-background: rgba(77, 77, 79, 0.35);
   --badge-text: #E5E8E1;
   
-  background: 
-    radial-gradient(circle at 20% 20%, rgba(161,125,35,.12) 0%, transparent 60%),
-    radial-gradient(circle at 80% 80%, rgba(183,138,65,.12) 0%, transparent 60%),
-    var(--panel-background);
+  background: var(--panel-background);
   color: var(--panel-foreground);
 }
 

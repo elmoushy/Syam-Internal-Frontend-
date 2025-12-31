@@ -435,7 +435,8 @@ onMounted(() => {
 
     <!-- Empty State -->
     <div v-else :class="$style.empty">
-      <span>{{ isRTL ? '📰 لا توجد أخبار متاحة' : '📰 No news available' }}</span>
+      <div :class="$style.emptyIcon">📰</div>
+      <div :class="$style.emptyText">{{ isRTL ? 'لا توجد أخبار متاحة' : 'No news available' }}</div>
     </div>
   </div>
 </template>
@@ -831,16 +832,41 @@ onMounted(() => {
   width: 100%;
   height: 300px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
-  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 2px dashed rgba(161, 125, 35, 0.2);
+  gap: 12px;
+}
+
+.emptyIcon {
+  font-size: 52px;
+  line-height: 1;
+  opacity: 0.9;
+  animation: float 3s ease-in-out infinite;
+}
+
+.emptyText {
   font-size: 18px;
-  color: #6b7280;
+  font-weight: 600;
+  color: #4D4D4F;
+  text-align: center;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
 
 .error {
-  background: #fee2e2;
+  background: rgba(254, 226, 226, 0.8);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.error .emptyText {
   color: #dc2626;
 }
 
@@ -954,14 +980,21 @@ onMounted(() => {
   box-shadow: 0 6px 16px rgba(201, 168, 76, 0.3);
 }
 
-.container[data-theme="night"] .error,
 .container[data-theme="night"] .empty {
-  background: #2d2d2d;
-  color: #a0a0a0;
+  background: rgba(27, 30, 36, 0.6);
+  border-color: rgba(161, 125, 35, 0.3);
+}
+
+.container[data-theme="night"] .emptyText {
+  color: rgba(226, 232, 240, 0.85);
 }
 
 .container[data-theme="night"] .error {
-  background: #4a1c1c;
+  background: rgba(74, 28, 28, 0.6);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.container[data-theme="night"] .error .emptyText {
   color: #f87171;
 }
 

@@ -456,9 +456,9 @@ const handlePositionManagerSuccess = () => {
 /* Dark Mode */
 .page[data-theme="night"] {
   --panel-background: 
-    linear-gradient(135deg, rgba(35,31,32,0.97) 0%, rgba(27,30,36,0.98) 100%),
-    radial-gradient(circle at 20% 20%, rgba(161,125,35,.12) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(183,138,65,.08) 0%, transparent 50%);
+    radial-gradient(circle at 20% 20%, rgba(161,125,35,.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(183,138,65,.08) 0%, transparent 50%),
+    #1a1e24;
   --panel-foreground: #E5E8E1;
   --panel-overlay-1: linear-gradient(45deg, rgba(161,125,35,.05) 0%, transparent 100%);
   --panel-overlay-2: linear-gradient(-45deg, rgba(183,138,65,.05) 0%, transparent 100%);

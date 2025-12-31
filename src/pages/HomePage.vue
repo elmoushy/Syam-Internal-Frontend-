@@ -81,7 +81,9 @@ onMounted(() => {
 
       <!-- Services Section -->
       <section :class="$style.servicesSection">
-        <h2 :class="$style.sectionTitle">جميع الخدمات</h2>
+        <div :class="$style.sectionHeader">
+          <h2 :class="$style.sectionTitle">جميع الخدمات</h2>
+        </div>
         
         <div :class="$style.servicesGrid">
           <!-- Service Card 1 - Surveys -->
@@ -143,14 +145,14 @@ onMounted(() => {
           </div>
 
           <!-- Service Card 7 - AI -->
-          <div :class="$style.serviceCard">
+          <!-- <div :class="$style.serviceCard">
             <div :class="$style.serviceIcon">
               <i class="fas fa-brain"></i>
             </div>
             <h3 :class="$style.serviceTitle">Artificial Intelligence (AI)</h3>
             <p :class="$style.serviceSubtitle">منصة الذكاء الاصطناعي</p>
             <span :class="$style.comingSoon">قريباً...</span>
-          </div>
+          </div> -->
         </div>
       </section>
 
@@ -261,37 +263,47 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] {
-  background: #0F172A;
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(161,125,35,.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(183,138,65,.08) 0%, transparent 50%),
+    #1a1e24;
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   width: 100%;
 }
 
 .heroSection {
   width: 100%;
-  margin-bottom: 60px;
+  margin-bottom: 48px;
 }
 
 /* Services Section */
 .servicesSection {
   width: 100%;
-  padding: 60px 0;
+  padding: 0;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 48px;
 }
 
 .sectionTitle {
   font-size: 32px;
   font-weight: 700;
-  color: #0F172A;
+  color: #A17D23;
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 0;
   letter-spacing: -0.5px;
 }
 
 .homePage[data-theme="night"] .sectionTitle {
-  color: #F8FAFC;
+  color: #E5E8E1;
 }
 
 .servicesGrid {
@@ -330,18 +342,19 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .clickableCard:hover {
-  background: linear-gradient(135deg, rgba(201, 168, 76, 0.1), rgba(183, 138, 65, 0.08));
+  background: rgba(40, 43, 51, 0.85);
 }
 
 .homePage[data-theme="night"] .serviceCard {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(40, 43, 51, 0.7);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(248, 250, 252, 0.08);
+  border: 1px solid rgba(161, 125, 35, 0.18);
 }
 
 .homePage[data-theme="night"] .serviceCard:hover {
-  background: rgba(30, 41, 59, 0.8);
-  box-shadow: 0 12px 40px rgba(201, 168, 76, 0.2);
+  background: rgba(40, 43, 51, 0.85);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  border-color: rgba(226, 232, 240, 0.32);
 }
 
 .serviceIcon {
@@ -370,7 +383,7 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .serviceTitle {
-  color: #F8FAFC;
+  color: #E5E8E1;
 }
 
 .serviceSubtitle {
@@ -382,7 +395,7 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .serviceSubtitle {
-  color: #94A3B8;
+  color: rgba(226, 232, 240, 0.78);
 }
 
 .comingSoon {
@@ -398,18 +411,29 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .comingSoon {
-  background: linear-gradient(135deg, rgba(201, 168, 76, 0.2), rgba(212, 168, 85, 0.15));
-  color: #C9A84C;
-  border-color: rgba(201, 168, 76, 0.3);
+  background: rgba(161, 125, 35, 0.2);
+  color: #B78A41;
+  border-color: rgba(161, 125, 35, 0.4);
 }
 
 /* Latest Surveys Section */
 .surveysSection {
   width: 100%;
-  padding: 60px 0;
+  padding: 40px;
+  background: #FFFFFF;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  margin-top: 32px;
 }
 
-.sectionHeader {
+.homePage[data-theme="night"] .surveysSection {
+  background: rgba(27, 30, 36, 0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(161, 125, 35, 0.18);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.6);
+}
+
+.surveysSection .sectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -420,21 +444,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: linear-gradient(135deg, #B78A41, #A17D23);
-  color: white;
-  border: none;
-  padding: 12px 28px;
-  border-radius: 12px;
-  font-size: 15px;
+  background: transparent;
+  color: #A17D23;
+  border: 1.5px solid #A17D23;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(161, 125, 35, 0.25);
 }
 
 .viewAllButton:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(161, 125, 35, 0.35);
+  background: rgba(161, 125, 35, 0.08);
+  border-color: #B78A41;
+  color: #B78A41;
 }
 
 .viewAllButton i {
@@ -442,7 +466,14 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .viewAllButton {
-  background: linear-gradient(135deg, #C9A84C, #B78A41);
+  color: #A17D23;
+  border-color: rgba(161, 125, 35, 0.5);
+}
+
+.homePage[data-theme="night"] .viewAllButton:hover {
+  background: rgba(161, 125, 35, 0.15);
+  border-color: #B78A41;
+  color: #B78A41;
 }
 
 .loadingGrid {
@@ -460,7 +491,7 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .skeletonCard {
-  background: linear-gradient(90deg, rgba(30, 41, 59, 0.6) 25%, rgba(30, 41, 59, 0.8) 50%, rgba(30, 41, 59, 0.6) 75%);
+  background: linear-gradient(90deg, rgba(40, 43, 51, 0.6) 25%, rgba(40, 43, 51, 0.8) 50%, rgba(40, 43, 51, 0.6) 75%);
   background-size: 200% 100%;
 }
 
@@ -507,15 +538,15 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .surveyCard {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(40, 43, 51, 0.7);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(248, 250, 252, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.18);
 }
 
 .homePage[data-theme="night"] .surveyCard:hover {
-  background: rgba(30, 41, 59, 0.8);
-  box-shadow: 0 12px 40px rgba(201, 168, 76, 0.15);
-  border-color: rgba(201, 168, 76, 0.2);
+  background: rgba(40, 43, 51, 0.85);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  border-color: rgba(226, 232, 240, 0.32);
 }
 
 .cardHeader {
@@ -540,7 +571,7 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .cardTitle {
-  color: #F8FAFC;
+  color: #E5E8E1;
 }
 
 .cardDescription {
@@ -556,7 +587,7 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .cardDescription {
-  color: #94A3B8;
+  color: rgba(226, 232, 240, 0.78);
 }
 
 .cardDivider {
@@ -566,7 +597,7 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .cardDivider {
-  background: rgba(248, 250, 252, 0.1);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .cardContent {
@@ -588,7 +619,7 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .chip {
-  color: #94A3B8;
+  color: rgba(226, 232, 240, 0.75);
 }
 
 .chip svg {
@@ -655,7 +686,7 @@ onMounted(() => {
 }
 
 .homePage[data-theme="night"] .emptyState {
-  color: #94A3B8;
+  color: rgba(226, 232, 240, 0.75);
 }
 
 /* Responsive Design */

@@ -423,7 +423,8 @@ defineExpose({
 
     <!-- Empty State -->
     <div v-else :class="$style.empty">
-      <span>{{ isRTL ? '📰 لا توجد أخبار متاحة' : '📰 No slider news available' }}</span>
+      <div :class="$style.emptyIcon">📰</div>
+      <div :class="$style.emptyText">{{ isRTL ? 'لا توجد أخبار متاحة' : 'No slider news available' }}</div>
     </div>
   </div>
 </template>
@@ -804,16 +805,42 @@ defineExpose({
   width: 100%;
   height: 400px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #4a7c6f 0%, #2d5a4e 100%);
+  background: rgba(248, 250, 252, 0.8);
+  backdrop-filter: blur(10px);
   border-radius: 24px;
-  font-size: 18px;
-  color: white;
+  border: 2px dashed rgba(161, 125, 35, 0.2);
+  gap: 16px;
+}
+
+.emptyIcon {
+  font-size: 64px;
+  line-height: 1;
+  opacity: 0.9;
+  animation: float 3s ease-in-out infinite;
+}
+
+.emptyText {
+  font-size: 20px;
+  font-weight: 600;
+  color: #4D4D4F;
+  text-align: center;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
 
 .error {
-  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  background: rgba(254, 226, 226, 0.8);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.error .emptyText {
+  color: #dc2626;
 }
 
 /* ==================== RESPONSIVE ==================== */
@@ -1033,13 +1060,22 @@ defineExpose({
   border-color: #c9a84c;
 }
 
-.sliderContainer[data-theme="night"] .error,
 .sliderContainer[data-theme="night"] .empty {
-  background: linear-gradient(135deg, #2d4a42 0%, #1a3d34 100%);
+  background: rgba(27, 30, 36, 0.6);
+  border-color: rgba(161, 125, 35, 0.3);
+}
+
+.sliderContainer[data-theme="night"] .emptyText {
+  color: rgba(226, 232, 240, 0.85);
 }
 
 .sliderContainer[data-theme="night"] .error {
-  background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);
+  background: rgba(74, 28, 28, 0.6);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.sliderContainer[data-theme="night"] .error .emptyText {
+  color: #f87171;
 }
 
 /* RTL Support */

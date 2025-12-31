@@ -2,7 +2,7 @@
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Navigation from './components/Navigation/Navigation.vue'
-import Sidebar from './components/Sidebar/Sidebar.vue'
+import HeaderMenu from './components/Navigation/HeaderMenu.vue'
 import QuickLinksSidebar from './components/QuickLinks/QuickLinksSidebar.vue'
 import { useSimpleAuth } from './composables/useSimpleAuth'
 import { useAppStore } from './stores/useAppStore'
@@ -15,10 +15,6 @@ const showNavigation = computed(
 
 const store = useAppStore()
 
-// Map store theme ('light' | 'night') to Sidebar prop ('day' | 'night')
-const sidebarTheme = computed<'day' | 'night'>(() =>
-  store.currentTheme === 'night' ? 'night' : 'day'
-)
 const toggleTheme = () => store.toggleTheme()
 
 const { isAuthenticated } = useSimpleAuth()
@@ -119,150 +115,26 @@ const { user, logout } = useSimpleAuth()
 const userRole = computed(() => user.value?.role ?? null)
 const userAllowedPages = computed(() => user.value?.allowed_pages ?? [])
 
-const sidebarCollapsed = ref(false)
-const isRTL = computed(() => document?.dir === 'rtl')
-const autoCollapsedForMobile = ref(false)
-
-/* ===== Responsive width logic ===== */
-const vw = ref<number>(typeof window !== 'undefined' ? window.innerWidth : 1440)
-const onResize = () => { vw.value = window.innerWidth }
-onMounted(() => window.addEventListener('resize', onResize, { passive: true }))
-onUnmounted(() => window.removeEventListener('resize', onResize))
-
 const handleLogout = async () => {
   await logout()
 }
-
-/** Expanded width ~ clamp(260px, 22vw, 360px) */
-const expandedWidth = computed(() => {
-  const min = 160, max = 270, preferred = vw.value * 0.22
-  return Math.min(max, Math.max(min, Math.round(preferred)))
-})
-
-/** Collapsed width ~ clamp(72px, 6.5vw, 104px) */
-const collapsedWidth = computed(() => {
-  const min = 72, max = 104, preferred = vw.value * 0.065
-  return Math.min(max, Math.max(min, Math.round(preferred)))
-})
-
-/** The number you were hard-coding before */
-const sidebarWidth = computed(() =>
-  sidebarCollapsed.value ? collapsedWidth.value : expandedWidth.value
-)
-
-/** Pass CSS vars to Sidebar so its internal CSS (var(--sb-width)) stays in sync */
-const sidebarStyleVars = computed(() => {
-  const base: Record<string, string> = {}
-  if (vw.value <= 1024) {
-    base['--sb-width'] = '60vw'
-    base['--sb-width-collapsed'] = '0px'
-    base['--sb-mobile-width'] = '60vw'
-  } else {
-    base['--sb-width'] = `${expandedWidth.value}px`
-    base['--sb-width-collapsed'] = `${collapsedWidth.value}px`
-    base['--sb-mobile-width'] = `${expandedWidth.value}px`
-  }
-  base['--sb-mobile-slide'] = isRTL.value ? '100%' : '-100%'
-  return base
-})
-
-/** Offset the content. On tablets/phones we let the sidebar overlay (no margin). */
-const contentOffsetStyle = computed(() => {
-  if (!showNavigation.value) return {}
-  if (vw.value <= 1024) return {} // overlay behavior on small screens
-  
-  const mainSidebarPx = `${sidebarWidth.value}px`
-  
-  // QuickLinks sidebar now floats over content (show/hide toggle)
-  // So we only account for the main sidebar margin
-  if (isRTL.value) {
-    return { marginRight: mainSidebarPx }
-  }
-  return { marginLeft: mainSidebarPx }
-})
-
-const showSidebarToggle = computed(
-  () => showNavigation.value && vw.value <= 1024,
-)
-
-const toggleSidebar = () => {
-  const next = !sidebarCollapsed.value
-  sidebarCollapsed.value = next
-  if (vw.value <= 1024) {
-    autoCollapsedForMobile.value = next
-  }
-}
-
-const sidebarToggleIcon = computed(() => {
-  const collapsed = sidebarCollapsed.value
-  if (isRTL.value) {
-    return collapsed ? 'fas fa-arrow-left' : 'fas fa-arrow-right'
-  }
-  return collapsed ? 'fas fa-arrow-right' : 'fas fa-arrow-left'
-})
-
-watch(
-  vw,
-  (width) => {
-    const isMobile = width <= 1024
-    if (isMobile && !autoCollapsedForMobile.value) {
-      sidebarCollapsed.value = true
-      autoCollapsedForMobile.value = true
-    } else if (!isMobile && autoCollapsedForMobile.value) {
-      sidebarCollapsed.value = false
-      autoCollapsedForMobile.value = false
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  () => route.fullPath,
-  () => {
-    if (vw.value <= 1024) {
-      sidebarCollapsed.value = true
-      autoCollapsedForMobile.value = true
-    }
-  },
-)
 </script>
 
 <template>
   <div :data-theme="store.currentTheme">
-    <!-- Quick Links Sidebar (Left) -->
-    <QuickLinksSidebar v-if="showNavigation" />
-
-    <Sidebar
+    <!-- Header Navigation Menu -->
+    <HeaderMenu
       v-if="showNavigation"
-      v-model="sidebarCollapsed"
-      :theme="sidebarTheme"
       :user-role="userRole"
       :allowed-pages="userAllowedPages"
-      :style="sidebarStyleVars"
-      :mobile-overlay="showSidebarToggle"
       @toggleTheme="toggleTheme"
       @logout="handleLogout"
     />
 
-    <button
-      v-if="showSidebarToggle"
-      class="mobile-sidebar-toggle"
-      :class="{ 'mobile-sidebar-toggle--open': !sidebarCollapsed }"
-      type="button"
-      :aria-expanded="!sidebarCollapsed"
-      :title="sidebarCollapsed ? 'فتح القائمة' : 'إغلاق القائمة'"
-      @click="toggleSidebar"
-    >
-      <i :class="sidebarToggleIcon"></i>
-    </button>
+    <!-- Quick Links Sidebar (Left) - floating over content -->
+    <QuickLinksSidebar v-if="showNavigation" />
 
-    <div
-      v-if="showSidebarToggle && !sidebarCollapsed"
-      class="sidebar-mobile-backdrop"
-      @click="toggleSidebar"
-    ></div>
-
-    <main :style="contentOffsetStyle" class="app-main">
+    <main :class="['app-main', { 'app-main--with-nav': showNavigation }]">
       <Navigation v-if="showNavigation" />
       <RouterView />
     </main>
@@ -270,60 +142,18 @@ watch(
 </template>
 
 <style>
-.app-main { transition: margin-left .25s ease, margin-right .25s ease; }
+.app-main { 
+  min-height: 100vh;
+}
 
-/* When the sidebar becomes an overlay, keep content full width */
+/* Add padding when header is visible */
+.app-main--with-nav {
+  padding-top: 62px; /* Height of the fixed HeaderMenu */
+}
+
 @media (max-width: 1024px) {
-  .app-main { margin-left: 0 !important; margin-right: 0 !important; }
-}
-
-.mobile-sidebar-toggle{
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  inline-size: 46px;
-  block-size: 46px;
-  border-radius: 999px;
-  border: 1px solid rgba(183,138,65,.35);
-  background: rgba(255,255,255,.95);
-  color: #A17D23;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 24px rgba(15,23,42,.16);
-  z-index: 1300;
-  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
-}
-[data-theme="night"] .mobile-sidebar-toggle{
-  background: rgba(24,26,31,.92);
-  color: #F8FAFC;
-  border-color: rgba(248,250,252,.18);
-  box-shadow: 0 12px 28px rgba(8,8,12,.45);
-}
-.mobile-sidebar-toggle:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 14px 32px rgba(15,23,42,.18);
-}
-[data-theme="night"] .mobile-sidebar-toggle:hover{
-  box-shadow: 0 16px 36px rgba(8,8,12,.55);
-}
-.mobile-sidebar-toggle--open{
-  color: #fff;
-  background: linear-gradient(135deg,#B78A41,#A17D23);
-  border-color: transparent;
-  box-shadow: 0 16px 36px rgba(183,138,65,.28);
-}
-@media (max-width: 1024px){
-  .mobile-sidebar-toggle{
-    display: inline-flex;
-    left: auto;
+  .app-main--with-nav {
+    padding-top: 56px; /* Mobile header height */
   }
-}
-
-.sidebar-mobile-backdrop{
-  position: fixed;
-  inset: 0;
-  background: rgba(15,23,42,.25);
-  z-index: 1100;
 }
 </style>

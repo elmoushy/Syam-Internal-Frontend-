@@ -165,7 +165,7 @@
               <th>{{ isRTL ? 'الإجراء' : 'Action' }}</th>
               <th>{{ isRTL ? 'العنصر' : 'Object' }}</th>
               <th>{{ isRTL ? 'الوصف' : 'Description' }}</th>
-              <th>{{ isRTL ? 'التغييرات' : 'Changes' }}</th>
+              <!-- <th>{{ isRTL ? 'التغييرات' : 'Changes' }}</th> -->
             </tr>
           </thead>
           <tbody>
@@ -191,7 +191,7 @@
               </td>
               <td :class="$style.objectCell">{{ log.object_name }}</td>
               <td :class="$style.descriptionCell">{{ log.description }}</td>
-              <td :class="$style.changesCell">
+              <!-- <td :class="$style.changesCell">
                 <button 
                   v-if="Object.keys(log.changes || {}).length > 0" 
                   :class="$style.viewChangesBtn"
@@ -201,7 +201,7 @@
                   {{ isRTL ? 'عرض' : 'View' }}
                 </button>
                 <span v-else :class="$style.noChanges">-</span>
-              </td>
+              </td> -->
             </tr>
           </tbody>
         </table>
@@ -459,10 +459,6 @@ const getActionClass = (action: string) => {
   return $style.actionDefault
 }
 
-const showChanges = (log: AuditLogEntry) => {
-  selectedLog.value = log
-  showChangesModal.value = true
-}
 
 const closeChangesModal = () => {
   showChangesModal.value = false
