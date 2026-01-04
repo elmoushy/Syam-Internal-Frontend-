@@ -69,36 +69,41 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
 })
 
-// const greetingName = computed(() => {
-//   const raw = userDisplayName.value?.trim()
-//   if (raw) {
-//     const parts = raw.split(/\s+/)
-//     if (parts.length > 0) return parts[0]
-//     return raw
-//   }
-//   return currentLanguage.value === 'ar' ? 'صديقي' : 'Friend'
-// })
+const greetingName = computed(() => {
+  const raw = userDisplayName.value?.trim()
+  if (raw) {
+    const parts = raw.split(/\s+/)
+    if (parts.length > 0) return parts[0]
+    return raw
+  }
+  return currentLanguage.value === 'ar' ? 'صديقي' : 'Friend'
+})
 
 // Used in template
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// const greetingHeading = computed(() => {
-//   return currentLanguage.value === 'ar'
-//     ? `اهلا بك يا ${greetingName.value}`
-//     : `Welcome back, ${greetingName.value}`
-// })
+const greetingHeading = computed(() => {
+  return currentLanguage.value === 'ar'
+    ? `اهلا بك يا ${greetingName.value}`
+    : `Welcome back, ${greetingName.value}`
+})
 
 // Used in template
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// const todayFormatted = computed(() => {
-//   const now = new Date()
-//   const formatted = now.toLocaleDateString("ar-EG", {
-//     weekday: "long",
-//     day: "2-digit",
-//     month: "long",
-//     year: "numeric",
-//   });
-//   return `${formatted}`
-// })
+const todayFormatted = computed(() => {
+  const now = new Date()
+  const formatted = now.toLocaleDateString("ar-EG", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return `${formatted}`
+})
+
+// Some TypeScript setups don't detect `<template>` usage for `script setup`.
+// These no-op references prevent ts(6133) without changing runtime behavior.
+void greetingHeading
+void todayFormatted
 </script>
 
 <style module>
