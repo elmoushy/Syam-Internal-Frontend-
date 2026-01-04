@@ -65,6 +65,7 @@ const navigateToNews = () => {
   router.push({ name: 'News' })
 }
 
+
 // Lifecycle
 onMounted(() => {
   fetchLatestSurveys()
@@ -86,83 +87,134 @@ onMounted(() => {
         </div>
         
         <div :class="$style.servicesGrid">
-          <!-- Service Card 1 - Surveys -->
-          <div :class="[$style.serviceCard, $style.clickableCard]" @click="navigateToSurveys">
-            <div :class="$style.serviceIcon">
-              <i class="fas fa-poll"></i>
+          <!-- Row 1 - 3 Services -->
+          <!-- Service Card 1 - Surveys (Clickable) -->
+          <div :class="$style.serviceCard" @click="navigateToSurveys">
+            <div :class="$style.serviceIconWrapper">
+              <svg width="49" height="49" viewBox="0 0 49 49" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="49" height="49" rx="24.5" fill="#A17D23"/>
+                <path d="M16.3333 22.3333C16.3333 19.2876 16.3333 17.7648 17.2323 16.799C18.1313 15.8333 19.5624 15.8333 22.4247 15.8333H24.3413C27.2036 15.8333 28.6348 15.8333 29.5337 16.799C30.4327 17.7648 30.4327 19.2876 30.4327 22.3333V25.6667C30.4327 28.7124 30.4327 30.2352 29.5337 31.201C28.6348 32.1667 27.2036 32.1667 24.3413 32.1667H22.4247C19.5624 32.1667 18.1313 32.1667 17.2323 31.201C16.3333 30.2352 16.3333 28.7124 16.3333 25.6667V22.3333Z" stroke="white" stroke-width="1.5"/>
+                <path d="M20.5 22.3333H26.2663" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M20.5 25.6667H24.3497" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
             </div>
-            <h3 :class="$style.serviceTitle">الاستطلاعات</h3>
-            <p :class="$style.serviceSubtitle">منصة الاستطلاعات والاستبيانات</p>
+            <div :class="$style.serviceInfo">
+              <h3 :class="$style.serviceTitle">الاستطلاعات</h3>
+              <p :class="$style.serviceDescription">منصة الاستطلاعات والاستبيانات</p>
+            </div>
           </div>
 
-          <!-- Service Card 2 - News -->
-          <div :class="[$style.serviceCard, $style.clickableCard]" @click="navigateToNews">
-            <div :class="$style.serviceIcon">
-              <i class="fas fa-newspaper"></i>
+          <!-- Service Card 2 - News (Clickable) -->
+          <div :class="$style.serviceCard" @click="navigateToNews">
+            <div :class="$style.serviceIconWrapper">
+              <svg width="49" height="49" viewBox="0 0 49 49" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="49" height="49" rx="24.5" fill="#A17D23"/>
+                <path d="M16.3333 22.3333C16.3333 19.2876 16.3333 17.7648 17.2323 16.799C18.1313 15.8333 19.5624 15.8333 22.4247 15.8333H24.3413C27.2036 15.8333 28.6348 15.8333 29.5337 16.799C30.4327 17.7648 30.4327 19.2876 30.4327 22.3333V25.6667C30.4327 28.7124 30.4327 30.2352 29.5337 31.201C28.6348 32.1667 27.2036 32.1667 24.3413 32.1667H22.4247C19.5624 32.1667 18.1313 32.1667 17.2323 31.201C16.3333 30.2352 16.3333 28.7124 16.3333 25.6667V22.3333Z" stroke="white" stroke-width="1.5"/>
+                <path d="M20.5 22.3333H26.2663" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M20.5 25.6667H24.3497" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
             </div>
-            <h3 :class="$style.serviceTitle">الأخبار</h3>
-            <p :class="$style.serviceSubtitle">آخر الأخبار والإعلانات</p>
+            <div :class="$style.serviceInfo">
+              <h3 :class="$style.serviceTitle">الأخبار</h3>
+              <p :class="$style.serviceDescription">آخر الأخبار والإعلانات</p>
+            </div>
           </div>
 
-          <!-- Service Card 3 - ERP -->
+          <!-- Service Card 3 - منظمة المرسلات والارشفة (Coming Soon) -->
           <div :class="$style.serviceCard">
-            <div :class="$style.serviceIcon">
-              <i class="fas fa-sitemap"></i>
+            <div :class="$style.comingSoonBadge">قريبًا</div>
+            <div :class="$style.serviceIconWrapper">
+              <svg width="49" height="49" viewBox="0 0 49 49" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="49" height="49" rx="24.5" fill="#A17D23"/>
+                <path d="M16.3333 22.3333C16.3333 19.2876 16.3333 17.7648 17.2323 16.799C18.1313 15.8333 19.5624 15.8333 22.4247 15.8333H24.3413C27.2036 15.8333 28.6348 15.8333 29.5337 16.799C30.4327 17.7648 30.4327 19.2876 30.4327 22.3333V25.6667C30.4327 28.7124 30.4327 30.2352 29.5337 31.201C28.6348 32.1667 27.2036 32.1667 24.3413 32.1667H22.4247C19.5624 32.1667 18.1313 32.1667 17.2323 31.201C16.3333 30.2352 16.3333 28.7124 16.3333 25.6667V22.3333Z" stroke="white" stroke-width="1.5"/>
+                <path d="M20.5 22.3333H26.2663" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M20.5 25.6667H24.3497" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
             </div>
-            <h3 :class="$style.serviceTitle">Enterprise Resource Planning</h3>
-            <p :class="$style.serviceSubtitle">برنامج إدارة الموارد</p>
-            <span :class="$style.comingSoon">قريباً...</span>
+            <div :class="$style.serviceInfo">
+              <h3 :class="$style.serviceTitle">منظمة المرسلات والارشفة</h3>
+              <p :class="$style.serviceDescription">مركز التواصل</p>
+            </div>
           </div>
 
-          <!-- Service Card 4 - Time & Attendance -->
-          <div :class="$style.serviceCard">
-            <div :class="$style.serviceIcon">
-              <i class="fas fa-clock"></i>
-            </div>
-            <h3 :class="$style.serviceTitle">Time and Attendance</h3>
-            <p :class="$style.serviceSubtitle">برنامج إدارة الحضور والانصراف</p>
-            <span :class="$style.comingSoon">قريباً...</span>
-          </div>
-
-          <!-- Service Card 5 - Correspondence -->
-          <div :class="$style.serviceCard">
-            <div :class="$style.serviceIcon">
-              <i class="fas fa-file-lines"></i>
-            </div>
-            <h3 :class="$style.serviceTitle">Enterprise Correspondence Management</h3>
-            <p :class="$style.serviceSubtitle">منصة المراسلات والأرشفة</p>
-            <span :class="$style.comingSoon">قريباً...</span>
-          </div>
-
-          <!-- Service Card 6 - Support -->
-          <div :class="$style.serviceCard">
-            <div :class="$style.serviceIcon">
-              <i class="fas fa-headset"></i>
-            </div>
-            <h3 :class="$style.serviceTitle">Technical and Administrative Support Services</h3>
-            <p :class="$style.serviceSubtitle">خدمة الدعم الفني والإداري</p>
-            <span :class="$style.comingSoon">قريباً...</span>
-          </div>
-
-          <!-- Service Card 7 - AI -->
+          <!-- Service Card 2 - الدعم الفني والإداري (Coming Soon) -->
           <!-- <div :class="$style.serviceCard">
-            <div :class="$style.serviceIcon">
-              <i class="fas fa-brain"></i>
+            <div :class="$style.serviceIconWrapper">
+              <svg width="49" height="49" viewBox="0 0 49 49" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="49" height="49" rx="24.5" fill="#A17D23"/>
+                <path d="M16.3333 22.3333C16.3333 19.2876 16.3333 17.7648 17.2323 16.799C18.1313 15.8333 19.5624 15.8333 22.4247 15.8333H24.3413C27.2036 15.8333 28.6348 15.8333 29.5337 16.799C30.4327 17.7648 30.4327 19.2876 30.4327 22.3333V25.6667C30.4327 28.7124 30.4327 30.2352 29.5337 31.201C28.6348 32.1667 27.2036 32.1667 24.3413 32.1667H22.4247C19.5624 32.1667 18.1313 32.1667 17.2323 31.201C16.3333 30.2352 16.3333 28.7124 16.3333 25.6667V22.3333Z" stroke="white" stroke-width="1.5"/>
+                <path d="M20.5 22.3333H26.2663" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M20.5 25.6667H24.3497" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
             </div>
-            <h3 :class="$style.serviceTitle">Artificial Intelligence (AI)</h3>
-            <p :class="$style.serviceSubtitle">منصة الذكاء الاصطناعي</p>
-            <span :class="$style.comingSoon">قريباً...</span>
+            <div :class="$style.serviceInfo">
+              <h3 :class="$style.serviceTitle">الدعم الفني والإداري</h3>
+              <p :class="$style.serviceDescription">مركز المساعدة الخاص بك</p>
+            </div>
           </div> -->
+
+          <!-- Service Card 3 - الحضور والانصراف (Coming Soon) -->
+          <div :class="$style.serviceCard">
+            <div :class="$style.comingSoonBadge">قريبًا</div>
+            <div :class="$style.serviceIconWrapper">
+              <svg width="49" height="49" viewBox="0 0 49 49" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="49" height="49" rx="24.5" fill="#A17D23"/>
+                <path d="M16.3333 22.3333C16.3333 19.2876 16.3333 17.7648 17.2323 16.799C18.1313 15.8333 19.5624 15.8333 22.4247 15.8333H24.3413C27.2036 15.8333 28.6348 15.8333 29.5337 16.799C30.4327 17.7648 30.4327 19.2876 30.4327 22.3333V25.6667C30.4327 28.7124 30.4327 30.2352 29.5337 31.201C28.6348 32.1667 27.2036 32.1667 24.3413 32.1667H22.4247C19.5624 32.1667 18.1313 32.1667 17.2323 31.201C16.3333 30.2352 16.3333 28.7124 16.3333 25.6667V22.3333Z" stroke="white" stroke-width="1.5"/>
+                <path d="M20.5 22.3333H26.2663" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M20.5 25.6667H24.3497" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div :class="$style.serviceInfo">
+              <h3 :class="$style.serviceTitle">الحضور والانصراف</h3>
+              <p :class="$style.serviceDescription">نظرة سريعة على حضورك اليومي</p>
+            </div>
+          </div>
+
+          <!-- Row 2 - 2 Services (As per Figma design) -->
+          <!-- Service Card 4 - الذكاء الاصطناعي (Coming Soon with Badge) -->
+          <div :class="$style.serviceCard">
+            <div :class="$style.comingSoonBadge">قريبًا</div>
+            <div :class="$style.serviceIconWrapper">
+              <svg width="49" height="49" viewBox="0 0 49 49" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="49" height="49" rx="24.5" fill="#A17D23"/>
+                <path d="M16.3333 22.3333C16.3333 19.2876 16.3333 17.7648 17.2323 16.799C18.1313 15.8333 19.5624 15.8333 22.4247 15.8333H24.3413C27.2036 15.8333 28.6348 15.8333 29.5337 16.799C30.4327 17.7648 30.4327 19.2876 30.4327 22.3333V25.6667C30.4327 28.7124 30.4327 30.2352 29.5337 31.201C28.6348 32.1667 27.2036 32.1667 24.3413 32.1667H22.4247C19.5624 32.1667 18.1313 32.1667 17.2323 31.201C16.3333 30.2352 16.3333 28.7124 16.3333 25.6667V22.3333Z" stroke="white" stroke-width="1.5"/>
+                <path d="M20.5 22.3333H26.2663" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M20.5 25.6667H24.3497" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div :class="$style.serviceInfo">
+              <h3 :class="$style.serviceTitle">الذكاء الاصطناعي</h3>
+              <p :class="$style.serviceDescription">مساعدك الشخصي</p>
+            </div>
+          </div>
+
+          <!-- Service Card 5 - برنامج ادارة الموارد (Coming Soon) -->
+          <div :class="$style.serviceCard">
+                        <div :class="$style.comingSoonBadge">قريبًا</div>
+
+            <div :class="$style.serviceIconWrapper">
+              <svg width="49" height="49" viewBox="0 0 49 49" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="49" height="49" rx="24.5" fill="#A17D23"/>
+                <path d="M16.3333 22.3333C16.3333 19.2876 16.3333 17.7648 17.2323 16.799C18.1313 15.8333 19.5624 15.8333 22.4247 15.8333H24.3413C27.2036 15.8333 28.6348 15.8333 29.5337 16.799C30.4327 17.7648 30.4327 19.2876 30.4327 22.3333V25.6667C30.4327 28.7124 30.4327 30.2352 29.5337 31.201C28.6348 32.1667 27.2036 32.1667 24.3413 32.1667H22.4247C19.5624 32.1667 18.1313 32.1667 17.2323 31.201C16.3333 30.2352 16.3333 28.7124 16.3333 25.6667V22.3333Z" stroke="white" stroke-width="1.5"/>
+                <path d="M20.5 22.3333H26.2663" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M20.5 25.6667H24.3497" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div :class="$style.serviceInfo">
+              <h3 :class="$style.serviceTitle">برنامج ادارة الموارد</h3>
+              <p :class="$style.serviceDescription">ادارة الطلبات و الموافقات</p>
+            </div>
+          </div>
         </div>
       </section>
 
-    <!-- Latest Surveys Section -->
-    <section :class="$style.surveysSection">
+      <!-- Latest Surveys Section -->
+      <section :class="$style.surveysSection">
       <div :class="$style.sectionHeader">
         <h2 :class="$style.sectionTitle">احدث الاستطلاعات</h2>
         <button :class="$style.viewAllButton" @click="viewAllSurveys">
-          <span>عرض جميع الاستطلاعات</span>
           <i class="fas fa-arrow-left"></i>
+          <span>عرض جميع الاستطلاعات</span>
         </button>
       </div>
 
@@ -180,22 +232,24 @@ onMounted(() => {
           @click="canTakeSurvey(survey) || survey.access_info.has_submitted ? takeSurvey(survey) : null"
         >
           <div :class="$style.cardHeader">
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="44" height="44" rx="22" fill="#F5F7FA"/>
-              <path d="M13 20C13 16.2288 13 14.3431 14.1716 13.1716C15.3431 12 17.2288 12 21 12H23C26.7712 12 28.6569 12 29.8284 13.1716C31 14.3431 31 16.2288 31 20V24C31 27.7712 31 29.6569 29.8284 30.8284C28.6569 32 26.7712 32 23 32H21C17.2288 32 15.3431 32 14.1716 30.8284C13 29.6569 13 27.7712 13 24V20Z" stroke="#A17D23" stroke-width="1.5"/>
-              <path d="M18 20H26" stroke="#A17D23" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M18 24H23" stroke="#A17D23" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <div :class="$style.cardTitle">{{ survey.title }}</div>
+            <div :class="$style.cardIcon">
+              <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="44" height="44" rx="22" fill="#F5F7FA"/>
+                <path d="M13 20C13 16.2288 13 14.3431 14.1716 13.1716C15.3431 12 17.2288 12 21 12H23C26.7712 12 28.6569 12 29.8284 13.1716C31 14.3431 31 16.2288 31 20V24C31 27.7712 31 29.6569 29.8284 30.8284C28.6569 32 26.7712 32 23 32H21C17.2288 32 15.3431 32 14.1716 30.8284C13 29.6569 13 27.7712 13 24V20Z" stroke="#A17D23" stroke-width="1.5"/>
+                <path d="M18 20H26" stroke="#A17D23" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M18 24H23" stroke="#A17D23" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
           </div>
           
-          <p :class="$style.cardDescription">{{ survey.description || 'لا يوجد وصف' }}</p>
-          
-          <div :class="$style.cardDivider"></div>
-          
           <div :class="$style.cardContent">
-            <div :class="$style.cardChips">
-              <div :class="$style.chip">
+            <p :class="$style.cardTitle">{{ survey.title }}</p>
+            <p :class="$style.cardDescription">{{ survey.description || 'لا يوجد وصف لى هذا الاستطلاع' }}</p>
+          </div>
+          
+          <div :class="$style.cardDivider">
+            <div :class="$style.cardMetadata">
+              <div :class="$style.metaItem">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path fill-rule="evenodd" clip-rule="evenodd" d="M7.99967 0.833374C6.25077 0.833374 4.83301 2.25114 4.83301 4.00004C4.83301 5.74894 6.25077 7.16671 7.99967 7.16671C9.74858 7.16671 11.1663 5.74894 11.1663 4.00004C11.1663 2.25114 9.74858 0.833374 7.99967 0.833374ZM5.83301 4.00004C5.83301 2.80342 6.80306 1.83337 7.99967 1.83337C9.19629 1.83337 10.1663 2.80342 10.1663 4.00004C10.1663 5.19666 9.19629 6.16671 7.99967 6.16671C6.80306 6.16671 5.83301 5.19666 5.83301 4.00004Z" fill="#717784"/>
                   <path fill-rule="evenodd" clip-rule="evenodd" d="M7.99967 8.16671C6.64012 8.16671 5.38469 8.48054 4.45177 9.01363C3.53301 9.53864 2.83301 10.3401 2.83301 11.3334C2.83301 12.3266 3.53301 13.1281 4.45177 13.6531C5.38469 14.1862 6.64012 14.5 7.99967 14.5C9.35923 14.5 10.6147 14.1862 11.5476 13.6531C12.4663 13.1281 13.1663 12.3266 13.1663 11.3334C13.1663 10.3401 12.4663 9.53864 11.5476 9.01363C10.6147 8.48054 9.35923 8.16671 7.99967 8.16671ZM3.83301 11.3334C3.83301 10.8539 4.17768 10.322 4.94791 9.88188C5.704 9.44983 6.7819 9.16671 7.99967 9.16671C9.21745 9.16671 10.2953 9.44983 11.0514 9.88188C11.8217 10.322 12.1663 10.8539 12.1663 11.3334C12.1663 11.8129 11.8217 12.3447 11.0514 12.7849C10.2953 13.2169 9.21745 13.5 7.99967 13.5C6.7819 13.5 5.704 13.2169 4.94791 12.7849C4.17768 12.3447 3.83301 11.8129 3.83301 11.3334Z" fill="#717784"/>
@@ -203,7 +257,7 @@ onMounted(() => {
                 <span>أنشئ بواسطة: {{ survey.creator.name || survey.creator.email }}</span>
               </div>
               
-              <div :class="$style.chip">
+              <div :class="$style.metaItem">
                 <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M1.25 7.5C1.25 4.55372 1.25 3.08058 2.16529 2.16529C3.08058 1.25 4.55372 1.25 7.5 1.25C10.4463 1.25 11.9194 1.25 12.8347 2.16529C13.75 3.08058 13.75 4.55372 13.75 7.5C13.75 10.4463 13.75 11.9194 12.8347 12.8347C11.9194 13.75 10.4463 13.75 7.5 13.75C4.55372 13.75 3.08058 13.75 2.16529 12.8347C1.25 11.9194 1.25 10.4463 1.25 7.5Z" stroke="#717784" stroke-width="0.9375"/>
                   <path d="M6.32812 5.54688C6.32812 4.89967 6.85279 4.375 7.5 4.375C8.14721 4.375 8.67188 4.89967 8.67188 5.54688C8.67188 5.97653 8.44065 6.35218 8.09585 6.55617C7.79877 6.73194 7.5 6.99857 7.5 7.34375V8.125" stroke="#717784" stroke-width="0.9375" stroke-linecap="round"/>
@@ -220,8 +274,10 @@ onMounted(() => {
               :class="[$style.actionButton, $style.primary]"
               @click.stop="takeSurvey(survey)"
             >
-              <i class="fas fa-play"></i>
-              بدء الاستطلاع
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.25 7L2.625 1.75V12.25L12.25 7Z" fill="white"/>
+              </svg>
+              <span>بدء الاستطلاع</span>
             </button>
             
             <button 
@@ -257,8 +313,8 @@ onMounted(() => {
 <style module>
 .homePage {
   min-height: 100vh;
-  background: #F8FAFC;
-  padding: 40px 20px;
+  background: #F5F7FA;
+  padding: 32px 16px 24px 16px;
   direction: rtl;
 }
 
@@ -270,36 +326,41 @@ onMounted(() => {
 }
 
 .container {
-  max-width: 1600px;
-  margin: 0 auto;
+  max-width: 1400px;
   width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
 }
 
 .heroSection {
   width: 100%;
-  margin-bottom: 48px;
 }
 
 /* Services Section */
 .servicesSection {
   width: 100%;
-  padding: 0;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
 }
 
 .sectionHeader {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 48px;
 }
 
 .sectionTitle {
-  font-size: 32px;
-  font-weight: 700;
-  color: #A17D23;
+  font-family: 'Cairo', sans-serif;
+  font-size: 40px;
+  font-weight: 500;
+  color: #0E121B;
   text-align: center;
-  margin-bottom: 0;
-  letter-spacing: -0.5px;
+  margin: 0;
+  line-height: 1.3;
 }
 
 .homePage[data-theme="night"] .sectionTitle {
@@ -308,41 +369,38 @@ onMounted(() => {
 
 .servicesGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 32px;
-  max-width: 1200px;
-  margin: 0 auto;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  width: 100%;
+}
+
+/* Second row (items 4 and 5) spans only 2 columns centered */
+.servicesGrid > *:nth-child(4) {
+  grid-column: 1 / 2;
+}
+
+.servicesGrid > *:nth-child(5) {
+  grid-column: 2 / 3;
 }
 
 .serviceCard {
   background: #FFFFFF;
-  border-radius: 20px;
-  padding: 48px 32px;
+  border-radius: 24px;
+  padding: 32px 24px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  text-align: center;
+  gap: 16px;
+  justify-content: flex-end;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   position: relative;
-  overflow: hidden;
+  cursor: pointer;
+  min-height: 97px;
 }
 
 .serviceCard:hover {
-  transform: translateY(-8px);
+  transform: translateY(-4px);
   box-shadow: 0 12px 40px rgba(161, 125, 35, 0.15);
-}
-
-.clickableCard {
-  cursor: pointer;
-}
-
-.clickableCard:hover {
-  background: linear-gradient(135deg, rgba(183, 138, 65, 0.05), rgba(161, 125, 35, 0.05));
-}
-
-.homePage[data-theme="night"] .clickableCard:hover {
-  background: rgba(40, 43, 51, 0.85);
 }
 
 .homePage[data-theme="night"] .serviceCard {
@@ -357,73 +415,83 @@ onMounted(() => {
   border-color: rgba(226, 232, 240, 0.32);
 }
 
-.serviceIcon {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #B78A41, #A17D23);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 24px;
-  box-shadow: 0 8px 24px rgba(161, 125, 35, 0.25);
+.serviceIconWrapper {
+  flex-shrink: 0;
+  width: 49px;
+  height: 49px;
 }
 
-.serviceIcon i {
-  font-size: 32px;
-  color: #FFFFFF;
+.serviceIconWrapper svg {
+  width: 100%;
+  height: 100%;
+}
+
+.serviceInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+  flex: 1;
+  min-width: 0;
 }
 
 .serviceTitle {
-  font-size: 18px;
-  font-weight: 600;
-  color: #0F172A;
-  margin: 0 0 12px 0;
-  line-height: 1.4;
+  font-family: 'Cairo', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #101828;
+  margin: 0;
+  line-height: 1.32;
 }
 
 .homePage[data-theme="night"] .serviceTitle {
   color: #E5E8E1;
 }
 
-.serviceSubtitle {
-  font-size: 16px;
-  font-weight: 500;
-  color: #64748B;
+.serviceDescription {
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #717784;
   margin: 0;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
-.homePage[data-theme="night"] .serviceSubtitle {
+.homePage[data-theme="night"] .serviceDescription {
   color: rgba(226, 232, 240, 0.78);
 }
 
-.comingSoon {
-  display: inline-block;
-  margin-top: 16px;
-  padding: 6px 16px;
-  background: linear-gradient(135deg, rgba(161, 125, 35, 0.15), rgba(183, 138, 65, 0.1));
-  color: #A17D23;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  border: 1px solid rgba(161, 125, 35, 0.2);
+.comingSoonBadge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: #A17D23;
+  color: #FFFFFF;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 400;
+  font-family: 'Cairo', sans-serif;
+  line-height: 1;
 }
 
-.homePage[data-theme="night"] .comingSoon {
-  background: rgba(161, 125, 35, 0.2);
-  color: #B78A41;
-  border-color: rgba(161, 125, 35, 0.4);
+.homePage[data-theme="night"] .comingSoonBadge {
+  background: rgba(161, 125, 35, 0.8);
+  color: #FFFFFF;
 }
 
 /* Latest Surveys Section */
 .surveysSection {
   width: 100%;
-  padding: 40px;
+  padding: 32px 40px 48px 40px;
   background: #FFFFFF;
   border-radius: 24px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-  margin-top: 32px;
+  box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .homePage[data-theme="night"] .surveysSection {
@@ -437,56 +505,67 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 40px;
+  margin: 0;
+}
+
+.surveysSection .sectionTitle {
+  font-size: 18px;
+  font-weight: 500;
+  color: #0E121B;
+  text-align: right;
+  margin: 0;
+  line-height: 1.3;
+  flex: 1;
+}
+
+.homePage[data-theme="night"] .surveysSection .sectionTitle {
+  color: #E5E8E1;
 }
 
 .viewAllButton {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
   background: transparent;
-  color: #A17D23;
-  border: 1.5px solid #A17D23;
-  padding: 10px 24px;
-  border-radius: 8px;
+  color: #C29958;
+  border: none;
+  padding: 0;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
+  font-family: 'Cairo', sans-serif;
   cursor: pointer;
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .viewAllButton:hover {
-  background: rgba(161, 125, 35, 0.08);
-  border-color: #B78A41;
-  color: #B78A41;
+  color: #A17D23;
 }
 
 .viewAllButton i {
   font-size: 14px;
+  transform: rotate(180deg);
 }
 
 .homePage[data-theme="night"] .viewAllButton {
-  color: #A17D23;
-  border-color: rgba(161, 125, 35, 0.5);
+  color: #C29958;
 }
 
 .homePage[data-theme="night"] .viewAllButton:hover {
-  background: rgba(161, 125, 35, 0.15);
-  border-color: #B78A41;
   color: #B78A41;
 }
 
 .loadingGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
 }
 
 .skeletonCard {
   height: 320px;
   background: linear-gradient(90deg, #E2E8F0 25%, #F1F5F9 50%, #E2E8F0 75%);
   background-size: 200% 100%;
-  border-radius: 20px;
+  border-radius: 16px;
   animation: shimmer 1.5s infinite;
 }
 
@@ -502,29 +581,26 @@ onMounted(() => {
 
 .latestSurveysGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
 }
 
 .surveyCard {
   background: #FFFFFF;
-  border-radius: 20px;
-  padding: 28px;
+  border: 1px solid #E1E4EA;
+  border-radius: 16px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  border: 1px solid transparent;
 }
 
 .surveyCard:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 40px rgba(161, 125, 35, 0.12);
-  border-color: rgba(161, 125, 35, 0.1);
+  border-color: rgba(161, 125, 35, 0.3);
 }
 
 .surveyCard.nonClickable {
@@ -534,7 +610,8 @@ onMounted(() => {
 
 .surveyCard.nonClickable:hover {
   transform: none;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
+  border-color: #E1E4EA;
 }
 
 .homePage[data-theme="night"] .surveyCard {
@@ -552,22 +629,39 @@ onMounted(() => {
 .cardHeader {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 0;
+  justify-content: flex-end;
 }
 
-.cardHeader svg rect {
-  fill: #F5F7FA;
+.cardIcon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
 }
 
-.homePage[data-theme="night"] .cardHeader svg rect {
+.cardIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.homePage[data-theme="night"] .cardIcon svg rect {
   fill: rgba(248, 250, 252, 0.08);
 }
 
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .cardTitle {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0F172A;
-  line-height: 1.4;
+  font-family: 'Cairo', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #0E121B;
+  line-height: 1.68;
+  margin: 0;
+  text-align: right;
 }
 
 .homePage[data-theme="night"] .cardTitle {
@@ -575,15 +669,20 @@ onMounted(() => {
 }
 
 .cardDescription {
+  font-family: 'Cairo', sans-serif;
   font-size: 14px;
-  color: #64748B;
+  font-weight: 400;
+  color: #717784;
   line-height: 1.6;
   margin: 0;
+  text-align: right;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .homePage[data-theme="night"] .cardDescription {
@@ -591,45 +690,48 @@ onMounted(() => {
 }
 
 .cardDivider {
-  height: 1px;
-  background: #E2E8F0;
-  margin: 4px 0;
+  border-top: 1px solid #F2F5F8;
+  padding-top: 17px;
+  padding-bottom: 16px;
 }
 
 .homePage[data-theme="night"] .cardDivider {
-  background: rgba(255, 255, 255, 0.08);
+  border-top-color: rgba(255, 255, 255, 0.08);
 }
 
-.cardContent {
-  flex: 1;
-}
-
-.cardChips {
+.cardMetadata {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.chip {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: #64748B;
+  align-items: flex-end;
 }
 
-.homePage[data-theme="night"] .chip {
-  color: rgba(226, 232, 240, 0.75);
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 16px;
+  background: #F5F7FA;
+  border-radius: 41px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #717784;
+  line-height: 1.7;
 }
 
-.chip svg {
+.metaItem svg {
   flex-shrink: 0;
+}
+
+.homePage[data-theme="night"] .metaItem {
+  background: rgba(248, 250, 252, 0.08);
+  color: rgba(226, 232, 240, 0.75);
 }
 
 .cardActions {
   display: flex;
-  gap: 12px;
-  margin-top: 8px;
+  width: 100%;
 }
 
 .actionButton {
@@ -637,29 +739,39 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border-radius: 12px;
+  gap: 12px;
+  padding: 10px 0;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.35;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .actionButton.primary {
-  background: linear-gradient(135deg, #B78A41, #A17D23);
-  color: white;
-  box-shadow: 0 4px 16px rgba(161, 125, 35, 0.25);
+  background: #A17D23;
+  color: #FFFFFF;
 }
 
 .actionButton.primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 24px rgba(161, 125, 35, 0.35);
+  background: #B78A41;
+}
+
+.actionButton i {
+  font-size: 14px;
 }
 
 .homePage[data-theme="night"] .actionButton.primary {
-  background: linear-gradient(135deg, #C9A84C, #B78A41);
+  background: #A17D23;
+}
+
+.homePage[data-theme="night"] .actionButton.primary:hover {
+  background: #B78A41;
 }
 
 .actionButton.completed {
@@ -683,6 +795,7 @@ onMounted(() => {
   text-align: center;
   padding: 60px 20px;
   color: #64748B;
+  font-family: 'Cairo', sans-serif;
 }
 
 .homePage[data-theme="night"] .emptyState {
@@ -690,117 +803,103 @@ onMounted(() => {
 }
 
 /* Responsive Design */
-@media (max-width: 1024px) {
+@media (max-width: 1400px) {
   .homePage {
-    padding: 32px 16px;
+    padding: 32px 32px 24px 32px;
   }
   
-  .heroSection {
-    margin-bottom: 48px;
+  .container {
+    max-width: 100%;
   }
+}
 
-  .servicesSection {
-    padding: 48px 0;
+@media (max-width: 1200px) {
+  .homePage {
+    padding: 32px 24px 24px 24px;
+  }
+  
+  .servicesGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .latestSurveysGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .loadingGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .homePage {
+    padding: 24px 32px;
   }
 
   .sectionTitle {
-    font-size: 28px;
-    margin-bottom: 40px;
+    font-size: 32px;
   }
-
-  .servicesGrid {
-    gap: 24px;
-  }
-
-  .serviceCard {
-    padding: 40px 28px;
-  }
-
+  
   .surveysSection {
-    padding: 48px 0;
+    padding: 32px;
   }
-
-  .sectionHeader {
-    margin-bottom: 32px;
-  }
-
-  .viewAllButton {
-    padding: 10px 24px;
-    font-size: 14px;
-  }
-
-  .latestSurveysGrid {
-    gap: 20px;
-  }
-
-  .surveyCard {
-    padding: 24px;
+  
+  .surveysSection .sectionTitle {
+    font-size: 16px;
   }
 }
 
 @media (max-width: 768px) {
   .homePage {
-    padding: 24px 12px;
+    padding: 20px 16px;
   }
-  
-  .heroSection {
-    margin-bottom: 40px;
+
+  .container {
+    gap: 24px;
   }
 
   .servicesSection {
-    padding: 40px 0;
+    gap: 32px;
   }
 
   .sectionTitle {
-    font-size: 24px;
-    margin-bottom: 32px;
+    font-size: 28px;
   }
 
   .servicesGrid {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
 
   .serviceCard {
-    padding: 36px 24px;
-  }
-
-  .serviceIcon {
-    width: 70px;
-    height: 70px;
-  }
-
-  .serviceIcon i {
-    font-size: 28px;
-  }
-
-  .serviceTitle {
-    font-size: 17px;
-  }
-
-  .serviceSubtitle {
-    font-size: 15px;
+    padding: 24px;
   }
 
   .surveysSection {
-    padding: 40px 0;
+    padding: 24px 20px;
   }
-
-  .sectionHeader {
+  
+  .surveysSection .sectionTitle {
+    font-size: 15px;
+  }
+  
+  .surveysSection .sectionHeader {
     flex-direction: column;
     align-items: flex-start;
-    gap: 20px;
-    margin-bottom: 28px;
+    gap: 16px;
   }
-
+  
   .viewAllButton {
-    width: 100%;
-    justify-content: center;
+    align-self: flex-end;
   }
 
   .latestSurveysGrid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+  
+  .loadingGrid {
+    grid-template-columns: 1fr;
   }
 
   .surveyCard {
@@ -808,68 +907,59 @@ onMounted(() => {
   }
 
   .cardTitle {
-    font-size: 16px;
+    font-size: 15px;
+  }
+  
+  .cardDescription {
+    font-size: 13px;
   }
 }
 
 @media (max-width: 480px) {
   .homePage {
-    padding: 20px 8px;
-  }
-  
-  .heroSection {
-    margin-bottom: 32px;
-  }
-
-  .servicesSection {
-    padding: 32px 0;
+    padding: 16px 12px;
   }
 
   .sectionTitle {
-    font-size: 22px;
-    margin-bottom: 28px;
-  }
-
-  .servicesGrid {
-    gap: 16px;
-  }
-
-  .serviceCard {
-    padding: 32px 20px;
-  }
-
-  .serviceIcon {
-    width: 60px;
-    height: 60px;
-  }
-
-  .serviceIcon i {
     font-size: 24px;
   }
 
+  .serviceCard {
+    padding: 20px 16px;
+    gap: 12px;
+  }
+
+  .serviceIconWrapper {
+    width: 44px;
+    height: 44px;
+  }
+
   .serviceTitle {
-    font-size: 16px;
+    font-size: 15px;
   }
 
-  .serviceSubtitle {
-    font-size: 14px;
-  }
-
-  .comingSoon {
+  .serviceDescription {
     font-size: 13px;
-    padding: 5px 14px;
   }
 
   .surveysSection {
-    padding: 32px 0;
+    padding: 20px 16px;
   }
 
-  .sectionTitle {
-    font-size: 20px;
+  .surveysSection .sectionTitle {
+    font-size: 14px;
   }
 
   .viewAllButton {
-    padding: 10px 20px;
+    font-size: 13px;
+  }
+
+  .surveyCard {
+    padding: 18px;
+  }
+
+  .actionButton {
+    padding: 8px 0;
     font-size: 13px;
   }
 }
@@ -878,4 +968,30 @@ onMounted(() => {
 .homePage[dir="ltr"] {
   direction: ltr;
 }
+
+.homePage[dir="ltr"] .serviceCard {
+  flex-direction: row-reverse;
+}
+
+.homePage[dir="ltr"] .serviceInfo {
+  text-align: left;
+}
+
+.homePage[dir="ltr"] .cardContent {
+  text-align: left;
+}
+
+.homePage[dir="ltr"] .cardTitle,
+.homePage[dir="ltr"] .cardDescription {
+  text-align: left;
+}
+
+.homePage[dir="ltr"] .cardMetadata {
+  align-items: flex-start;
+}
+
+.homePage[dir="ltr"] .viewAllButton i {
+  transform: none;
+}
 </style>
+  

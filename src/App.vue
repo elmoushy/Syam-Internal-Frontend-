@@ -134,6 +134,7 @@ const handleLogout = async () => {
     <!-- Quick Links Sidebar (Left) - floating over content -->
     <QuickLinksSidebar v-if="showNavigation" />
 
+    <br>
     <main :class="['app-main', { 'app-main--with-nav': showNavigation }]">
       <Navigation v-if="showNavigation" />
       <RouterView />

@@ -68,8 +68,7 @@
 
 /* Enhanced Body styling with theme support */
 body {
-  background-color: #F5F7FA !important;
-  /* background: var(--bg-primary); */
+  background: var(--bg-primary);
   color: var(--text-muted);
   font-family: 'Cairo', 'Noto Kufi Arabic', sans-serif;
   overflow-x: hidden;

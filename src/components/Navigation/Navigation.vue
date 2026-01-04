@@ -5,12 +5,12 @@
       :class="[$style.header, { [$style.hidden]: !isVisible }]" 
       :data-theme="currentTheme"
     >
-      <nav :class="$style.nav">
+      <!-- <nav :class="$style.nav">
         <div :class="$style.greetingBlock">
           <h1 :class="$style.greetingTitle">{{ greetingHeading }}</h1>
           <span :class="$style.greetingDate">{{ todayFormatted }}</span>
         </div>
-      </nav>
+      </nav> -->
     </header>
   </Transition>
 </template>
