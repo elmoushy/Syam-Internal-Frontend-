@@ -1433,64 +1433,106 @@ const isImporting = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const importError = ref<string | null>(null)
 
-// Column key to Excel column header mapping (Arabic headers as they appear in the template)
-const columnHeadersMap: Record<string, string> = {
-  'activityType': 'نوع النشاط',
-  'hasMeetingMinutes': 'يوجد محضر اجتماع',
-  'department': 'القسم المعني',
-  'activityName': 'اسم النشاط',
-  'representationType': 'نوع التمثيل',
-  'activityScope': 'نطاق النشاط',
-  'activitySource': 'مصدر النشاط',
-  'participatingEntities': 'الجهات المشاركة',
-  'outputs': 'المخرجات',
-}
-
-// Download template
-const downloadTemplate = () => {
-  // Use the existing template file
-  const link = document.createElement('a')
-  link.href = '/activities 2026.xlsx'
-  link.download = 'activities 2026.xlsx'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
-
-// Export to Excel
-const exportToExcel = async () => {
-  isExporting.value = true
+// Create Excel workbook from scratch with header image
+// Create Excel workbook from scratch with header image
+const createExcelWorkbook = async (includeData: boolean = false): Promise<ExcelJS.Workbook> => {
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'NCEMA Activities System'
+  workbook.created = new Date()
   
+  const worksheet = workbook.addWorksheet('الأنشطة', {
+    views: [{ rightToLeft: true }] // RTL for Arabic
+  })
+  
+  // Column headers in RTL order (right to left): col 1 = rightmost in Excel view
+  // Excel columns A-I map to our columns in reverse order for RTL
+  const excelHeaders = [
+    { key: 'activityType', header: 'نوع النشاط\nType of activity', width: 18 },  // A
+    { key: 'hasMeetingMinutes', header: 'يوجد محضر اجتماع', width: 18 },         // B
+    { key: 'department', header: 'القسم المعني', width: 20 },                    // C
+    { key: 'activityName', header: 'اسم النشاط', width: 25 },                    // D
+    { key: 'representationType', header: 'نوع التمثيل', width: 15 },             // E
+    { key: 'activityScope', header: 'نطاق النشاط', width: 15 },                  // F
+    { key: 'activitySource', header: 'مصدر النشاط', width: 18 },                 // G
+    { key: 'participatingEntities', header: 'الجهات المشاركة', width: 22 },      // H
+    { key: 'outputs', header: 'المخرجات', width: 35 },                           // I
+  ]
+  
+  // Set column widths
+  excelHeaders.forEach((col, index) => {
+    worksheet.getColumn(index + 1).width = col.width
+  })
+  
+  // ROW 1: Header with logo image
+  // Merge cells for header row (A1:I1)
+  worksheet.mergeCells('A1:I1')
+  worksheet.getRow(1).height = 70
+  
+  // Add white background to merged header cell
+  const headerCell = worksheet.getCell('A1')
+  headerCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFFFFFFF' } // White background
+  }
+  
+  // Try to add header image with actual dimensions (790x161 pixels)
   try {
-    // Fetch the template file from public folder
-    const templateResponse = await fetch('/activities 2026.xlsx')
-    if (!templateResponse.ok) {
-      throw new Error('Failed to load template file')
+    const imageResponse = await fetch('/excel_header.png')
+    if (imageResponse.ok) {
+      const imageBuffer = await imageResponse.arrayBuffer()
+      const imageId = workbook.addImage({
+        buffer: imageBuffer,
+        extension: 'png',
+      })
+      
+      // Add image at actual size (790x161 pixels) starting from top-left of A1
+      // Position image within the merged cell without stretching
+      worksheet.addImage(imageId, {
+        tl: { col: 0, row: 0 },
+        ext: { width: 590, height: 91 } // Actual image dimensions in pixels
+      })
     }
-    const templateArrayBuffer = await templateResponse.arrayBuffer()
-    
-    // Use ExcelJS to preserve images and formatting
-    const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(templateArrayBuffer)
-    
-    // Get the first worksheet
-    const worksheet = workbook.worksheets[0]
-    
-    // Column mapping: Our column keys to Excel column numbers (1-indexed in ExcelJS)
-    // Based on the template: A=المخرجات, B=الجهات المشاركة, C=مصدر النشاط, D=نطاق النشاط, E=نوع التمثيل, F=اسم النشاط, G=القسم المعني, H=يوجد محضر اجتماع, I=نوع النشاط
-    const columnToExcel: Record<string, number> = {
-      'outputs': 1,           // A - المخرجات
-      'participatingEntities': 2,  // B - الجهات المشاركة
-      'activitySource': 3,    // C - مصدر النشاط
-      'activityScope': 4,     // D - نطاق النشاط
-      'representationType': 5, // E - نوع التمثيل
-      'activityName': 6,      // F - اسم النشاط
-      'department': 7,        // G - القسم المعني
-      'hasMeetingMinutes': 8, // H - يوجد محضر اجتماع
-      'activityType': 9,      // I - نوع النشاط
+  } catch (error) {
+    console.warn('Could not load header image:', error)
+    // If image fails, add text header instead
+    headerCell.value = 'الإمارات العربية المتحدة - المجلس الأعلى للأمن الوطني'
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    headerCell.font = { bold: true, size: 16 }
+  }
+  
+  // ROW 2: Column headers with blue background
+  const headerRow = worksheet.getRow(2)
+  headerRow.height = 35
+  
+  excelHeaders.forEach((col, index) => {
+    const cell = headerRow.getCell(index + 1)
+    cell.value = col.header
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E3A5F' } // Dark blue background
     }
-    
-    // Start inserting data from row 3 (1-indexed in ExcelJS)
+    cell.font = {
+      color: { argb: 'FFFFFFFF' }, // White text
+      bold: true,
+      size: 11
+    }
+    cell.alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+      wrapText: true
+    }
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF2D4A6F' } },
+      left: { style: 'thin', color: { argb: 'FF2D4A6F' } },
+      bottom: { style: 'thin', color: { argb: 'FF2D4A6F' } },
+      right: { style: 'thin', color: { argb: 'FF2D4A6F' } }
+    }
+  })
+  
+  // If including data, add rows starting from row 3
+  if (includeData) {
     let currentRow = 3
     
     rows.value.forEach(row => {
@@ -1498,17 +1540,110 @@ const exportToExcel = async () => {
       const hasData = Object.values(row.cells).some(v => v && v.trim() !== '')
       if (!hasData) return
       
-      // Insert each cell value
-      columns.value.forEach(col => {
-        const excelCol = columnToExcel[col.key]
-        if (excelCol !== undefined) {
-          const cell = worksheet.getCell(currentRow, excelCol)
-          cell.value = row.cells[col.key] || ''
+      const dataRow = worksheet.getRow(currentRow)
+      dataRow.height = 25
+      
+      // Data columns A-I (no row number)
+      const columnMapping = [
+        'activityType',           // A
+        'hasMeetingMinutes',      // B
+        'department',             // C
+        'activityName',           // D
+        'representationType',     // E
+        'activityScope',          // F
+        'activitySource',         // G
+        'participatingEntities',  // H
+        'outputs',                // I
+      ]
+      
+      columnMapping.forEach((colKey, index) => {
+        const cell = dataRow.getCell(index + 1) // Start from column A (index 1)
+        cell.value = row.cells[colKey] || ''
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+          left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+          bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+          right: { style: 'thin', color: { argb: 'FFD3D3D3' } }
+        }
+        
+        // Alternate row background
+        if (currentRow % 2 === 1) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8FAFC' } // Light gray for odd rows
+          }
         }
       })
       
       currentRow++
     })
+  }
+  
+  // Enable AutoFilter on header row (row 2) for all data columns
+  worksheet.autoFilter = {
+    from: { row: 2, column: 1 }, // Start from A2
+    to: { row: 2, column: 9 }    // End at I2
+  }
+  
+  return workbook
+}
+
+// Download template (creates new Excel with header image and column names only)
+const downloadTemplate = async () => {
+  try {
+    const workbook = await createExcelWorkbook(false)
+    
+    // Add a few empty rows for template
+    const worksheet = workbook.worksheets[0]
+    for (let i = 3; i <= 12; i++) {
+      const row = worksheet.getRow(i)
+      row.height = 25
+      
+      // Empty data cells with borders (columns A-I)
+      for (let col = 1; col <= 9; col++) {
+        const cell = row.getCell(col)
+        cell.value = ''
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+          left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+          bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+          right: { style: 'thin', color: { argb: 'FFD3D3D3' } }
+        }
+        if (i % 2 === 1) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8FAFC' }
+          }
+        }
+      }
+    }
+    
+    // Generate and download
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'activities_template_2026.xlsx'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('Template download error:', error)
+  }
+}
+
+// Export to Excel (creates new Excel with header image, column names, and data)
+const exportToExcel = async () => {
+  isExporting.value = true
+  
+  try {
+    const workbook = await createExcelWorkbook(true)
     
     // Generate filename with date
     const date = new Date().toISOString().split('T')[0]
@@ -1578,27 +1713,17 @@ const handleFileUpload = async (event: Event) => {
     const sheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[sheetName]
     
-    // Get the range of the worksheet
-    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
+    // Excel format (created by our system):
+    // Row 1: Header image (logo) - skip this row
+    // Row 2: Column names (headers) - Column A is row number, B-J are data columns
+    // Row 3+: Data
     
-    // The template has headers on row 2 (index 1), so we need to adjust
-    // First, try reading with default (row 1 as header)
-    let jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { defval: '' })
-    
-    // Check if first row data looks like headers (contains our expected column names)
-    const firstRowKeys = jsonData.length > 0 ? Object.keys(jsonData[0]) : []
-    const hasExpectedHeaders = Object.values(columnHeadersMap).some(header => 
-      firstRowKeys.some(key => key.includes(header) || header.includes(key))
-    )
-    
-    // If headers not found in row 1, try row 2 (skip first row)
-    if (!hasExpectedHeaders && range.e.r >= 1) {
-      // Read starting from row 2 (index 1) as header
-      jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { 
-        defval: '',
-        range: 1  // Start from row 2 (0-indexed, so 1 means row 2)
-      })
-    }
+    // Read starting from row 2 (index 1) as header, data starts from row 3
+    // range: 1 means skip row 1 (0-indexed), so headers are read from row 2
+    const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { 
+      defval: '',
+      range: 1  // Skip row 1 (image), use row 2 as headers
+    })
     
     if (jsonData.length === 0) {
       importError.value = 'الملف لا يحتوي على بيانات'
@@ -1606,7 +1731,36 @@ const handleFileUpload = async (event: Event) => {
     }
     
     // Debug: log the keys to see what headers were detected
-    console.log('Detected headers:', jsonData.length > 0 ? Object.keys(jsonData[0]) : [])
+    console.log('Detected headers from row 2:', jsonData.length > 0 ? Object.keys(jsonData[0]) : [])
+    
+    // Header mapping - supports both full headers and partial matches
+    // Our Excel has headers with potential newlines like "نوع النشاط\nType of activity"
+    const headerMappings: { patterns: string[], key: string }[] = [
+      { patterns: ['نوع النشاط', 'Type of activity'], key: 'activityType' },
+      { patterns: ['يوجد محضر اجتماع'], key: 'hasMeetingMinutes' },
+      { patterns: ['القسم المعني'], key: 'department' },
+      { patterns: ['اسم النشاط'], key: 'activityName' },
+      { patterns: ['نوع التمثيل'], key: 'representationType' },
+      { patterns: ['نطاق النشاط'], key: 'activityScope' },
+      { patterns: ['مصدر النشاط'], key: 'activitySource' },
+      { patterns: ['الجهات المشاركة'], key: 'participatingEntities' },
+      { patterns: ['المخرجات'], key: 'outputs' },
+    ]
+    
+    // Find the matching column key for an Excel header
+    const findColumnKey = (excelHeader: string): string | null => {
+      const normalized = excelHeader.replace(/\s+/g, ' ').trim().toLowerCase()
+      
+      for (const mapping of headerMappings) {
+        for (const pattern of mapping.patterns) {
+          const normalizedPattern = pattern.toLowerCase()
+          if (normalized.includes(normalizedPattern) || normalizedPattern.includes(normalized)) {
+            return mapping.key
+          }
+        }
+      }
+      return null
+    }
     
     // Map imported data to rows
     const newRows: Row[] = []
@@ -1615,32 +1769,30 @@ const handleFileUpload = async (event: Event) => {
       const cells: Record<string, string> = {}
       const styles: Record<string, CellStyle> = {}
       
+      // Initialize all columns with empty values
       columns.value.forEach(col => {
-        // Try to find matching header - check multiple possible formats
-        const arabicHeader = columnHeadersMap[col.key]
-        let value = ''
-        
-        // Check for exact match first
-        if (rowData[arabicHeader] !== undefined) {
-          value = rowData[arabicHeader]
-        } else if (rowData[col.key] !== undefined) {
-          value = rowData[col.key]
-        } else {
-          // Try partial match (headers might have extra text like newlines)
-          const matchingKey = Object.keys(rowData).find(key => 
-            key.includes(arabicHeader) || arabicHeader.includes(key) ||
-            key.replace(/\s+/g, ' ').trim() === arabicHeader
-          )
-          if (matchingKey) {
-            value = rowData[matchingKey]
-          }
-        }
-        
-        cells[col.key] = String(value).trim()
+        cells[col.key] = ''
         styles[col.key] = {}
       })
       
-      // Only add rows with data (skip rows that only have "اختار" placeholder)
+      // Map each Excel column to our column key
+      Object.entries(rowData).forEach(([excelHeader, value]) => {
+        // Skip the row number column (usually empty header or number)
+        if (!excelHeader || excelHeader === '' || !isNaN(Number(value))) {
+          // Check if this is just a row number
+          const numValue = Number(value)
+          if (!isNaN(numValue) && numValue > 0 && numValue < 1000) {
+            return // Skip row numbers
+          }
+        }
+        
+        const colKey = findColumnKey(excelHeader)
+        if (colKey) {
+          cells[colKey] = String(value).trim()
+        }
+      })
+      
+      // Only add rows with actual data (skip empty rows or placeholder rows)
       const hasRealData = Object.values(cells).some(v => 
         v !== '' && v !== 'اختار' && v !== 'اختيار'
       )
