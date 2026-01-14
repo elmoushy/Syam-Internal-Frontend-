@@ -110,6 +110,7 @@ const mainNavItems = computed<NavItem[]>(() => {
     { name: 'home', path: '/', icon: 'fas fa-home', label: 'الرئيسية' },
     { name: 'news', path: '/news', icon: 'fas fa-newspaper', label: 'الأخبار' },
     { name: 'quick-links', path: '/quick-links', icon: 'fas fa-link', label: 'الروابط السريعة' },
+    { name: 'activities', path: '/activities', icon: 'fas fa-table-list', label: 'قائمة الأنشطة' },
     { name: 'surveys-overview', path: '/surveys', icon: 'fas fa-list-check', label: 'الاستطلاعات' },
   ]
   return items.filter(item => hasPermission(item))

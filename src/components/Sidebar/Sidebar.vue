@@ -76,6 +76,7 @@ const navGroups = computed<NavGroup[]>(() => {
     { name: 'home', path: '/', icon: 'fas fa-home', label: 'الرئيسية' },
     { name: 'news', path: '/news', icon: 'fas fa-newspaper', label: 'الأخبار' },
     { name: 'quick-links', path: '/quick-links', icon: 'fas fa-link', label: 'الروابط السريعة' },
+    { name: 'activities', path: '/activities', icon: 'fas fa-table-list', label: 'قائمة الأنشطة' },
     { name: 'surveys-overview', path: '/surveys', icon: 'fas fa-list-check', label: 'الاستطلاعات' },
     // DISABLED FOR NOW - Will enable in future release
     // { name: 'organization-chart', path: '/organization-chart', icon: 'fas fa-sitemap', label: 'هيكل الشركة', permissionName: 'organization-chart' },

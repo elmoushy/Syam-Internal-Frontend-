@@ -57,6 +57,9 @@ const Notifications = () => import("../pages/Notifications");
 // News
 const News = () => import("../pages/News/News.vue");
 const QuickLinksPage = () => import("../pages/QuickLinks/QuickLinksPage.vue");
+
+// Activities
+const ListingActivities = () => import("../pages/Activities/ListingActivities.vue");
 // const OrganizationChart = () => import("../pages/OrganizationChart/OrganizationChart.vue");
 // const OrganizationDetails = () => import("../pages/OrganizationChart/OrganizationDetails.vue");
 
@@ -83,6 +86,14 @@ const routes: RouteRecordRaw[] = [
     name: "QuickLinks",
     component: QuickLinksPage,
     meta: { title: "Quick Links - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  
+  // Activities
+  {
+    path: "/activities",
+    name: "ListingActivities",
+    component: ListingActivities,
+    meta: { title: "قائمة الأنشطة - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
   /*
   {
