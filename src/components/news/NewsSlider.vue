@@ -844,6 +844,97 @@ defineExpose({
 }
 
 /* ==================== RESPONSIVE ==================== */
+/* Desktop Large Screen - Enhanced sizes for monitors (1920px+) */
+@media (min-width: 1600px) {
+  .sliderContainer {
+    max-width: 1600px;
+  }
+  
+  .skeleton {
+    height: 520px;
+    border-radius: 28px;
+  }
+  
+  .skeletonContent {
+    padding: 48px;
+  }
+  
+  .slider {
+    border-radius: 28px;
+  }
+  
+  .slide {
+    height: 520px;
+    border-radius: 28px;
+  }
+  
+  .content {
+    right: 72px;
+    max-width: 800px;
+  }
+  
+  .badge span {
+    padding: 10px 28px;
+    border-radius: 24px;
+    font-size: 16px;
+  }
+  
+  .title {
+    font-size: 50px;
+    margin: 0 0 20px 0;
+  }
+  
+  .detailsWrapper {
+    margin-bottom: 28px;
+  }
+  
+  .details {
+    font-size: 20px;
+  }
+  
+  .meta {
+    gap: 28px;
+    margin-bottom: 32px;
+  }
+  
+  .metaItem {
+    gap: 10px;
+    font-size: 16px;
+  }
+  
+  .readMoreBtn {
+    padding: 12px 44px;
+    border-radius: 10px;
+    font-size: 18px;
+  }
+  
+  .dotsContainer {
+    bottom: -24px;
+    gap: 12px;
+  }
+  
+  .dot {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .dot.active {
+    width: 34px;
+    border-radius: 6px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .content {
+    right: 48px;
+    max-width: 600px;
+  }
+
+  .title {
+    font-size: 40px;
+  }
+}
+
 @media (max-width: 1024px) {
   .content {
     right: 40px;
@@ -851,7 +942,7 @@ defineExpose({
   }
 
   .title {
-    font-size: 32px;
+    font-size: 34px;
   }
 }
 

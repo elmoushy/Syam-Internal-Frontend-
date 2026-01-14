@@ -802,6 +802,95 @@ onMounted(() => {
   color: rgba(226, 232, 240, 0.75);
 }
 
+/* Desktop Large Screen - Enhanced sizes for monitors (1920px+) */
+@media (min-width: 1600px) {
+  .homePage {
+    padding: 40px 60px 32px 60px;
+  }
+  
+  .container {
+    max-width: 1600px;
+    gap: 40px;
+  }
+  
+  .servicesSection {
+    padding: 20px 0;
+    gap: 56px;
+  }
+  
+  .sectionTitle {
+    font-size: 48px;
+  }
+  
+  .servicesGrid {
+    gap: 28px;
+  }
+  
+  .serviceCard {
+    border-radius: 28px;
+    padding: 36px 28px;
+    gap: 20px;
+    min-height: 115px;
+  }
+  
+  .serviceIconWrapper {
+    width: 58px;
+    height: 58px;
+  }
+  
+  .serviceTitle {
+    font-size: 18px;
+  }
+  
+  .serviceDescription {
+    font-size: 16px;
+  }
+  
+  .comingSoonBadge {
+    top: 18px;
+    left: 18px;
+    padding: 6px 14px;
+    border-radius: 18px;
+    font-size: 14px;
+  }
+  
+  .surveysSection {
+    padding: 40px 48px 56px 48px;
+    border-radius: 28px;
+    gap: 28px;
+  }
+  
+  .surveysSection .sectionTitle {
+    font-size: 22px;
+  }
+  
+  .viewAllButton {
+    gap: 6px;
+    font-size: 16px;
+  }
+  
+  .surveyCard {
+    border-radius: 20px;
+    padding: 28px;
+    gap: 20px;
+  }
+  
+  .cardTitle {
+    font-size: 18px;
+  }
+  
+  .cardDescription {
+    font-size: 16px;
+  }
+  
+  .actionButton {
+    gap: 14px;
+    padding: 12px 0;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 1400px) {
   .homePage {

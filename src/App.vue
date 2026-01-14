@@ -157,4 +157,11 @@ const handleLogout = async () => {
     padding-top: 56px; /* Mobile header height */
   }
 }
+
+/* Desktop Large Screen - Enhanced header offset */
+@media (min-width: 1600px) {
+  .app-main--with-nav {
+    padding-top: 80px;
+  }
+}
 </style>

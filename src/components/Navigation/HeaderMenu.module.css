@@ -1359,3 +1359,32 @@
 .fade-leave-to {
   opacity: 0;
 }
+/* Desktop Large Screen - Enhanced sizes for monitors (1920px+) */
+@media (min-width: 1600px) {
+  .headerMenu {
+    top: 20px;
+    width: calc(100% - 48px);
+    max-width: 1600px;
+    border-radius: 28px;
+  }
+  
+  .desktopNav {
+    padding: 0.6rem 7rem;
+    gap: 2.25rem;
+  }
+  
+  .logo {
+    height: 74px;
+  }
+  
+  .logoText {
+    height: 32px;
+  }
+  
+  .navItem {
+    gap: 0.6rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 20px;
+    border-radius: 14px;
+  }
+}
