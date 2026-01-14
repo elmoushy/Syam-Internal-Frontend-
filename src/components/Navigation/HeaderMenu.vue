@@ -110,7 +110,7 @@ const mainNavItems = computed<NavItem[]>(() => {
     { name: 'home', path: '/', icon: 'fas fa-home', label: 'الرئيسية' },
     { name: 'news', path: '/news', icon: 'fas fa-newspaper', label: 'الأخبار' },
     { name: 'quick-links', path: '/quick-links', icon: 'fas fa-link', label: 'الروابط السريعة' },
-    { name: 'activities', path: '/activities', icon: 'fas fa-table-list', label: 'قائمة الأنشطة' },
+    { name: 'activities', path: '/activities/local', icon: 'fas fa-table-list', label: 'قائمة الأنشطة' },
     { name: 'surveys-overview', path: '/surveys', icon: 'fas fa-list-check', label: 'الاستطلاعات' },
   ]
   return items.filter(item => hasPermission(item))
@@ -122,6 +122,7 @@ const managementNavItems = computed<NavItem[]>(() => {
     { name: 'manage-surveys', path: '/control/surveys', icon: 'fas fa-table-cells-large', label: 'إدارة الاستطلاعات', permissionName: 'manage-surveys', isManagement: true },
     { name: 'manage-news', path: '/control/news', icon: 'fas fa-newspaper', label: 'إدارة الأخبار', permissionName: 'manage-news', isManagement: true },
     { name: 'manage-quicklinks', path: '/control/quicklinks', icon: 'fas fa-link', label: 'إدارة الروابط السريعة', permissionName: 'manage-quicklinks', isManagement: true },
+    { name: 'manage-activities', path: '/control/activities/titles', icon: 'fas fa-layer-group', label: 'إدارة العناوين', permissionName: 'manage-activities', isManagement: true },
     { name: 'manage-users', path: '/control/users', icon: 'fas fa-user-group', label: 'إدارة المستخدمين', permissionName: 'manage-users', isManagement: true },
     { name: 'manage-audit', path: '/control/audit', icon: 'fas fa-clipboard-list', label: 'سجل التدقيق', permissionName: 'manage-audit', isManagement: true },
   ]

@@ -91,7 +91,11 @@ const routes: RouteRecordRaw[] = [
   // Activities
   {
     path: "/activities",
-    name: "ListingActivities",
+    redirect: "/activities/local",
+  },
+  {
+    path: "/activities/local",
+    name: "ListingActivitiesLocal",
     component: ListingActivities,
     meta: { title: "قائمة الأنشطة - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
@@ -271,6 +275,17 @@ const routes: RouteRecordRaw[] = [
       requiresAdmin: true,
     },
   },
+  // Activities Column Management (Admins only)
+  {
+    path: "/control/activities/titles",
+    name: "TitleManagement",
+    component: () => import("../pages/Activities/admin/TitleManagement.vue"),
+    meta: {
+      title: "إدارة العناوين - WPC | WeaponpowerCloud App",
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
   {
     path: "/control/surveys/:surveyId/responses",
     name: "SurveyResponses",
@@ -306,6 +321,35 @@ const routes: RouteRecordRaw[] = [
     name: "Profile",
     component: Profile,
     meta: { title: "Profile - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  
+  // Activities User Pages (Authenticated users)
+  {
+    path: "/activities/templates",
+    name: "TemplateList",
+    component: () => import("../pages/Activities/TemplateList.vue"),
+    meta: {
+      title: "قوالب الأنشطة - WPC | WeaponpowerCloud App",
+      requiresAuth: true,
+    },
+  },
+  {
+    path: "/activities/templates/new",
+    name: "TemplateCreate",
+    component: () => import("../pages/Activities/TemplateEditor.vue"),
+    meta: {
+      title: "إنشاء قالب - WPC | WeaponpowerCloud App",
+      requiresAuth: true,
+    },
+  },
+  {
+    path: "/activities/templates/:id/edit",
+    name: "TemplateEdit",
+    component: () => import("../pages/Activities/TemplateEditor.vue"),
+    meta: {
+      title: "تعديل القالب - WPC | WeaponpowerCloud App",
+      requiresAuth: true,
+    },
   },
 
   // ✅ 404 fallback
