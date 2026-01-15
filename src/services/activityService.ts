@@ -567,6 +567,9 @@ export interface TitleItem {
   name: string
   description: string
   column_count: number
+  is_active_title?: boolean
+  is_deleted?: boolean
+  status?: string
 }
 
 export interface TitleColumn {
@@ -614,6 +617,8 @@ export interface TitleSheetItem {
   name: string
   description: string
   row_count: number
+  is_submitted?: boolean
+  submitted_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -625,12 +630,78 @@ export interface TitleSheetsResponse {
   count: number
 }
 
+// User's all sheets (regardless of title)
+export interface UserSheetItem {
+  id: number
+  name: string
+  description: string
+  template_id: number | null
+  template_name: string
+  template_status: string
+  template_is_active: boolean
+  row_count: number
+  is_submitted: boolean
+  submitted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Submitted sheet for admin view
+export interface SubmittedSheetItem {
+  id: number
+  name: string
+  description: string
+  template_id: number | null
+  template_name: string
+  owner_id: number
+  owner_name: string
+  owner_username: string
+  row_count: number
+  submitted_at: string | null
+  created_at: string
+}
+
 export const titleService = {
   /**
    * Get list of published titles for dropdown
    */
   async getPublishedTitles(): Promise<TitleItem[]> {
     const response = await apiClient.get(`${BASE_URL}/titles/`)
+    return response.data
+  },
+
+  /**
+   * Get the active title (auto-load for users)
+   */
+  async getActiveTitle(): Promise<TitleItem | null> {
+    const response = await apiClient.get(`${BASE_URL}/titles/active/`)
+    if (response.data.id) {
+      return response.data
+    }
+    return null
+  },
+
+  /**
+   * Get a template by ID (for loading non-active templates)
+   */
+  async getTemplateById(templateId: number): Promise<TitleItem> {
+    const response = await apiClient.get(`${BASE_URL}/titles/${templateId}/`)
+    return response.data
+  },
+
+  /**
+   * Set a title as active (admin only)
+   */
+  async setActiveTitle(titleId: number): Promise<{ success: boolean, message: string, title_id: number, title_name: string }> {
+    const response = await apiClient.post(`${BASE_URL}/titles/${titleId}/set-active/`)
+    return response.data
+  },
+
+  /**
+   * Deactivate a title (admin only)
+   */
+  async deactivateTitle(titleId: number): Promise<{ success: boolean, message: string }> {
+    const response = await apiClient.post(`${BASE_URL}/titles/${titleId}/deactivate/`)
     return response.data
   },
 
@@ -651,6 +722,14 @@ export const titleService = {
   },
 
   /**
+   * Get all user's sheets (regardless of title - for recent sheets)
+   */
+  async getAllUserSheets(): Promise<{ sheets: UserSheetItem[], count: number }> {
+    const response = await apiClient.get(`${BASE_URL}/my-sheets/`)
+    return response.data
+  },
+
+  /**
    * Create a new sheet for a title
    */
   async createSheet(titleId: number, name: string, description?: string): Promise<TitleSheetItem> {
@@ -658,6 +737,39 @@ export const titleService = {
       name,
       description: description || ''
     })
+    return response.data
+  },
+
+  /**
+   * Submit a sheet to admin (cannot edit after submission)
+   */
+  async submitSheet(sheetId: number): Promise<{ success: boolean, message: string, sheet_id: number, submitted_at: string }> {
+    const response = await apiClient.post(`${BASE_URL}/my-sheets/${sheetId}/submit/`)
+    return response.data
+  },
+
+  /**
+   * Get all submitted sheets (admin only)
+   */
+  async getSubmittedSheets(params?: { 
+    title_id?: number, 
+    search?: string, 
+    page?: number, 
+    page_size?: number 
+  }): Promise<{ 
+    sheets: SubmittedSheetItem[], 
+    pagination: PaginationInfo 
+  }> {
+    const queryParams = new URLSearchParams()
+    if (params?.title_id) queryParams.append('title_id', String(params.title_id))
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.page) queryParams.append('page', String(params.page))
+    if (params?.page_size) queryParams.append('page_size', String(params.page_size))
+    
+    const url = queryParams.toString() 
+      ? `${BASE_URL}/admin/submitted-sheets/?${queryParams}` 
+      : `${BASE_URL}/admin/submitted-sheets/`
+    const response = await apiClient.get(url)
     return response.data
   },
 
@@ -767,7 +879,72 @@ export const titleService = {
    */
   async deleteSheet(sheetId: number): Promise<void> {
     await apiClient.delete(`${BASE_URL}/my-sheets/${sheetId}/`)
+  },
+
+  /**
+   * Admin: Get any sheet's data (read-only view)
+   */
+  async getAdminSheetData(
+    sheetId: number,
+    page: number = 1,
+    pageSize: number = 100,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    filters?: Record<string, { excluded: string[], show_blanks: boolean }>
+  ): Promise<AdminSheetDataResponse> {
+    const params: Record<string, string | number> = { 
+      page,
+      page_size: pageSize
+    }
+    
+    if (sortBy) {
+      params.sort_by = sortBy
+      params.sort_order = sortOrder || 'asc'
+    }
+    
+    if (filters && Object.keys(filters).length > 0) {
+      params.filters = JSON.stringify(filters)
+    }
+    
+    const queryParams = new URLSearchParams(
+      Object.entries(params).map(([k, v]) => [k, String(v)])
+    )
+    
+    const response = await apiClient.get(`${BASE_URL}/admin/sheets/${sheetId}/data/?${queryParams}`)
+    return response.data
   }
+}
+
+// Admin sheet data response type
+export interface AdminSheetDataResponse {
+  sheet_id: number
+  sheet_name: string
+  sheet_description: string
+  is_submitted: boolean
+  submitted_at: string | null
+  owner_id: number
+  owner_name: string
+  owner_username: string
+  template_id: number | null
+  template_name: string
+  rows: Array<{
+    id: number
+    row_order: number
+    row_number: number
+    data: Record<string, string>
+    styles: Record<string, any>
+    height: number
+  }>
+  columns: Array<{
+    key: string
+    label: string
+    data_type: string
+    width?: number
+    min_width?: number
+    is_required?: boolean
+    options?: string[]
+  }>
+  pagination: PaginationInfo
 }
 
 // Default export with all services

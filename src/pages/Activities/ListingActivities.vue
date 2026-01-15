@@ -1,28 +1,78 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 import ExcelJS from 'exceljs'
-import { titleService, type TitleItem, type TitleColumn, type TitleSheetItem, type PaginationInfo, type RowOperations } from '@/services/activityService'
+import { titleService, type TitleItem, type TitleColumn, type TitleSheetItem, type PaginationInfo, type RowOperations, type UserSheetItem, type AdminSheetDataResponse } from '@/services/activityService'
+
+// Router for admin view mode
+const route = useRoute()
+const router = useRouter()
+
+// Admin View Mode State
+const isAdminViewMode = ref(false)
+const adminSheetData = ref<AdminSheetDataResponse | null>(null)
+const adminSheetId = ref<number | null>(null)  // Sheet ID for admin view
 
 // ============================================================================
 // TITLE & SHEET SELECTION STATE
 // ============================================================================
-const availableTitles = ref<TitleItem[]>([])
-const selectedTitleId = ref<number | null>(null)
-const selectedTitle = computed(() => availableTitles.value.find(t => t.id === selectedTitleId.value))
+const activeTitle = ref<TitleItem | null>(null)
+const selectedTitleId = computed(() => activeTitle.value?.id ?? null)
 
-// Sheet selection state
+// Sheet selection state - includes all user's sheets (recent sheets)
 const userSheets = ref<TitleSheetItem[]>([])
+const allUserSheets = ref<UserSheetItem[]>([])  // All sheets regardless of title (for recent)
 const selectedSheetId = ref<number | null>(null)
 const selectedSheet = computed(() => userSheets.value.find(s => s.id === selectedSheetId.value))
 const isLoadingSheetsForTitle = ref(false)
+
+// Sheet submission state
+const isSubmitted = computed(() => {
+  if (isAdminViewMode.value && adminSheetData.value) {
+    return adminSheetData.value.is_submitted
+  }
+  return selectedSheet.value?.is_submitted ?? false
+})
+const submittedAt = computed(() => {
+  if (isAdminViewMode.value && adminSheetData.value) {
+    return adminSheetData.value.submitted_at
+  }
+  return selectedSheet.value?.submitted_at ?? null
+})
+const isSubmitting = ref(false)
+
+// Editing allowed state - check if template is active and sheet not submitted
+const isEditingAllowed = computed(() => {
+  // Admin view is always read-only
+  if (isAdminViewMode.value) return false
+  if (isSubmitted.value) return false
+  if (!activeTitle.value) return false
+  // If template is deleted or not active, editing is not allowed
+  if (activeTitle.value.is_deleted) return false
+  if (!activeTitle.value.is_active_title) return false
+  return true
+})
+
+// Read-only reason message
+const readOnlyReason = computed(() => {
+  if (isAdminViewMode.value) return 'عرض المسؤول - للقراءة فقط'
+  if (isSubmitted.value) return 'هذا الجدول مقدم ولا يمكن تعديله'
+  if (activeTitle.value) {
+    if (activeTitle.value.is_deleted) return 'هذا العنوان محذوف - الجدول للقراءة فقط'
+    if (!activeTitle.value.is_active_title) return 'هذا العنوان غير نشط - الجدول للقراءة فقط'
+  }
+  return null
+})
 
 // Create sheet modal state
 const showCreateSheetModal = ref(false)
 const newSheetName = ref('')
 const newSheetDescription = ref('')
 const isCreatingSheet = ref(false)
+
+// View tabs state (current sheet view vs all sheets view)
+const activeView = ref<'current' | 'all'>('current')
 
 const isLoadingTitles = ref(false)
 const isLoadingData = ref(false)
@@ -129,21 +179,61 @@ const getDatabaseId = (displayId: number): number | undefined => {
   return displayToDatabaseId.value.get(displayId)
 }
 
-// Load published titles for dropdown
-const loadTitles = async () => {
+// ============================================================================
+// ADMIN VIEW MODE: Load sheet data for admin viewing
+// ============================================================================
+const loadAdminSheetData = async (sheetId: number, page: number = 1) => {
+  // Set the admin sheet ID so loadPageData knows which sheet to load
+  adminSheetId.value = sheetId
+  
+  // Use the unified loadPageData function which handles admin mode
+  await loadPageData(page)
+}
+
+// Exit admin view mode
+const exitAdminView = () => {
+  isAdminViewMode.value = false
+  adminSheetData.value = null
+  adminSheetId.value = null
+  selectedSheetId.value = null
+  localRows.value = generateInitialRows()
+  localColumns.value = [...defaultColumns]
+  
+  // Navigate back to TitleManagement with submitted tab active
+  router.push({ 
+    path: '/control/activities/titles',
+    query: { tab: 'submitted' }
+  })
+}
+
+// Load active title automatically
+const loadActiveTitle = async () => {
   isLoadingTitles.value = true
   dataError.value = null
   try {
-    availableTitles.value = await titleService.getPublishedTitles()
+    activeTitle.value = await titleService.getActiveTitle()
+    if (!activeTitle.value) {
+      dataError.value = 'لا يوجد عنوان نشط حالياً. الرجاء التواصل مع المسؤول.'
+    }
   } catch (error: any) {
-    console.error('Failed to load titles:', error)
-    dataError.value = 'فشل في تحميل العناوين'
+    console.error('Failed to load active title:', error)
+    dataError.value = 'فشل في تحميل العنوان النشط'
   } finally {
     isLoadingTitles.value = false
   }
 }
 
-// Load user's sheets when title is selected
+// Load all user's sheets (for recent sheets panel)
+const loadAllUserSheets = async () => {
+  try {
+    const result = await titleService.getAllUserSheets()
+    allUserSheets.value = result.sheets
+  } catch (error: any) {
+    console.error('Failed to load all user sheets:', error)
+  }
+}
+
+// Load user's sheets when title is loaded
 const loadUserSheets = async () => {
   if (!selectedTitleId.value) {
     userSheets.value = []
@@ -173,6 +263,75 @@ const loadUserSheets = async () => {
   }
 }
 
+// Submit sheet to admin
+const submitSheet = async () => {
+  if (!selectedSheetId.value) return
+  
+  // Confirm submission
+  if (!confirm('هل أنت متأكد من تقديم هذا الجدول؟ لن تتمكن من تعديله بعد التقديم.')) {
+    return
+  }
+  
+  isSubmitting.value = true
+  
+  try {
+    const result = await titleService.submitSheet(selectedSheetId.value)
+    
+    // Update local sheet state
+    const sheet = userSheets.value.find(s => s.id === selectedSheetId.value)
+    if (sheet) {
+      sheet.is_submitted = true
+      sheet.submitted_at = result.submitted_at
+    }
+    
+    saveSuccess.value = 'تم تقديم الجدول بنجاح'
+    setTimeout(() => { saveSuccess.value = null }, 3000)
+    
+    // Reload all sheets to update the list
+    await loadAllUserSheets()
+    
+  } catch (error: any) {
+    console.error('Failed to submit sheet:', error)
+    dataError.value = error.response?.data?.error || 'فشل في تقديم الجدول'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+// Open a recent sheet (allows cross-template access)
+const openRecentSheet = async (sheet: UserSheetItem) => {
+  try {
+    // If sheet is from a different template, we need to load that template first
+    if (sheet.template_id && sheet.template_id !== selectedTitleId.value) {
+      // Load the sheet's template (even if not active or deleted)
+      const template = await titleService.getTemplateById(sheet.template_id)
+      activeTitle.value = template
+      
+      // Load sheets for this template
+      await loadUserSheets()
+    }
+    
+    // Select the sheet
+    selectedSheetId.value = sheet.id
+    
+    // Switch to current view
+    activeView.value = 'current'
+    
+    // Load the sheet data
+    await onSheetSelected()
+    
+    // Show info message if template is deleted
+    if (activeTitle.value?.is_deleted) {
+      saveSuccess.value = 'تم فتح الجدول - العنوان محذوف، الجدول للقراءة فقط'
+      setTimeout(() => { saveSuccess.value = null }, 5000)
+    }
+    
+  } catch (error: any) {
+    console.error('Failed to open sheet:', error)
+    dataError.value = error.response?.data?.error || 'فشل في فتح الجدول'
+  }
+}
+
 // Load sheet data when sheet is selected
 const onSheetSelected = async () => {
   if (!selectedTitleId.value || !selectedSheetId.value) {
@@ -186,8 +345,12 @@ const onSheetSelected = async () => {
 
 // Load data for a specific page
 const loadPageData = async (page: number) => {
-  if (!selectedTitleId.value || !selectedSheetId.value) {
-    return
+  // For admin view mode, only need the adminSheetId
+  // For regular mode, need both selectedTitleId and selectedSheetId
+  if (isAdminViewMode.value) {
+    if (!adminSheetId.value) return
+  } else {
+    if (!selectedTitleId.value || !selectedSheetId.value) return
   }
   
   isLoadingData.value = true
@@ -197,16 +360,32 @@ const loadPageData = async (page: number) => {
     // Build filters for backend
     const backendFilters = buildBackendFilters()
     
-    // Get user's data for this sheet with pagination, sorting, and filtering
-    const userData = await titleService.getUserData(
-      selectedTitleId.value, 
-      selectedSheetId.value,
-      page,
-      pageSize.value,
-      currentSortColumn.value || undefined,
-      currentSortOrder.value,
-      backendFilters
-    )
+    let userData: any
+    
+    if (isAdminViewMode.value) {
+      // Admin view mode - use admin endpoint
+      userData = await titleService.getAdminSheetData(
+        adminSheetId.value!,
+        page,
+        pageSize.value,
+        currentSortColumn.value || undefined,
+        currentSortOrder.value,
+        backendFilters
+      )
+      // Store admin sheet data for banner display
+      adminSheetData.value = userData
+    } else {
+      // Regular user mode
+      userData = await titleService.getUserData(
+        selectedTitleId.value!, 
+        selectedSheetId.value!,
+        page,
+        pageSize.value,
+        currentSortColumn.value || undefined,
+        currentSortOrder.value,
+        backendFilters
+      )
+    }
     currentSheetId.value = userData.sheet_id
     
     // Set columns from backend (use default widths, ignore backend width/min_width)
@@ -234,22 +413,25 @@ const loadPageData = async (page: number) => {
     
     // Set rows from backend or create empty rows
     if (userData.rows.length > 0) {
-      localRows.value = userData.rows.map((row, index) => {
+      localRows.value = userData.rows.map((row: any, index: number) => {
         // Use row_order if available, otherwise fallback to row_number for backward compat
         const displayOrder = row.row_order ?? row.row_number ?? (index + 1)
         const databaseId = row.id!
         
-        // Map displayId -> databaseId
-        // We use displayOrder as displayId initially (they match when loaded)
-        displayToDatabaseId.value.set(displayOrder, databaseId)
-        
-        // Store original snapshot keyed by DATABASE ID
-        originalRowsSnapshot.value.set(databaseId, {
-          data: JSON.parse(JSON.stringify(row.data)),
-          styles: JSON.parse(JSON.stringify(row.styles || {})),
-          height: row.height || 32,
-          originalOrder: displayOrder
-        })
+        // Only track changes in non-admin mode
+        if (!isAdminViewMode.value) {
+          // Map displayId -> databaseId
+          // We use displayOrder as displayId initially (they match when loaded)
+          displayToDatabaseId.value.set(displayOrder, databaseId)
+          
+          // Store original snapshot keyed by DATABASE ID
+          originalRowsSnapshot.value.set(databaseId, {
+            data: JSON.parse(JSON.stringify(row.data)),
+            styles: JSON.parse(JSON.stringify(row.styles || {})),
+            height: row.height || 32,
+            originalOrder: displayOrder
+          })
+        }
         
         return {
           id: displayOrder,  // displayId = displayOrder when first loaded
@@ -259,18 +441,23 @@ const loadPageData = async (page: number) => {
         }
       })
       
-      // Add one empty row at the end for easy data entry (only on last page)
-      if (!pagination.value.has_next) {
+      // Add one empty row at the end for easy data entry (only on last page, not in admin view)
+      if (!isAdminViewMode.value && !pagination.value.has_next) {
         addTrailingEmptyRow()
       }
     } else {
       // Generate empty rows with the new columns (first page with no data)
-      localRows.value = generateInitialRows()
-      // Mark all initial empty rows as new (not from database)
-      localRows.value.forEach(row => {
-        newRowDisplayIds.value.add(row.id)
-      })
-      trailingEmptyRowId.value = localRows.value[localRows.value.length - 1]?.id || null
+      // Don't generate empty rows in admin view mode
+      if (isAdminViewMode.value) {
+        localRows.value = []
+      } else {
+        localRows.value = generateInitialRows()
+        // Mark all initial empty rows as new (not from database)
+        localRows.value.forEach(row => {
+          newRowDisplayIds.value.add(row.id)
+        })
+        trailingEmptyRowId.value = localRows.value[localRows.value.length - 1]?.id || null
+      }
     }
     
     // Re-initialize filters for new columns
@@ -419,6 +606,13 @@ const createSheet = async () => {
 
 // Delete sheet
 const deleteSheet = async (sheetId: number) => {
+  // Check if sheet is submitted
+  const sheet = userSheets.value.find(s => s.id === sheetId)
+  if (sheet?.is_submitted) {
+    dataError.value = 'لا يمكن حذف جدول تم تقديمه'
+    return
+  }
+  
   if (!confirm('هل أنت متأكد من حذف هذا الجدول؟')) {
     return
   }
@@ -439,6 +633,9 @@ const deleteSheet = async (sheetId: number) => {
     saveSuccess.value = 'تم حذف الجدول بنجاح'
     setTimeout(() => { saveSuccess.value = null }, 3000)
     
+    // Reload all user sheets
+    await loadAllUserSheets()
+    
   } catch (error: any) {
     console.error('Failed to delete sheet:', error)
     dataError.value = error.response?.data?.error || 'فشل في حذف الجدول'
@@ -449,6 +646,12 @@ const deleteSheet = async (sheetId: number) => {
 const saveUserData = async () => {
   if (!selectedTitleId.value || !selectedSheetId.value) {
     dataError.value = 'الرجاء اختيار جدول أولاً'
+    return
+  }
+  
+  // Don't allow saving if editing is not allowed
+  if (!isEditingAllowed.value) {
+    dataError.value = readOnlyReason.value || 'لا يمكن حفظ التغييرات'
     return
   }
   
@@ -2219,7 +2422,7 @@ const createExcelWorkbook = async (includeData: boolean = false): Promise<ExcelJ
   workbook.created = new Date()
   
   // Use sheet name or default
-  const sheetDisplayName = selectedSheet.value?.name || selectedTitle.value?.name || 'الأنشطة'
+  const sheetDisplayName = selectedSheet.value?.name || activeTitle.value?.name || 'الأنشطة'
   const worksheet = workbook.addWorksheet(sheetDisplayName, {
     views: [{ rightToLeft: true }] // RTL for Arabic
   })
@@ -2404,7 +2607,7 @@ const downloadTemplate = async () => {
     const url = URL.createObjectURL(blob)
     
     // Use dynamic filename based on selected title/sheet
-    const titleName = selectedTitle.value?.name || 'activities'
+    const titleName = activeTitle.value?.name || 'activities'
     const sheetName = selectedSheet.value?.name || ''
     const filename = sheetName 
       ? `${titleName}_${sheetName}_template.xlsx`
@@ -2432,7 +2635,7 @@ const exportToExcel = async () => {
     
     // Generate filename with date and sheet name
     const date = new Date().toISOString().split('T')[0]
-    const titleName = selectedTitle.value?.name || 'activities'
+    const titleName = activeTitle.value?.name || 'activities'
     const sheetName = selectedSheet.value?.name || ''
     const filename = sheetName 
       ? `${titleName}_${sheetName}_export_${date}.xlsx`
@@ -2731,8 +2934,21 @@ onMounted(async () => {
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('beforeunload', handleBeforeUnload)
   
-  // Load available titles on mount
-  await loadTitles()
+  // Check for admin view mode from query params
+  const adminView = route.query.admin_view
+  const sheetId = route.query.sheet_id
+  
+  if (adminView === 'true' && sheetId) {
+    // Admin view mode - load specific sheet for viewing
+    isAdminViewMode.value = true
+    await loadAdminSheetData(Number(sheetId))
+  } else {
+    // Normal mode - load active title and all user sheets
+    await Promise.all([
+      loadActiveTitle(),
+      loadAllUserSheets()
+    ])
+  }
 })
 
 onUnmounted(() => {
@@ -2745,55 +2961,95 @@ onUnmounted(() => {
 
 <template>
   <div :class="$style.container">
+    <!-- Admin View Banner -->
+    <div v-if="isAdminViewMode" :class="$style.adminBanner">
+      <div :class="$style.adminBannerContent">
+        <i class="fas fa-eye"></i>
+        <div :class="$style.adminBannerInfo">
+          <span :class="$style.adminBannerTitle">عرض المسؤول - للقراءة فقط</span>
+          <span v-if="adminSheetData" :class="$style.adminBannerDetails">
+            {{ adminSheetData.sheet_name }} | {{ adminSheetData.template_name }} | {{ adminSheetData.owner_name }} (@{{ adminSheetData.owner_username }})
+          </span>
+        </div>
+      </div>
+      <button :class="$style.adminBannerClose" @click="exitAdminView">
+        <i class="fas fa-times"></i>
+        إغلاق
+      </button>
+    </div>
+
     <!-- Header -->
     <div :class="$style.header">
       <div :class="$style.headerContent">
-        <!-- Title Selection Dropdown -->
-        <div :class="$style.titleSelector">
-          <label :class="$style.titleLabel">اختر العنوان:</label>
-          <select 
-            v-model="selectedTitleId" 
-            :class="$style.titleDropdown"
-            :disabled="isLoadingTitles || isLoadingData"
-          >
-            <option :value="null">-- اختر عنواناً --</option>
-            <option 
-              v-for="title in availableTitles" 
-              :key="title.id" 
-              :value="title.id"
-            >
-              {{ title.name }} ({{ title.column_count }} عمود)
-            </option>
-          </select>
-          <span v-if="isLoadingTitles" :class="$style.loadingText">
-            <i class="fas fa-spinner fa-spin"></i>
-          </span>
-        </div>
+        <!-- Admin View Sheet Info -->
+        <template v-if="isAdminViewMode && adminSheetData">
+          <div :class="$style.activeTitleDisplay">
+            <span :class="$style.titleLabel">الجدول:</span>
+            <span :class="$style.activeTitleName">
+              {{ adminSheetData.sheet_name }}
+              <span :class="$style.titleColumnCount">
+                ({{ adminSheetData.pagination.total_count }} صف)
+              </span>
+            </span>
+          </div>
+          <div :class="$style.sheetInfoContainer">
+            <span :class="$style.selectedTitleInfo">
+              <i class="fas fa-folder"></i> {{ adminSheetData.template_name }}
+              &nbsp;|&nbsp;
+              <i class="fas fa-user"></i> {{ adminSheetData.owner_name }}
+            </span>
+            <span v-if="adminSheetData.is_submitted" :class="$style.submittedBadge">
+              <i class="fas fa-check-circle"></i>
+              تم التقديم
+              <span v-if="adminSheetData.submitted_at" :class="$style.submittedDate">
+                {{ new Date(adminSheetData.submitted_at).toLocaleDateString('ar-SA') }}
+              </span>
+            </span>
+          </div>
+        </template>
         
-        <!-- Sheet Selection Dropdown (shows when title is selected) -->
-        <div v-if="selectedTitleId && !isLoadingSheetsForTitle" :class="$style.sheetSelector">
-          <label :class="$style.titleLabel">اختر الجدول:</label>
-          <select 
-            v-model="selectedSheetId" 
-            :class="$style.titleDropdown"
-            :disabled="isLoadingData"
-          >
-            <option :value="null">-- اختر جدولاً --</option>
-            <option 
-              v-for="sheet in userSheets" 
-              :key="sheet.id" 
-              :value="sheet.id"
+        <!-- Normal Mode: Active Title Display (read-only) -->
+        <template v-else>
+          <div :class="$style.activeTitleDisplay">
+            <span :class="$style.titleLabel">العنوان النشط:</span>
+            <span v-if="activeTitle" :class="$style.activeTitleName">
+              {{ activeTitle.name }}
+              <span :class="$style.titleColumnCount">({{ activeTitle.column_count }} عمود)</span>
+            </span>
+            <span v-else-if="isLoadingTitles" :class="$style.loadingText">
+              <i class="fas fa-spinner fa-spin"></i>
+              جاري التحميل...
+            </span>
+            <span v-else :class="$style.noActiveTitle">
+              لا يوجد عنوان نشط
+            </span>
+          </div>
+          
+          <!-- Sheet Selection Dropdown (shows when title is selected) -->
+          <div v-if="selectedTitleId && !isLoadingSheetsForTitle" :class="$style.sheetSelector">
+            <label :class="$style.titleLabel">اختر الجدول:</label>
+            <select 
+              v-model="selectedSheetId" 
+              :class="$style.titleDropdown"
+              :disabled="isLoadingData"
             >
-              {{ sheet.name }} ({{ sheet.row_count }} صف)
-            </option>
-          </select>
-          <button 
-            :class="$style.newSheetBtn"
-            @click="openCreateSheetModal"
-            title="إنشاء جدول جديد"
-          >
-            <i class="fas fa-plus"></i>
-          </button>
+              <option :value="null">-- اختر جدولاً --</option>
+              <option 
+                v-for="sheet in userSheets" 
+                :key="sheet.id" 
+                :value="sheet.id"
+              >
+                {{ sheet.name }} ({{ sheet.row_count }} صف)
+                {{ sheet.is_submitted ? '✓ مقدم' : '' }}
+              </option>
+            </select>
+            <button 
+              :class="$style.newSheetBtn"
+              @click="openCreateSheetModal"
+              title="إنشاء جدول جديد"
+            >
+              <i class="fas fa-plus"></i>
+            </button>
         </div>
         
         <!-- Loading sheets indicator -->
@@ -2802,22 +3058,58 @@ onUnmounted(() => {
           جاري تحميل الجداول...
         </span>
         
-        <!-- Selected sheet info -->
-        <span v-if="selectedSheet" :class="$style.selectedTitleInfo">
-          {{ selectedSheet.description || selectedTitle?.description }}
-        </span>
+        <!-- Selected sheet info with submit status -->
+        <div v-if="selectedSheet" :class="$style.sheetInfoContainer">
+          <span :class="$style.selectedTitleInfo">
+            {{ selectedSheet.description || activeTitle?.description }}
+          </span>
+          <!-- Submitted badge -->
+          <span v-if="isSubmitted" :class="$style.submittedBadge">
+            <i class="fas fa-check-circle"></i>
+            تم التقديم
+            <span v-if="submittedAt" :class="$style.submittedDate">
+              ({{ formatDate(submittedAt) }})
+            </span>
+          </span>
+        </div>
+        </template>
+      </div>
+      
+      <!-- View Tabs (not shown in admin view) -->
+      <div v-if="activeTitle && !isAdminViewMode" :class="$style.viewTabs">
+        <button 
+          :class="[$style.viewTab, activeView === 'current' ? $style.viewTabActive : '']"
+          @click="activeView = 'current'"
+        >
+          <i class="fas fa-file-spreadsheet"></i>
+          <span>الجدول الحالي</span>
+        </button>
+        <button 
+          :class="[$style.viewTab, activeView === 'all' ? $style.viewTabActive : '']"
+          @click="activeView = 'all'"
+        >
+          <i class="fas fa-history"></i>
+          <span>جداولي</span>
+          <span v-if="allUserSheets.length > 0" :class="$style.sheetCount">{{ allUserSheets.length }}</span>
+        </button>
       </div>
       
       <div :class="$style.toolbar">
         <!-- Unsaved indicator -->
-        <span v-if="hasMeaningfulChanges && selectedSheetId" :class="$style.unsavedIndicator">
+        <span v-if="hasMeaningfulChanges && selectedSheetId && isEditingAllowed" :class="$style.unsavedIndicator">
           <i class="fas fa-circle"></i>
           تغييرات غير محفوظة
         </span>
         
-        <!-- Save button -->
+        <!-- Read-only warning -->
+        <span v-if="readOnlyReason" :class="$style.submittedToolbarBadge">
+          <i class="fas fa-lock"></i>
+          {{ readOnlyReason }}
+        </span>
+        
+        <!-- Save button (disabled if not allowed to edit) -->
         <button 
-          v-if="selectedSheetId"
+          v-if="selectedSheetId && isEditingAllowed"
           :class="[$style.toolbarBtn, $style.saveBtn]" 
           title="حفظ"
           @click="saveUserData"
@@ -2828,11 +3120,34 @@ onUnmounted(() => {
           <span>{{ isSavingData ? 'جاري الحفظ...' : 'حفظ' }}</span>
         </button>
         
-        <button :class="$style.toolbarBtn" title="إضافة صفوف" @click="addMoreRows" :disabled="!selectedSheetId">
+        <!-- Submit button (only if not submitted and has data and editing allowed) -->
+        <button 
+          v-if="selectedSheetId && isEditingAllowed && (selectedSheet?.row_count ?? 0) > 0"
+          :class="[$style.toolbarBtn, $style.submitBtn]" 
+          title="تقديم الجدول للمسؤول"
+          @click="submitSheet"
+          :disabled="isSubmitting || hasMeaningfulChanges"
+        >
+          <i v-if="isSubmitting" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-paper-plane"></i>
+          <span>{{ isSubmitting ? 'جاري التقديم...' : 'تقديم' }}</span>
+        </button>
+        
+        <button 
+          :class="$style.toolbarBtn" 
+          title="إضافة صفوف" 
+          @click="addMoreRows" 
+          :disabled="!selectedSheetId || !isEditingAllowed"
+        >
           <i class="fas fa-plus"></i>
           <span>إضافة صفوف</span>
         </button>
-        <button :class="$style.toolbarBtn" title="استيراد من Excel" @click="openImportModal" :disabled="!selectedSheetId">
+        <button 
+          :class="$style.toolbarBtn" 
+          title="استيراد من Excel" 
+          @click="openImportModal" 
+          :disabled="!selectedSheetId || !isEditingAllowed"
+        >
           <i class="fas fa-file-import"></i>
           <span>استيراد</span>
         </button>
@@ -2853,8 +3168,8 @@ onUnmounted(() => {
       {{ dataError }}
     </div>
 
-    <!-- Loading sheets state -->
-    <div v-if="isLoadingSheetsForTitle" :class="$style.loadingSheets">
+    <!-- Loading sheets state (not in admin view) -->
+    <div v-if="isLoadingSheetsForTitle && !isAdminViewMode" :class="$style.loadingSheets">
       <i class="fas fa-spinner"></i>
       <span>جاري تحميل الجداول...</span>
     </div>
@@ -2865,17 +3180,62 @@ onUnmounted(() => {
       جاري تحميل البيانات...
     </div>
 
-    <!-- No title selected message -->
-    <div v-if="!selectedTitleId && !isLoadingTitles" :class="$style.noTitleSelected">
+    <!-- No active title message (not in admin view) -->
+    <div v-if="!activeTitle && !isLoadingTitles && !isAdminViewMode" :class="$style.noTitleSelected">
       <i class="fas fa-table"></i>
-      <p>اختر عنواناً من القائمة لعرض الجدول</p>
-      <p v-if="availableTitles.length === 0" :class="$style.hint">
+      <p>لا يوجد عنوان نشط حالياً</p>
+      <p :class="$style.hint">
         لا توجد عناوين منشورة. اطلب من المسؤول إنشاء عنوان.
       </p>
     </div>
 
-    <!-- Sheet selection / creation when title is selected but no sheet -->
-    <div v-if="selectedTitleId && !selectedSheetId && !isLoadingSheetsForTitle && !isLoadingData" :class="$style.sheetSelectionArea">
+    <!-- All Sheets View Tab Content (not in admin view) -->
+    <div v-if="activeView === 'all' && !isAdminViewMode" :class="$style.allSheetsView">
+      <div :class="$style.allSheetsHeader">
+        <h3 :class="$style.allSheetsTitle">
+          <i class="fas fa-history"></i>
+          جميع جداولي
+        </h3>
+        <span :class="$style.allSheetsCount">{{ allUserSheets.length }} جدول</span>
+      </div>
+      
+      <div v-if="allUserSheets.length === 0" :class="$style.noSheetsMessage">
+        <div :class="$style.noSheetsIcon"><i class="fas fa-folder-open"></i></div>
+        <p :class="$style.noSheetsText">لا توجد جداول حتى الآن</p>
+        <p :class="$style.noSheetsDesc">قم بإنشاء جدول جديد للبدء</p>
+      </div>
+      
+      <div v-else :class="$style.sheetsList">
+        <div 
+          v-for="sheet in allUserSheets" 
+          :key="sheet.id"
+          :class="[$style.sheetCard, selectedSheetId === sheet.id ? $style.sheetCardActive : '']"
+          @click="openRecentSheet(sheet)"
+        >
+          <div :class="$style.sheetCardIcon">
+            <i class="fas fa-file-spreadsheet"></i>
+          </div>
+          <div :class="$style.sheetCardContent">
+            <h4 :class="$style.sheetName">{{ sheet.name }}</h4>
+            <p :class="$style.sheetTemplate">
+              <i class="fas fa-folder"></i>
+              {{ sheet.template_name || 'عنوان محذوف' }}
+              <span v-if="!sheet.template_is_active" :class="$style.inactiveLabel">(غير نشط)</span>
+            </p>
+            <div :class="$style.sheetMeta">
+              <span><i class="fas fa-rows"></i> {{ sheet.row_count }} صف</span>
+              <span><i class="fas fa-clock"></i> {{ formatDate(sheet.updated_at) }}</span>
+              <span v-if="sheet.is_submitted" :class="$style.sheetSubmittedBadge">
+                <i class="fas fa-check-circle"></i> مقدم
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current Sheet View Tab Content (not in admin view) -->
+    <div v-if="activeView === 'current' && selectedTitleId && !selectedSheetId && !isLoadingSheetsForTitle && !isLoadingData && !isAdminViewMode" :class="$style.sheetSelectionArea">
       <div :class="$style.sheetsHeader">
         <h3 :class="$style.sheetsTitle"><i class="fas fa-file-spreadsheet"></i> جداولك لهذا العنوان</h3>
         <button :class="$style.createSheetBtn" @click="openCreateSheetModal">
@@ -2910,23 +3270,30 @@ onUnmounted(() => {
             <div :class="$style.sheetMeta">
               <span><i class="fas fa-rows"></i> {{ sheet.row_count }} صف</span>
               <span><i class="fas fa-clock"></i> {{ formatDate(sheet.updated_at) }}</span>
+              <span v-if="sheet.is_submitted" :class="$style.sheetSubmittedBadge">
+                <i class="fas fa-check-circle"></i> مقدم
+              </span>
             </div>
           </div>
           <div :class="$style.sheetCardActions">
             <button 
+              v-if="!sheet.is_submitted"
               :class="$style.sheetActionBtn"
               @click.stop="deleteSheet(sheet.id)"
               title="حذف الجدول"
             >
               <i class="fas fa-trash"></i>
             </button>
+            <span v-else :class="$style.sheetLockedIcon" title="جدول مقدم - لا يمكن حذفه">
+              <i class="fas fa-lock"></i>
+            </span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Spreadsheet (shows when both title and sheet are selected) -->
-    <div v-if="selectedSheetId" :class="$style.spreadsheetWrapper">
+    <!-- Spreadsheet (shows when sheet is selected or in admin view) -->
+    <div v-if="selectedSheetId || isAdminViewMode" :class="$style.spreadsheetWrapper">
       <div 
         ref="tableRef"
         :class="$style.spreadsheet"
@@ -3459,9 +3826,9 @@ onUnmounted(() => {
 
     <!-- Status Bar -->
     <div :class="$style.statusBar">
-      <span v-if="selectedTitle">
+      <span v-if="activeTitle">
         <i class="fas fa-file-alt"></i>
-        {{ selectedTitle.name }}
+        {{ activeTitle.name }}
       </span>
       <span v-if="activeCell">
         الخلية: {{ activeCell.rowId }} - {{ columns.find(c => c.key === activeCell?.colKey)?.label?.split('\n')[0] }}
