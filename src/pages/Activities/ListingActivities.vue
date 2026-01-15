@@ -781,7 +781,16 @@ const deleteSheet = async (sheetId: number) => {
     
   } catch (error: any) {
     console.error('Failed to delete sheet:', error)
-    dataError.value = error.response?.data?.error || 'فشل في حذف الجدول'
+    const errorMessage = error.response?.data?.error || 'فشل في حذف الجدول'
+    dataError.value = errorMessage
+    
+    await Swal.fire({
+      title: 'خطأ',
+      text: errorMessage,
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
   }
 }
 
