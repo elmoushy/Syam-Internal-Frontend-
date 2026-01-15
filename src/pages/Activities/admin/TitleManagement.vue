@@ -56,6 +56,13 @@ const showColumnsModal = ref(false)
 const showImportModal = ref(false)
 const editingTitle = ref<Template | null>(null)
 
+// Create modal tab state
+const createModalTab = ref<'details' | 'columns'>('details')
+
+// Drag and drop state
+const draggedColumnIndex = ref<number | null>(null)
+const dragOverColumnIndex = ref<number | null>(null)
+
 // Import from Excel state
 const importFileInput = ref<HTMLInputElement | null>(null)
 const isImporting = ref(false)
@@ -283,9 +290,50 @@ const removeOption = (column: InlineColumn, index: number) => {
   column.options.splice(index, 1)
 }
 
+// Drag and drop handlers for columns
+const handleDragStart = (index: number) => {
+  draggedColumnIndex.value = index
+}
+
+const handleDragOver = (event: DragEvent, index: number) => {
+  event.preventDefault()
+  dragOverColumnIndex.value = index
+}
+
+const handleDragLeave = () => {
+  dragOverColumnIndex.value = null
+}
+
+const handleDrop = (index: number, target: 'form' | 'modal' = 'form') => {
+  if (draggedColumnIndex.value === null || draggedColumnIndex.value === index) {
+    draggedColumnIndex.value = null
+    dragOverColumnIndex.value = null
+    return
+  }
+  
+  const columns = target === 'form' ? titleForm.value.columns : columnsForm.value
+  const draggedItem = columns[draggedColumnIndex.value]
+  
+  // Remove from original position
+  columns.splice(draggedColumnIndex.value, 1)
+  
+  // Insert at new position
+  const newIndex = draggedColumnIndex.value < index ? index - 1 : index
+  columns.splice(newIndex, 0, draggedItem)
+  
+  draggedColumnIndex.value = null
+  dragOverColumnIndex.value = null
+}
+
+const handleDragEnd = () => {
+  draggedColumnIndex.value = null
+  dragOverColumnIndex.value = null
+}
+
 // Open create modal
 const openCreateModal = () => {
   titleForm.value = { name: '', description: '', columns: [] }
+  createModalTab.value = 'details'
   showCreateModal.value = true
 }
 
@@ -896,266 +944,200 @@ onMounted(() => {
   <div :class="$style.container">
     <!-- Header -->
     <div :class="$style.header">
-      <div :class="$style.titleSection">
-        <h1 :class="$style.title">
-          <i class="fas fa-layer-group"></i>
-          إدارة العناوين
-        </h1>
-        <p :class="$style.subtitle">
-          إنشاء وإدارة العناوين وأعمدتها للمستخدمين
-        </p>
-      </div>
+      <h1 :class="$style.pageTitle">إدارة جداول البيانات</h1>
       <div :class="$style.headerActions">
-        <button v-if="activeTab === 'titles'" :class="$style.secondaryBtn" @click="openImportModal">
-          <i class="fas fa-file-import"></i>
-          استيراد من Excel
-        </button>
         <button v-if="activeTab === 'titles'" :class="$style.addBtn" @click="openCreateModal">
           <i class="fas fa-plus"></i>
           إنشاء عنوان جديد
         </button>
+        <button v-if="activeTab === 'titles'" :class="$style.secondaryBtn" @click="openImportModal">
+          <i class="fas fa-file-import"></i>
+          استيراد
+        </button>
+       
       </div>
     </div>
 
     <!-- Tabs -->
-    <div :class="$style.tabs">
+    <div :class="$style.tabsContainer">
       <button 
         :class="[$style.tabBtn, activeTab === 'titles' && $style.activeTab]"
         @click="switchTab('titles')"
       >
-        <i class="fas fa-layer-group"></i>
-        العناوين
+        ادارة العناوين
       </button>
       <button 
         :class="[$style.tabBtn, activeTab === 'submitted' && $style.activeTab]"
         @click="switchTab('submitted')"
       >
-        <i class="fas fa-paper-plane"></i>
         الجداول المقدمة
       </button>
     </div>
 
-    <!-- Messages -->
-    <div v-if="successMessage" :class="$style.successMsg">
-      <i class="fas fa-check-circle"></i>
-      {{ successMessage }}
-    </div>
-    <div v-if="errorMessage && !showCreateModal && !showEditModal && !showColumnsModal" :class="$style.errorMsg">
-      <i class="fas fa-exclamation-circle"></i>
-      {{ errorMessage }}
-    </div>
-
-    <!-- ===== TITLES TAB ===== -->
-    <template v-if="activeTab === 'titles'">
-      <!-- Filters -->
-      <div :class="$style.filters">
-        <div :class="$style.searchBox">
-          <i class="fas fa-search"></i>
-          <input 
-            v-model="searchQuery"
-            type="text" 
-            placeholder="بحث في العناوين..."
-          />
-        </div>
-        <select v-model="statusFilter" :class="$style.statusSelect">
-          <option value="all">جميع الحالات</option>
-          <option value="draft">المسودات</option>
-          <option value="published">المنشورة</option>
-          <option value="archived">المؤرشفة</option>
-        </select>
+    <!-- Main Content Card -->
+    <div :class="$style.contentCard">
+      <!-- Messages -->
+      <div v-if="successMessage" :class="$style.successMsg">
+        <i class="fas fa-check-circle"></i>
+        {{ successMessage }}
+      </div>
+      <div v-if="errorMessage && !showCreateModal && !showEditModal && !showColumnsModal" :class="$style.errorMsg">
+        <i class="fas fa-exclamation-circle"></i>
+        {{ errorMessage }}
       </div>
 
-      <!-- Loading -->
-      <div v-if="isLoading" :class="$style.loading">
-        <i class="fas fa-spinner fa-spin"></i>
-        جاري التحميل...
-      </div>
-
-      <!-- Titles List -->
-      <div v-else :class="$style.titlesList">
-        <div v-if="filteredTitles.length === 0" :class="$style.emptyState">
-          <i class="fas fa-folder-open"></i>
-          <p>لا توجد عناوين</p>
-          <button :class="$style.addBtnEmpty" @click="openCreateModal">
-            <i class="fas fa-plus"></i>
-            إنشاء عنوان جديد
-          </button>
+      <!-- ===== TITLES TAB ===== -->
+      <template v-if="activeTab === 'titles'">
+        <!-- Table Header with Search and Filters -->
+        <div :class="$style.tableHeader">
+           <div :class="$style.searchSection">
+            <div :class="$style.searchBox">
+              <input 
+                v-model="searchQuery"
+                type="text" 
+                placeholder="ابحث في العناوين..."
+                :class="$style.searchInput"
+              />
+              <i class="fas fa-search" :class="$style.searchIcon"></i>
+            </div>
+          </div>
+          <div :class="$style.filterSection">
+                   <div :class="$style.viewToggle">
+              <button :class="$style.viewBtn">
+                <i class="fas fa-list"></i>
+              </button>
+              <button :class="[$style.viewBtn, $style.viewBtnActive]">
+                <i class="fas fa-th-large"></i>
+              </button>
+            </div>
+            <select v-model="statusFilter" :class="$style.filterSelect">
+              <option value="all">جميع الحالات</option>
+              <option value="draft">المسودات</option>
+              <option value="published">المنشورة</option>
+              <option value="archived">المؤرشفة</option>
+            </select>
+     
+          </div>
+         
         </div>
-        
-        <div
-          v-for="title in filteredTitles"
-          :key="title.id"
-          :class="[$style.titleCard, $style[getStatusClass(title.status)], (title as any).is_active_title && $style.activeTitle]"
-        >
-          <div :class="$style.titleInfo">
-            <div :class="$style.titleHeader">
-              <h3 :class="$style.titleName">{{ title.name }}</h3>
-              <span :class="[$style.statusBadge, $style[getStatusClass(title.status)]]">
-                {{ getStatusLabel(title.status) }}
-              </span>
-              <span v-if="(title as any).is_active_title" :class="$style.activeBadge">
-                <i class="fas fa-star"></i>
-                نشط
-              </span>
-            </div>
-            <p v-if="title.description" :class="$style.titleDesc">{{ title.description }}</p>
-            <div :class="$style.titleMeta">
-              <span :class="$style.metaItem">
-                <i class="fas fa-columns"></i>
-                {{ title.column_count }} عمود
-              </span>
-              <span v-if="title.sheet_count" :class="$style.metaItem">
-                <i class="fas fa-users"></i>
-                {{ title.sheet_count }} مستخدم
-              </span>
-            </div>
+
+        <!-- Loading -->
+        <div v-if="isLoading" :class="$style.loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          جاري التحميل...
+        </div>
+
+        <!-- Titles Table -->
+        <div v-else :class="$style.tableContainer">
+          <div v-if="filteredTitles.length === 0" :class="$style.emptyState">
+            <i class="fas fa-folder-open"></i>
+            <p>لا توجد عناوين</p>
+            <button :class="$style.addBtnEmpty" @click="openCreateModal">
+              <i class="fas fa-plus"></i>
+              إنشاء عنوان جديد
+            </button>
           </div>
           
-          <div :class="$style.titleActions">
-            <!-- Set Active button (published only) -->
-            <button 
-              v-if="title.status === 'published' && !(title as any).is_active_title"
-              :class="[$style.actionBtn, $style.activeBtn]"
-              @click="setActiveTitle(title)"
-              title="تعيين كنشط"
-            >
-              <i class="fas fa-star"></i>
-            </button>
-            
-            <!-- Deactivate button (active only) -->
-            <button 
-              v-if="(title as any).is_active_title"
-              :class="[$style.actionBtn, $style.deactivateBtn]"
-              @click="deactivateTitle(title)"
-              title="إلغاء التنشيط"
-            >
-              <i class="far fa-star"></i>
-            </button>
-            
-            <!-- Edit button (draft only) -->
-            <button 
-              v-if="title.status === 'draft'"
-              :class="$style.actionBtn"
-              @click="openEditModal(title)"
-              title="تعديل"
-            >
-              <i class="fas fa-edit"></i>
-            </button>
-            
-            <!-- Columns button (draft only) -->
-            <button 
-              v-if="title.status === 'draft'"
-              :class="$style.actionBtn"
-              @click="openColumnsModal(title)"
-              title="إدارة الأعمدة"
-            >
-              <i class="fas fa-th-list"></i>
-            </button>
-            
-            <!-- Publish button (draft only) -->
-            <button 
-              v-if="title.status === 'draft'"
-              :class="[$style.actionBtn, $style.publishBtn]"
-              @click="publishTitle(title)"
-              title="نشر"
-            >
-              <i class="fas fa-globe"></i>
-            </button>
-            
-            <!-- Archive button (published only) -->
-            <button 
-              v-if="title.status === 'published'"
-              :class="[$style.actionBtn, $style.archiveBtn]"
-              @click="archiveTitle(title)"
-              title="أرشفة"
-            >
-              <i class="fas fa-archive"></i>
-            </button>
-            
-            <!-- Delete button -->
-            <button 
-              :class="[$style.actionBtn, $style.deleteBtn]"
-              @click="deleteTitle(title)"
-              title="حذف"
-            >
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <!-- ===== SUBMITTED SHEETS TAB ===== -->
-    <template v-if="activeTab === 'submitted'">
-      <!-- Filters for Submitted -->
-      <div :class="$style.filters">
-        <div :class="$style.searchBox">
-          <i class="fas fa-search"></i>
-          <input 
-            v-model="submittedSearch"
-            type="text" 
-            placeholder="بحث بالاسم أو المستخدم..."
-            @keyup.enter="loadSubmittedSheets(1)"
-          />
-        </div>
-        <select v-model="submittedTitleFilter" :class="$style.statusSelect" @change="loadSubmittedSheets(1)">
-          <option :value="null">جميع العناوين</option>
-          <option v-for="t in publishedTitles" :key="t.id" :value="t.id">{{ t.name }}</option>
-        </select>
-        <button :class="$style.searchBtn" @click="loadSubmittedSheets(1)">
-          <i class="fas fa-search"></i>
-          بحث
-        </button>
-      </div>
-
-      <!-- Loading -->
-      <div v-if="submittedLoading" :class="$style.loading">
-        <i class="fas fa-spinner fa-spin"></i>
-        جاري التحميل...
-      </div>
-
-      <!-- Submitted Sheets List -->
-      <div v-else :class="$style.submittedList">
-        <div v-if="submittedSheets.length === 0" :class="$style.emptyState">
-          <i class="fas fa-inbox"></i>
-          <p>لا توجد جداول مقدمة</p>
-        </div>
-        
-        <div :class="$style.submittedTable" v-else>
-          <table>
-            <thead>
+          <table v-else :class="$style.table">
+            <thead :class="$style.tableHead">
               <tr>
-                <th>اسم الجدول</th>
-                <th>العنوان</th>
-                <th>المستخدم</th>
-                <th>عدد الصفوف</th>
-                <th>تاريخ التقديم</th>
+                <th>اسم</th>
+                <th>الوصف</th>
+                <th>عدد الاعمدة</th>
+                <th>عدد المستخدمين</th>
+                <th>الحالة</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody :class="$style.tableBody">
               <tr 
-                v-for="sheet in submittedSheets" 
-                :key="sheet.id"
-                :class="$style.clickableRow"
-                @click="viewSubmittedSheet(sheet)"
+                v-for="title in filteredTitles"
+                :key="title.id"
+                :class="$style.tableRow"
               >
                 <td>
-                  <div :class="$style.sheetName">
-                    <i class="fas fa-file-excel"></i>
-                    {{ sheet.name }}
-                  </div>
-                  <div v-if="sheet.description" :class="$style.sheetDesc">{{ sheet.description }}</div>
+                  <span :class="$style.sheetNameCell">{{ title.name }}</span>
                 </td>
-                <td>{{ sheet.template_name }}</td>
                 <td>
-                  <div :class="$style.userName">{{ sheet.owner_name }}</div>
-                  <div :class="$style.userUsername">@{{ sheet.owner_username }}</div>
+                  <span :class="$style.sheetNameCell">{{ title.description || 'نص تجريبي' }}</span>
                 </td>
-                <td>{{ sheet.row_count }}</td>
+                <td>{{ title.column_count }}</td>
+                <td>{{ title.sheet_count || 0 }}</td>
                 <td>
-                  <div :class="$style.viewSheetAction">
-                    {{ formatDate(sheet.submitted_at) }}
-                    <i class="fas fa-external-link-alt" :class="$style.viewIcon"></i>
+                  <span :class="[$style.statusBadge, $style[getStatusClass(title.status)]]">
+                    {{ getStatusLabel(title.status) }}
+                  </span>
+                </td>
+                <td>
+                  <div :class="$style.actionButtons">
+                    <!-- Set Active button (published only) -->
+                    <button 
+                      v-if="title.status === 'published' && !(title as any).is_active_title"
+                      :class="[$style.actionBtn, $style.activeBtn]"
+                      @click.stop="setActiveTitle(title)"
+                      title="تعيين كنشط"
+                    >
+                      <i class="fas fa-star"></i>
+                    </button>
+                    
+                    <!-- Active indicator -->
+                    <button 
+                      v-if="(title as any).is_active_title"
+                      :class="[$style.actionBtn, $style.activeBadgeBtn]"
+                      @click.stop="deactivateTitle(title)"
+                      title="نشط - اضغط لإلغاء التنشيط"
+                    >
+                      <i class="fas fa-star"></i>
+                    </button>
+                    
+                    <!-- Edit button (draft only) -->
+                    <button 
+                      v-if="title.status === 'draft'"
+                      :class="$style.actionBtn"
+                      @click.stop="openEditModal(title)"
+                      title="تعديل"
+                    >
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    
+                    <!-- Columns button (draft only) -->
+                    <button 
+                      v-if="title.status === 'draft'"
+                      :class="$style.actionBtn"
+                      @click.stop="openColumnsModal(title)"
+                      title="إدارة الأعمدة"
+                    >
+                      <i class="fas fa-th-list"></i>
+                    </button>
+                    
+                    <!-- Publish button (draft only) - eye icon -->
+                    <button 
+                      v-if="title.status === 'draft'"
+                      :class="$style.actionBtn"
+                      @click.stop="publishTitle(title)"
+                      title="نشر"
+                    >
+                      <i class="fas fa-eye"></i>
+                    </button>
+                    
+                    <!-- Archive/View button (published) -->
+                    <button 
+                      v-if="title.status === 'published'"
+                      :class="$style.actionBtn"
+                      @click.stop="archiveTitle(title)"
+                      title="أرشفة"
+                    >
+                      <i class="fas fa-eye"></i>
+                    </button>
+                    
+                    <!-- Delete button -->
+                    <button 
+                      :class="$style.actionBtn"
+                      @click.stop="deleteTitle(title)"
+                      title="حذف"
+                    >
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -1164,26 +1146,139 @@ onMounted(() => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="submittedPagination.total_pages > 1" :class="$style.pagination">
-          <button 
-            :disabled="!submittedPagination.has_prev"
-            @click="loadSubmittedSheets(submittedPagination.page - 1)"
-          >
-            <i class="fas fa-chevron-right"></i>
-          </button>
-          <span :class="$style.pageInfo">
-            صفحة {{ submittedPagination.page }} من {{ submittedPagination.total_pages }}
-            ({{ submittedPagination.total_count }} جدول)
-          </span>
-          <button 
-            :disabled="!submittedPagination.has_next"
-            @click="loadSubmittedSheets(submittedPagination.page + 1)"
-          >
-            <i class="fas fa-chevron-left"></i>
-          </button>
+        <div v-if="filteredTitles.length > 0" :class="$style.paginationContainer">
+          <div :class="$style.paginationLeft">
+            <button :class="$style.paginationBtn">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+            <button :class="[$style.paginationBtn, $style.paginationBtnActive]">1</button>
+            <button :class="$style.paginationBtn">2</button>
+            <span :class="$style.paginationDots">...</span>
+            <button :class="$style.paginationBtn">10</button>
+            <button :class="$style.paginationBtn">11</button>
+            <button :class="$style.paginationBtn">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+          </div>
+          <div :class="$style.paginationRight">
+            <span>من {{ titles.length }}</span>
+            <select :class="$style.pageSizeSelect">
+              <option value="6">6</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+            </select>
+            <span>عرض</span>
+          </div>
         </div>
-      </div>
-    </template>
+      </template>
+
+      <!-- ===== SUBMITTED SHEETS TAB ===== -->
+      <template v-if="activeTab === 'submitted'">
+        <!-- Table Header with Search and Filters -->
+        <div :class="$style.tableHeader">
+          <div :class="$style.filterSection">
+            <select v-model="submittedTitleFilter" :class="$style.filterSelect" @change="loadSubmittedSheets(1)">
+              <option :value="null">جميع العناوين</option>
+              <option v-for="t in publishedTitles" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+          </div>
+          <div :class="$style.searchSection">
+            <div :class="$style.searchBox">
+              <input 
+                v-model="submittedSearch"
+                type="text" 
+                placeholder="ابحث..."
+                :class="$style.searchInput"
+                @keyup.enter="loadSubmittedSheets(1)"
+              />
+              <i class="fas fa-search" :class="$style.searchIcon"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="submittedLoading" :class="$style.loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          جاري التحميل...
+        </div>
+
+        <!-- Submitted Sheets Table -->
+        <div v-else :class="$style.tableContainer">
+          <div v-if="submittedSheets.length === 0" :class="$style.emptyState">
+            <i class="fas fa-inbox"></i>
+            <p>لا توجد جداول مقدمة</p>
+          </div>
+          
+          <table v-else :class="$style.table">
+            <thead :class="$style.tableHead">
+              <tr>
+                <th>اسم الجدول</th>
+                <th>العنوان</th>
+                <th>المستخدم</th>
+                <th>تاريخ التقديم</th>
+              </tr>
+            </thead>
+            <tbody :class="$style.tableBody">
+              <tr 
+                v-for="sheet in submittedSheets" 
+                :key="sheet.id"
+                :class="$style.tableRow"
+                @click="viewSubmittedSheet(sheet)"
+              >
+                <td>
+                  <div :class="$style.sheetNameCell">
+                    <span :class="$style.excelIcon">
+                      <i class="fas fa-file-excel"></i>
+                    </span>
+                    <span :class="$style.sheetNameText">{{ sheet.name }}</span>
+                  </div>
+                </td>
+                <td>{{ sheet.template_name }}</td>
+                <td>{{ sheet.owner_name }}</td>
+                <td>{{ formatDate(sheet.submitted_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="submittedPagination.total_pages > 1" :class="$style.paginationContainer">
+          <div :class="$style.paginationLeft">
+            <button 
+              :class="$style.paginationBtn"
+              :disabled="!submittedPagination.has_prev"
+              @click="loadSubmittedSheets(submittedPagination.page - 1)"
+            >
+              <i class="fas fa-chevron-right"></i>
+            </button>
+            <button 
+              v-for="page in submittedPagination.total_pages" 
+              :key="page" 
+              :class="[$style.paginationBtn, page === submittedPagination.page && $style.paginationBtnActive]"
+              @click="loadSubmittedSheets(page)"
+            >
+              {{ page }}
+            </button>
+            <button 
+              :class="$style.paginationBtn"
+              :disabled="!submittedPagination.has_next"
+              @click="loadSubmittedSheets(submittedPagination.page + 1)"
+            >
+              <i class="fas fa-chevron-left"></i>
+            </button>
+          </div>
+          <div :class="$style.paginationRight">
+            <span>من {{ submittedPagination.total_count }}</span>
+            <select :class="$style.pageSizeSelect">
+              <option value="6">6</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+            </select>
+            <span>عرض</span>
+          </div>
+        </div>
+      </template>
+    </div>
 
     <!-- Import from Excel Modal -->
     <Teleport to="body">
@@ -1292,127 +1387,187 @@ onMounted(() => {
     <!-- Create Modal -->
     <Teleport to="body">
       <div v-if="showCreateModal" :class="$style.modalOverlay" @click.self="closeModal">
-        <div :class="[$style.modal, $style.wideModal]">
-          <div :class="$style.modalHeader">
+        <div :class="[$style.modal, $style.createModal]">
+          <div :class="$style.createModalHeader">
             <h2>إنشاء عنوان جديد</h2>
-            <button :class="$style.closeBtn" @click="closeModal">
-              <i class="fas fa-times"></i>
+            <button :class="$style.createCloseBtn" @click="closeModal">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
             </button>
           </div>
-          <div :class="$style.modalBody">
+
+          <!-- Modal Tabs -->
+          <div :class="$style.createModalTabs">
+            <button 
+              :class="[$style.createModalTab, createModalTab === 'details' && $style.activeModalTab]"
+           @click="createModalTab = 'details'"
+            >
+                        تفاصيل العنوان  
+
+            </button>
+            <button 
+              :class="[$style.createModalTab, createModalTab === 'columns' && $style.activeModalTab]"
+                            @click="createModalTab = 'columns'"
+
+            >
+                          الأعمدة
+
+            </button>
+          </div>
+
+          <div :class="$style.createModalBody">
             <div v-if="errorMessage" :class="$style.errorMsg">
               <i class="fas fa-exclamation-circle"></i>
               {{ errorMessage }}
             </div>
             
-            <div :class="$style.formGroup">
-              <label>اسم العنوان *</label>
-              <input 
-                v-model="titleForm.name" 
-                type="text" 
-                placeholder="أدخل اسم العنوان"
-                :disabled="isSaving"
-              />
-            </div>
-            
-            <div :class="$style.formGroup">
-              <label>الوصف</label>
-              <textarea 
-                v-model="titleForm.description" 
-                placeholder="وصف اختياري للعنوان"
-                :disabled="isSaving"
-                rows="2"
-              ></textarea>
-            </div>
-            
-            <!-- Columns Section -->
-            <div :class="$style.columnsSection">
-              <div :class="$style.columnsSectionHeader">
-                <h3><i class="fas fa-columns"></i> الأعمدة</h3>
-                <button 
-                  type="button" 
-                  :class="$style.addColumnBtn" 
-                  @click="addColumn('form')"
+            <!-- Details Tab -->
+            <div v-if="createModalTab === 'details'" :class="$style.detailsTab">
+              <div :class="$style.createFormGroup">
+                <label>اسم العنوان</label>
+                <input 
+                  v-model="titleForm.name" 
+                  type="text" 
+                  placeholder="ادخل اسم العنوان"
                   :disabled="isSaving"
-                >
-                  <i class="fas fa-plus"></i>
-                  إضافة عمود
-                </button>
+                  :class="$style.createInput"
+                />
               </div>
               
-              <div v-if="titleForm.columns.length === 0" :class="$style.noColumnsMsg">
-                <i class="fas fa-info-circle"></i>
-                لم يتم إضافة أعمدة بعد. يمكنك إضافة الأعمدة الآن أو لاحقاً.
+              <div :class="$style.createFormGroup">
+                <label>الوصف</label>
+                <textarea 
+                  v-model="titleForm.description" 
+                  placeholder="وصف اختياري للعنوان"
+                  :disabled="isSaving"
+                  rows="4"
+                  :class="$style.createTextarea"
+                ></textarea>
+              </div>
+            </div>
+            
+            <!-- Columns Tab -->
+            <div v-if="createModalTab === 'columns'" :class="$style.columnsTab">
+              <button 
+                type="button" 
+                :class="$style.addColumnBtnNew" 
+                @click="addColumn('form')"
+                :disabled="isSaving"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 1V13M1 7H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                اضافة عمود
+              </button>
+              
+              <div v-if="titleForm.columns.length === 0" :class="$style.noColumnsNew">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/>
+                  <path d="M10 6V10.5M10 14V13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                لم يتم اضافة اعمدة بعد. يمكنك إضافة الأعمدة الآن أو لاحقاً.
               </div>
               
-              <div v-else :class="$style.columnFormList">
+              <div v-else :class="$style.columnCards">
                 <div 
                   v-for="(column, index) in titleForm.columns" 
                   :key="index" 
-                  :class="$style.columnFormItem"
+                  :class="[$style.columnCard, dragOverColumnIndex === index && $style.columnCardDragOver]"
+                  draggable="true"
+                  @dragstart="handleDragStart(index)"
+                  @dragover="handleDragOver($event, index)"
+                  @dragleave="handleDragLeave"
+                  @drop="handleDrop(index, 'form')"
+                  @dragend="handleDragEnd"
                 >
-                  <div :class="$style.columnFormHeader">
-                    <span :class="$style.columnNumber">{{ index + 1 }}</span>
-                    <div :class="$style.columnOrderBtns">
-                      <button 
-                        type="button"
-                        @click="moveColumnUp(index, 'form')" 
-                        :disabled="index === 0 || isSaving"
-                        title="تحريك لأعلى"
-                      >
-                        <i class="fas fa-chevron-up"></i>
-                      </button>
-                      <button 
-                        type="button"
-                        @click="moveColumnDown(index, 'form')" 
-                        :disabled="index === titleForm.columns.length - 1 || isSaving"
-                        title="تحريك لأسفل"
-                      >
-                        <i class="fas fa-chevron-down"></i>
-                      </button>
+                  <div :class="$style.columnCardHeader">
+                         <div :class="$style.columnCardRight">
+                      <div :class="$style.columnDragHandle">
+                        <svg width="10" height="16" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="2" cy="2" r="1.5" fill="#9CA3AF"/>
+                          <circle cx="8" cy="2" r="1.5" fill="#9CA3AF"/>
+                          <circle cx="2" cy="8" r="1.5" fill="#9CA3AF"/>
+                          <circle cx="8" cy="8" r="1.5" fill="#9CA3AF"/>
+                          <circle cx="2" cy="14" r="1.5" fill="#9CA3AF"/>
+                          <circle cx="8" cy="14" r="1.5" fill="#9CA3AF"/>
+                        </svg>
+                      </div>
+                          <span :class="$style.columnNumberBadge">{{ index + 1 }}</span>
+                    
                     </div>
-                    <button 
-                      type="button"
-                      :class="$style.removeColumnBtn" 
-                      @click="removeColumn(index, 'form')"
-                      :disabled="isSaving"
-                      title="حذف العمود"
-                    >
-                      <i class="fas fa-times"></i>
-                    </button>
+                    <div :class="$style.columnCardLeft">
+                       <div :class="$style.columnOrderBtnsNew">
+                        <button 
+                          type="button"
+                          @click="moveColumnUp(index, 'form')" 
+                          :disabled="index === 0 || isSaving"
+                          title="تحريك لأعلى"
+                        >
+                          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M1 5L5 1L9 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                        <button 
+                          type="button"
+                          @click="moveColumnDown(index, 'form')" 
+                          :disabled="index === titleForm.columns.length - 1 || isSaving"
+                          title="تحريك لأسفل"
+                        >
+                          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <button 
+                        type="button"
+                        :class="$style.columnDeleteBtn" 
+                        @click="removeColumn(index, 'form')"
+                        :disabled="isSaving"
+                        title="حذف العمود"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="8" cy="8" r="7" fill="#DC2626"/>
+                          <path d="M5 5L11 11M5 11L11 5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                      </button>
+                     
+                    </div>
+               
                   </div>
                   
-                  <div :class="$style.columnFormBody">
-                    <div :class="$style.columnFormRow">
-                      <div :class="$style.columnFormField">
-                        <label>اسم العمود *</label>
-                        <input 
-                          v-model="column.label" 
-                          type="text" 
-                          placeholder="مثال: اسم الموظف"
-                          :disabled="isSaving"
-                        />
-                      </div>
-                      <div :class="$style.columnFormField">
-                        <label>نوع البيانات</label>
-                        <select v-model="column.data_type" :disabled="isSaving">
-                          <option value="text">{{ dataTypeLabels.text }}</option>
-                          <option value="number">{{ dataTypeLabels.number }}</option>
-                          <option value="date">{{ dataTypeLabels.date }}</option>
-                          <option value="boolean">{{ dataTypeLabels.boolean }}</option>
-                          <option value="select">{{ dataTypeLabels.select }}</option>
-                        </select>
-                      </div>
+                  <div :class="$style.columnCardBody">
+                    <div :class="$style.columnFieldLabel">اسم العمود</div>
+                    <div :class="$style.columnFieldsRow">
+                     <input 
+                        v-model="column.label" 
+                        type="text" 
+                        placeholder="ادخل اسم العمود"
+                        :disabled="isSaving"
+                        :class="$style.columnNameInput"
+                      />
+                      <select 
+                        v-model="column.data_type" 
+                        :disabled="isSaving"
+                        :class="$style.columnTypeSelect"
+                      >
+                        <option value="text">{{ dataTypeLabels.text }}</option>
+                        <option value="number">{{ dataTypeLabels.number }}</option>
+                        <option value="date">{{ dataTypeLabels.date }}</option>
+                        <option value="boolean">{{ dataTypeLabels.boolean }}</option>
+                        <option value="select">{{ dataTypeLabels.select }}</option>
+                      </select>
+                     
                     </div>
                     
                     <!-- Options for select type -->
-                    <div v-if="column.data_type === 'select'" :class="$style.optionsSection">
+                    <div v-if="column.data_type === 'select'" :class="$style.optionsSectionNew">
                       <label>الخيارات *</label>
-                      <div :class="$style.optionsList">
+                      <div :class="$style.optionsListNew">
                         <span 
                           v-for="(opt, optIndex) in column.options" 
                           :key="optIndex" 
-                          :class="$style.optionTag"
+                          :class="$style.optionTagNew"
                         >
                           {{ opt }}
                           <button 
@@ -1420,11 +1575,13 @@ onMounted(() => {
                             @click="removeOption(column, optIndex)"
                             :disabled="isSaving"
                           >
-                            <i class="fas fa-times"></i>
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M1 1L9 9M1 9L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
                           </button>
                         </span>
                       </div>
-                      <div :class="$style.addOptionRow">
+                      <div :class="$style.addOptionRowNew">
                         <input 
                           v-model="column.optionsInput" 
                           type="text" 
@@ -1437,7 +1594,9 @@ onMounted(() => {
                           @click="addOption(column)"
                           :disabled="isSaving || !column.optionsInput?.trim()"
                         >
-                          <i class="fas fa-plus"></i>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 1V11M1 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -1446,13 +1605,14 @@ onMounted(() => {
               </div>
             </div>
           </div>
-          <div :class="$style.modalFooter">
-            <button :class="$style.cancelBtn" @click="closeModal" :disabled="isSaving">
-              إلغاء
+
+          <div :class="$style.createModalFooter">
+            <button :class="$style.createCancelBtn" @click="closeModal" :disabled="isSaving">
+              الغاء
             </button>
-            <button :class="$style.saveBtn" @click="createTitle" :disabled="isSaving">
-              <i v-if="isSaving" class="fas fa-spinner fa-spin"></i>
-              <span>{{ isSaving ? 'جاري الحفظ...' : 'إنشاء' }}</span>
+            <button :class="$style.createSubmitBtn" @click="createTitle" :disabled="isSaving">
+              <span v-if="isSaving"><i class="fas fa-spinner fa-spin"></i> جاري الحفظ...</span>
+              <span v-else>انشاء</span>
             </button>
           </div>
         </div>
@@ -1669,34 +1829,15 @@ onMounted(() => {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.titleSection {
-  flex: 1;
-}
-
-.title {
-  margin: 0 0 8px 0;
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-primary, #1e293b);
-  display: flex;
   align-items: center;
-  gap: 12px;
+  margin-bottom: 24px;
 }
 
-.title i {
-  color: var(--primary-color, #4361ee);
-}
-
-.subtitle {
+.pageTitle {
   margin: 0;
-  color: var(--text-secondary, #64748b);
-  font-size: 0.95rem;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
 .headerActions {
@@ -1710,72 +1851,393 @@ onMounted(() => {
   gap: 8px;
   padding: 12px 20px;
   background: white;
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 10px;
-  color: var(--text-primary, #1e293b);
-  font-size: 0.95rem;
+  border: 1.5px solid #A17D23;
+  border-radius: 8px;
+  color: #A17D23;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  text-decoration: none;
   transition: all 0.2s;
 }
 
 .secondaryBtn:hover {
-  border-color: var(--primary-color, #4361ee);
-  color: var(--primary-color, #4361ee);
+  background: #fef9ec;
 }
 
 .addBtn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px;
-  background: var(--primary-color, #4361ee);
+  padding: 12px 24px;
+  background: #A17D23;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   color: white;
-  font-size: 0.95rem;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .addBtn:hover {
-  background: var(--primary-dark, #3651d4);
+  background: #8a6b1e;
 }
 
-/* Tabs */
-.tabs {
+/* Tabs Container */
+.tabsContainer {
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
-  border-bottom: 2px solid var(--border-color, #e2e8f0);
-  padding-bottom: 0;
 }
 
 .tabBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   padding: 12px 24px;
-  background: transparent;
+  background:white;
   border: none;
-  border-bottom: 3px solid transparent;
-  color: var(--text-secondary, #64748b);
-  font-size: 1rem;
+  border-radius: 8px;
+  color: #525866;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  margin-bottom: -2px;
 }
 
 .tabBtn:hover {
-  color: var(--primary-color, #4361ee);
+  background: #f5f5f5;
 }
 
 .tabBtn.activeTab {
-  color: var(--primary-color, #4361ee);
-  border-bottom-color: var(--primary-color, #4361ee);
+  background: #A17D23;
+  color: white;
+}
+
+/* Content Card */
+.contentCard {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Table Header */
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.filterSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filterSelect {
+  padding: 10px 16px;
+  padding-left: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: white;
+  color: #525866;
+  font-size: 14px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%2364748B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 12px center;
+  background-size: 14px;
+}
+
+.viewToggle {
+  display: flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  padding: 8px 12px;
+  background: white;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.viewBtn:hover {
+  background: #f8fafc;
+  color: #525866;
+}
+
+.viewBtnActive {
+  background: #f8fafc;
+  color: #A17D23;
+}
+
+.searchSection {
+  flex: 1;
+  max-width: 400px;
+}
+
+.searchBox {
+  position: relative;
+  width: 100%;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 16px;
+  padding-left: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: white;
+  font-size: 14px;
+  color: #1a1a1a;
+  transition: all 0.2s;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #A17D23;
+  box-shadow: 0 0 0 3px rgba(161, 125, 35, 0.1);
+}
+
+.searchInput::placeholder {
+  color: #94a3b8;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* Table Container */
+.tableContainer {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tableHead {
+  background: #f8fafc;
+}
+
+.tableHead th {
+  padding: 14px 16px;
+  text-align: right;
+  font-weight: 600;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tableBody {
+  background: white;
+}
+
+.tableRow {
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.tableRow:hover {
+  background: #fafafa;
+}
+
+.tableRow td {
+  padding: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: #1a1a1a;
+}
+
+.tableRow:last-child td {
+  border-bottom: none;
+}
+
+.titleName {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.titleDesc {
+  color: #64748b;
+}
+
+/* Status Badge */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.statusBadge.draft {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.statusBadge.published {
+  background: #22c55e;
+  color: white;
+}
+
+.statusBadge.archived {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Action Buttons */
+.actionButtons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.actionBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.actionBtn:hover {
+  background: #f1f5f9;
+  color: #1a1a1a;
+}
+
+.activeBtn:hover,
+.activeBadgeBtn {
+  color: #A17D23;
+}
+
+.activeBadgeBtn {
+  color: #A17D23;
+  background: #fef9ec;
+}
+
+/* Pagination */
+.paginationContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0 0;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 16px;
+}
+
+.paginationLeft {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.paginationBtn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #525866;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.paginationBtn:hover:not(:disabled) {
+  border-color: #A17D23;
+  color: #A17D23;
+}
+
+.paginationBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paginationBtnActive {
+  background: #A17D23;
+  border-color: #A17D23;
+  color: white;
+}
+
+.paginationBtnActive:hover {
+  background: #8a6b1e;
+}
+
+.paginationDots {
+  padding: 0 8px;
+  color: #94a3b8;
+}
+
+.paginationRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.pageSizeSelect {
+  padding: 8px 12px;
+  padding-left: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #525866;
+  font-size: 14px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%2364748B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 8px center;
+  background-size: 12px;
+}
+
+/* Submitted Sheets Tab Styles */
+.sheetNameCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.excelIcon {
+  width: 32px;
+  height: 32px;
+  background: #22c55e;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+}
+
+.sheetNameText {
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 /* Active Title Badge */
@@ -2548,6 +3010,513 @@ onMounted(() => {
   max-width: 800px;
 }
 
+/* ==================== CREATE MODAL NEW DESIGN ==================== */
+.createModal {
+  max-width: 700px;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.createModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px;
+  border-bottom: none;
+}
+
+.createModalHeader h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.createCloseBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.createCloseBtn:hover {
+  background: #f1f5f9;
+  color: #1a1a1a;
+}
+
+.createModalTabs {
+  display: flex;
+  padding: 0;
+  gap: 0;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  border-radius: 12px;
+  margin: 0 28px 24px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.createModalTab {
+  flex: 1;
+  padding: 14px 24px;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 0;
+  text-align: center;
+}
+
+.createModalTab:first-child {
+  border-radius: 0 12px 12px 0;
+}
+
+.createModalTab:last-child {
+  border-radius: 12px 0 0 12px;
+}
+
+.createModalTab:hover {
+  color: #1a1a1a;
+}
+
+.activeModalTab {
+  background: #A17D23;
+  color: white !important;
+}
+
+.createModalBody {
+  padding: 0 28px 24px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* Details Tab */
+.detailsTab {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.createFormGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.createFormGroup label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: right;
+}
+
+.createInput,
+.createTextarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: 'Cairo', sans-serif;
+  color: #1a1a1a;
+  background: white;
+  transition: all 0.2s;
+  text-align: right;
+}
+
+.createInput::placeholder,
+.createTextarea::placeholder {
+  color: #94a3b8;
+}
+
+.createInput:focus,
+.createTextarea:focus {
+  outline: none;
+  border-color: #A17D23;
+  box-shadow: 0 0 0 3px rgba(161, 125, 35, 0.1);
+}
+
+.createTextarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* Columns Tab */
+.columnsTab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.addColumnBtnNew {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #A17D23;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Cairo', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: fit-content;
+}
+
+.addColumnBtnNew:hover:not(:disabled) {
+  background: #8a6a1e;
+}
+
+.addColumnBtnNew:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.noColumnsNew {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  background: #f8fafc;
+  border-radius: 12px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.columnCards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.columnCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: grab;
+}
+
+.columnCard:active {
+  cursor: grabbing;
+}
+
+.columnCardDragOver {
+  border-color: #A17D23;
+  background: #fef9ec;
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(161, 125, 35, 0.2);
+}
+
+.columnCardHeader {
+  display: flex;
+  
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+}
+
+.columnCardLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.columnDeleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.columnDeleteBtn:hover {
+  transform: scale(1.1);
+}
+
+.columnOrderBtnsNew {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.columnOrderBtnsNew button {
+  width: 24px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.columnOrderBtnsNew button:hover:not(:disabled) {
+  color: #1a1a1a;
+}
+
+.columnOrderBtnsNew button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.columnCardRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.columnNumberBadge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #A17D23;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.columnDragHandle {
+  color: #9CA3AF;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.columnDragHandle:active {
+  cursor: grabbing;
+}
+
+.columnCardBody {
+  padding: 0 20px 20px;
+}
+
+.columnFieldLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+  text-align: right;
+}
+
+.columnFieldsRow {
+  display: flex;
+  gap: 12px;
+}
+
+.columnTypeSelect {
+  width: 160px;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: 'Cairo', sans-serif;
+  color: #64748b;
+  background: white;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2394A3B8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 16px center;
+  padding-left: 40px;
+}
+
+.columnTypeSelect:focus {
+  outline: none;
+  border-color: #A17D23;
+}
+
+.columnNameInput {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: 'Cairo', sans-serif;
+  color: #1a1a1a;
+  background: white;
+  text-align: right;
+}
+
+.columnNameInput::placeholder {
+  color: #94a3b8;
+}
+
+.columnNameInput:focus {
+  outline: none;
+  border-color: #A17D23;
+}
+
+/* Options Section New */
+.optionsSectionNew {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.optionsSectionNew label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  display: block;
+  margin-bottom: 8px;
+  text-align: right;
+}
+
+.optionsListNew {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.optionTagNew {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fef9ec;
+  border: 1px solid #A17D23;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #A17D23;
+}
+
+.optionTagNew button {
+  background: none;
+  border: none;
+  color: #A17D23;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.optionTagNew button:hover {
+  color: #8a6a1e;
+}
+
+.addOptionRowNew {
+  display: flex;
+  gap: 8px;
+}
+
+.addOptionRowNew input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'Cairo', sans-serif;
+  text-align: right;
+}
+
+.addOptionRowNew input:focus {
+  outline: none;
+  border-color: #A17D23;
+}
+
+.addOptionRowNew button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #A17D23;
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.addOptionRowNew button:hover:not(:disabled) {
+  background: #8a6a1e;
+}
+
+.addOptionRowNew button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modal Footer New */
+.createModalFooter {
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 20px 28px;
+  border-top: 1px solid #f1f5f9;
+  background: white;
+}
+
+.createCancelBtn {
+  padding: 12px 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: white;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Cairo', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.createCancelBtn:hover {
+  background: #f1f5f9;
+  color: #1a1a1a;
+}
+
+.createSubmitBtn {
+  padding: 12px 32px;
+  border: none;
+  border-radius: 10px;
+  background: #475569;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Cairo', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.createSubmitBtn:hover:not(:disabled) {
+  background: #334155;
+}
+
+.createSubmitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Columns Section (Inline creation) */
 .columnsSection {
   margin-top: 20px;
@@ -3100,5 +4069,285 @@ onMounted(() => {
 
 :global(.night) .importSuccessIcon {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2));
+}
+
+/* ==================== DARK MODE FOR NEW TABLE DESIGN ==================== */
+:global(.night) .container {
+  background: #0f172a;
+}
+
+:global(.night) .pageTitle {
+  color: #f1f5f9;
+}
+
+:global(.night) .secondaryBtn {
+  background: #1e293b;
+  border-color: #A17D23;
+  color: #A17D23;
+}
+
+:global(.night) .secondaryBtn:hover {
+  background: #2d3a4f;
+}
+
+:global(.night) .tabBtn {
+  color: #94a3b8;
+}
+
+:global(.night) .tabBtn:hover {
+  background: #1e293b;
+}
+
+:global(.night) .tabBtn.activeTab {
+  background: #A17D23;
+  color: white;
+}
+
+:global(.night) .contentCard {
+  background: #1e293b;
+}
+
+:global(.night) .filterSelect,
+:global(.night) .searchInput,
+:global(.night) .pageSizeSelect {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+:global(.night) .filterSelect:focus,
+:global(.night) .searchInput:focus {
+  border-color: #A17D23;
+}
+
+:global(.night) .searchInput::placeholder {
+  color: #64748b;
+}
+
+:global(.night) .viewBtn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #64748b;
+}
+
+:global(.night) .viewBtnActive {
+  color: #A17D23;
+}
+
+:global(.night) .tableHead {
+  background: #0f172a;
+}
+
+:global(.night) .tableHead th {
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+:global(.night) .tableRow:hover {
+  background: #0f172a;
+}
+
+:global(.night) .tableRow td {
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+:global(.night) .titleName {
+  color: #f1f5f9;
+}
+
+:global(.night) .titleDesc {
+  color: #94a3b8;
+}
+
+:global(.night) .statusBadge.draft {
+  background: #334155;
+  color: #94a3b8;
+}
+
+:global(.night) .actionBtn {
+  color: #94a3b8;
+}
+
+:global(.night) .actionBtn:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+:global(.night) .paginationContainer {
+  border-color: #334155;
+}
+
+:global(.night) .paginationBtn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+:global(.night) .paginationBtn:hover:not(:disabled) {
+  border-color: #A17D23;
+  color: #A17D23;
+}
+
+:global(.night) .paginationBtnActive {
+  background: #A17D23;
+  border-color: #A17D23;
+  color: white;
+}
+
+:global(.night) .paginationRight {
+  color: #94a3b8;
+}
+
+:global(.night) .excelIcon {
+  background: #16a34a;
+}
+
+:global(.night) .sheetNameText {
+  color: #f1f5f9;
+}
+
+/* ==================== DARK MODE FOR CREATE MODAL ==================== */
+:global(.night) .createModal {
+  background: #1e293b;
+}
+
+:global(.night) .createModalHeader h2 {
+  color: #f1f5f9;
+}
+
+:global(.night) .createCloseBtn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+:global(.night) .createCloseBtn:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+:global(.night) .createModalTabs {
+  background: #0f172a;
+}
+
+:global(.night) .createModalTab {
+  color: #94a3b8;
+}
+
+:global(.night) .createModalTab:hover {
+  color: #f1f5f9;
+}
+
+:global(.night) .activeModalTab {
+  background: #A17D23;
+  color: white !important;
+}
+
+:global(.night) .createFormGroup label {
+  color: #e2e8f0;
+}
+
+:global(.night) .createInput,
+:global(.night) .createTextarea {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+:global(.night) .createInput::placeholder,
+:global(.night) .createTextarea::placeholder {
+  color: #64748b;
+}
+
+:global(.night) .createInput:focus,
+:global(.night) .createTextarea:focus {
+  border-color: #A17D23;
+}
+
+:global(.night) .addColumnBtnNew {
+  background: #A17D23;
+}
+
+:global(.night) .noColumnsNew {
+  background: #0f172a;
+  color: #94a3b8;
+}
+
+:global(.night) .columnCard {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+:global(.night) .columnOrderBtnsNew button {
+  color: #64748b;
+}
+
+:global(.night) .columnOrderBtnsNew button:hover:not(:disabled) {
+  color: #f1f5f9;
+}
+
+:global(.night) .columnFieldLabel {
+  color: #e2e8f0;
+}
+
+:global(.night) .columnTypeSelect {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+:global(.night) .columnNameInput {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+:global(.night) .columnNameInput::placeholder {
+  color: #64748b;
+}
+
+:global(.night) .optionsSectionNew {
+  border-color: #334155;
+}
+
+:global(.night) .optionsSectionNew label {
+  color: #94a3b8;
+}
+
+:global(.night) .optionTagNew {
+  background: rgba(161, 125, 35, 0.2);
+  border-color: #A17D23;
+  color: #A17D23;
+}
+
+:global(.night) .addOptionRowNew input {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+:global(.night) .createModalFooter {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+:global(.night) .createCancelBtn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+:global(.night) .createCancelBtn:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+:global(.night) .createSubmitBtn {
+  background: #475569;
+}
+
+:global(.night) .createSubmitBtn:hover:not(:disabled) {
+  background: #64748b;
 }
 </style>
