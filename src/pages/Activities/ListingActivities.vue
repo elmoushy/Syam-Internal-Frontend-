@@ -771,31 +771,52 @@ const openFilterDropdown = async (colKey: string, event: MouseEvent) => {
   
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
+  const PADDING = 10 // Padding from viewport edges
   
-  // Calculate initial position (below and aligned with button)
-  let top = rect.bottom + 4
-  let left = rect.left
+  // === VERTICAL POSITIONING ===
+  // Calculate available space above and below the button
+  const spaceBelow = viewportHeight - rect.bottom
+  const spaceAbove = rect.top
   
-  // Check if dropdown exceeds bottom of screen
-  if (top + FILTER_DROPDOWN_HEIGHT > viewportHeight - 10) {
-    // Open above the button instead
+  let top: number
+  
+  if (spaceBelow >= FILTER_DROPDOWN_HEIGHT + PADDING) {
+    // Enough space below - position below the button
+    top = rect.bottom + 4
+  } else if (spaceAbove >= FILTER_DROPDOWN_HEIGHT + PADDING) {
+    // Not enough space below, but enough above - position above the button
     top = rect.top - FILTER_DROPDOWN_HEIGHT - 4
-    
-    // If still doesn't fit above, position at top of viewport
-    if (top < 10) {
-      top = 10
+  } else {
+    // Not enough space in either direction - use the larger space and clamp
+    if (spaceBelow > spaceAbove) {
+      // More space below
+      top = rect.bottom + 4
+      // Clamp to viewport bottom
+      if (top + FILTER_DROPDOWN_HEIGHT > viewportHeight - PADDING) {
+        top = viewportHeight - FILTER_DROPDOWN_HEIGHT - PADDING
+      }
+    } else {
+      // More space above
+      top = rect.top - FILTER_DROPDOWN_HEIGHT - 4
+      // Clamp to viewport top
+      if (top < PADDING) {
+        top = PADDING
+      }
     }
   }
   
+  // === HORIZONTAL POSITIONING ===
+  let left = rect.left
+  
   // Check if dropdown exceeds right edge (RTL consideration)
-  if (left + FILTER_DROPDOWN_WIDTH > viewportWidth - 10) {
+  if (left + FILTER_DROPDOWN_WIDTH > viewportWidth - PADDING) {
     // Align to right edge of button instead
     left = rect.right - FILTER_DROPDOWN_WIDTH
   }
   
   // Check if dropdown exceeds left edge
-  if (left < 10) {
-    left = 10
+  if (left < PADDING) {
+    left = PADDING
   }
   
   filterDropdownPosition.value = { top, left }
@@ -1471,28 +1492,46 @@ const MENU_HEIGHT = 400 // Approximate max menu height
 const calculateMenuPosition = (clientX: number, clientY: number) => {
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
+  const PADDING = 10 // Padding from viewport edges
   
   let x = clientX
   let y = clientY
   
+  // === HORIZONTAL POSITIONING ===
   // Check right edge (in RTL, this is the visual left)
-  if (clientX + MENU_WIDTH > viewportWidth) {
+  if (clientX + MENU_WIDTH > viewportWidth - PADDING) {
     x = clientX - MENU_WIDTH
   }
   
   // Check left edge (in RTL, this is the visual right)
-  if (x < 0) {
-    x = 10 // Small margin from edge
+  if (x < PADDING) {
+    x = PADDING
   }
   
-  // Check bottom edge
-  if (clientY + MENU_HEIGHT > viewportHeight) {
-    y = viewportHeight - MENU_HEIGHT - 10
+  // Ensure menu stays within right boundary
+  if (x + MENU_WIDTH > viewportWidth - PADDING) {
+    x = viewportWidth - MENU_WIDTH - PADDING
   }
   
-  // Check top edge
-  if (y < 0) {
-    y = 10
+  // === VERTICAL POSITIONING ===
+  const spaceBelow = viewportHeight - clientY
+  const spaceAbove = clientY
+  
+  // Check if menu fits below cursor
+  if (spaceBelow >= MENU_HEIGHT + PADDING) {
+    y = clientY
+  } else if (spaceAbove >= MENU_HEIGHT + PADDING) {
+    // Not enough space below, position above cursor
+    y = clientY - MENU_HEIGHT
+  } else {
+    // Not enough space above or below - use the larger space and clamp
+    if (spaceBelow > spaceAbove) {
+      // More space below - clamp to viewport bottom
+      y = Math.max(PADDING, Math.min(clientY, viewportHeight - MENU_HEIGHT - PADDING))
+    } else {
+      // More space above - position above and clamp to viewport top
+      y = Math.max(PADDING, clientY - MENU_HEIGHT)
+    }
   }
   
   return { x, y }
