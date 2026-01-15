@@ -87,6 +87,42 @@ const deletedDatabaseIds = ref<Set<number>>(new Set())
 const trailingEmptyRowId = ref<number | null>(null)
 
 // ============================================================================
+// BACKEND FILTER & SORT STATE (defined early for use in loadPageData)
+// ============================================================================
+// Current sort state (applied on backend)
+const currentSortColumn = ref<string | null>(null)
+const currentSortOrder = ref<'asc' | 'desc'>('asc')
+
+// Column filters state (will be populated per-column later)
+const columnFilters = ref<Record<string, {
+  excludedValues: Set<string>
+  showBlanks: boolean
+  searchQuery: string
+  availableValues: string[]
+  hasBlanks: boolean
+  isLoading: boolean
+}>>({})
+
+// Build filters object for backend API
+const buildBackendFilters = (): Record<string, { excluded: string[], show_blanks: boolean }> | undefined => {
+  const filters: Record<string, { excluded: string[], show_blanks: boolean }> = {}
+  
+  for (const colKey in columnFilters.value) {
+    const filter = columnFilters.value[colKey]
+    if (!filter) continue
+    
+    if (filter.excludedValues.size > 0 || !filter.showBlanks) {
+      filters[colKey] = {
+        excluded: Array.from(filter.excludedValues),
+        show_blanks: filter.showBlanks
+      }
+    }
+  }
+  
+  return Object.keys(filters).length > 0 ? filters : undefined
+}
+
+// ============================================================================
 // HELPER: Get database ID for a display row
 // ============================================================================
 const getDatabaseId = (displayId: number): number | undefined => {
@@ -158,12 +194,18 @@ const loadPageData = async (page: number) => {
   dataError.value = null
   
   try {
-    // Get user's data for this sheet with pagination
+    // Build filters for backend
+    const backendFilters = buildBackendFilters()
+    
+    // Get user's data for this sheet with pagination, sorting, and filtering
     const userData = await titleService.getUserData(
       selectedTitleId.value, 
       selectedSheetId.value,
       page,
-      pageSize.value
+      pageSize.value,
+      currentSortColumn.value || undefined,
+      currentSortOrder.value,
+      backendFilters
     )
     currentSheetId.value = userData.sheet_id
     
@@ -651,14 +693,16 @@ const columns = computed({
 })
 
 
-// Filter state - stores UNCHECKED (excluded) values for each column
+// Filter state interface - stores UNCHECKED (excluded) values for each column
 interface ColumnFilter {
   excludedValues: Set<string>  // Values that are UNCHECKED (hidden)
   showBlanks: boolean
   searchQuery: string
+  // Backend-loaded values
+  availableValues: string[]
+  hasBlanks: boolean
+  isLoading: boolean
 }
-
-const columnFilters = ref<Record<string, ColumnFilter>>({})
 
 // Initialize filters for all columns
 const initializeFilters = () => {
@@ -666,25 +710,51 @@ const initializeFilters = () => {
     columnFilters.value[col.key] = {
       excludedValues: new Set<string>(),  // Empty = all values shown
       showBlanks: true,
-      searchQuery: ''
+      searchQuery: '',
+      availableValues: [],
+      hasBlanks: false,
+      isLoading: false
     }
   })
+  // Reset sort state when reinitializing
+  currentSortColumn.value = null
+  currentSortOrder.value = 'asc'
 }
 
 // Active filter dropdown state
 const activeFilterColumn = ref<string | null>(null)
 const filterDropdownPosition = ref({ top: 0, left: 0 })
 
-// Get unique values from data for a column (only from actual cell data)
-const getColumnFilterValues = (colKey: string): string[] => {
-  // Get all non-empty values from the actual data
-  const dataValues = rows.value
-    .map(row => row.cells[colKey]?.trim())
-    .filter(v => v && v !== '')
+// Load unique values from backend for a column
+const loadColumnFilterValues = async (colKey: string) => {
+  if (!selectedTitleId.value || !selectedSheetId.value) return
   
-  // Remove duplicates and sort
-  const uniqueValues = [...new Set(dataValues)]
-  return uniqueValues.sort((a, b) => a.localeCompare(b, 'ar'))
+  const filter = columnFilters.value[colKey]
+  if (!filter || filter.isLoading) return
+  
+  filter.isLoading = true
+  
+  try {
+    const result = await titleService.getColumnValues(
+      selectedTitleId.value,
+      selectedSheetId.value,
+      colKey
+    )
+    filter.availableValues = result.values
+    filter.hasBlanks = result.has_blanks
+  } catch (error) {
+    console.error('Failed to load column values:', error)
+    filter.availableValues = []
+    filter.hasBlanks = false
+  } finally {
+    filter.isLoading = false
+  }
+}
+
+// Get values for filter dropdown (from backend)
+const getColumnFilterValues = (colKey: string): string[] => {
+  const filter = columnFilters.value[colKey]
+  return filter?.availableValues || []
 }
 
 // Check if column has active filter
@@ -694,30 +764,10 @@ const hasActiveFilter = (colKey: string): boolean => {
   return filter.excludedValues.size > 0 || !filter.showBlanks
 }
 
-// Filtered rows based on all active filters
+// Filtered rows - NOW DIRECTLY FROM BACKEND (no local filtering)
 const filteredRows = computed(() => {
-  return rows.value.filter(row => {
-    // Check each column filter
-    for (const col of columns.value) {
-      const filter = columnFilters.value[col.key]
-      if (!filter) continue
-      
-      // Skip if no filter is active on this column
-      if (filter.excludedValues.size === 0 && filter.showBlanks) continue
-      
-      const cellValue = row.cells[col.key]?.trim() || ''
-      const isBlank = cellValue === ''
-      
-      if (isBlank) {
-        // If cell is blank, check if blanks are allowed
-        if (!filter.showBlanks) return false
-      } else {
-        // If cell has value, check if value is NOT in excluded set
-        if (filter.excludedValues.has(cellValue)) return false
-      }
-    }
-    return true
-  })
+  // Backend handles filtering, just return all rows from current page
+  return rows.value
 })
 
 // Open filter dropdown
@@ -725,7 +775,7 @@ const filteredRows = computed(() => {
 const FILTER_DROPDOWN_WIDTH = 280
 const FILTER_DROPDOWN_HEIGHT = 420
 
-const openFilterDropdown = (colKey: string, event: MouseEvent) => {
+const openFilterDropdown = async (colKey: string, event: MouseEvent) => {
   event.stopPropagation()
   const button = event.currentTarget as HTMLElement
   const rect = button.getBoundingClientRect()
@@ -767,6 +817,9 @@ const openFilterDropdown = (colKey: string, event: MouseEvent) => {
   }
   
   activeFilterColumn.value = colKey
+  
+  // Load values from backend (if not already loaded)
+  await loadColumnFilterValues(colKey)
 }
 
 // Close filter dropdown
@@ -812,8 +865,8 @@ const isSelectAllChecked = (colKey: string): boolean => {
   return filter.excludedValues.size === 0 && filter.showBlanks
 }
 
-// Clear filter for a column
-const clearColumnFilter = (colKey: string) => {
+// Clear filter for a column and reload data
+const clearColumnFilter = async (colKey: string) => {
   const filter = columnFilters.value[colKey]
   if (filter) {
     filter.excludedValues.clear()
@@ -821,6 +874,10 @@ const clearColumnFilter = (colKey: string) => {
     filter.searchQuery = ''
   }
   closeFilterDropdown()
+  
+  // Reload data from backend with updated filters
+  pagination.value.page = 1
+  await loadPageData(1)
 }
 
 // Filter values based on search query
@@ -833,29 +890,35 @@ const getFilteredFilterValues = (colKey: string): string[] => {
   return values.filter(v => v.toLowerCase().includes(query))
 }
 
-// Apply filter (close dropdown)
-const applyFilter = () => {
+// Apply filter and reload data from backend
+const applyFilter = async () => {
   closeFilterDropdown()
+  
+  // Reset to page 1 and reload with new filters
+  pagination.value.page = 1
+  await loadPageData(1)
 }
 
-// Sort column A to Z
-const sortColumnAtoZ = (colKey: string) => {
-  rows.value.sort((a, b) => {
-    const valA = a.cells[colKey] || ''
-    const valB = b.cells[colKey] || ''
-    return valA.localeCompare(valB, 'ar')
-  })
+// Sort column A to Z (backend-based)
+const sortColumnAtoZ = async (colKey: string) => {
+  currentSortColumn.value = colKey
+  currentSortOrder.value = 'asc'
   closeFilterDropdown()
+  
+  // Reset to page 1 and reload with sorting
+  pagination.value.page = 1
+  await loadPageData(1)
 }
 
-// Sort column Z to A
-const sortColumnZtoA = (colKey: string) => {
-  rows.value.sort((a, b) => {
-    const valA = a.cells[colKey] || ''
-    const valB = b.cells[colKey] || ''
-    return valB.localeCompare(valA, 'ar')
-  })
+// Sort column Z to A (backend-based)
+const sortColumnZtoA = async (colKey: string) => {
+  currentSortColumn.value = colKey
+  currentSortOrder.value = 'desc'
   closeFilterDropdown()
+  
+  // Reset to page 1 and reload with sorting
+  pagination.value.page = 1
+  await loadPageData(1)
 }
 
 // Initialize filters on setup
@@ -3307,42 +3370,55 @@ onUnmounted(() => {
 
         <!-- Filter Values List -->
         <div :class="$style.filterValuesList">
-          <!-- Select All -->
-          <label :class="$style.filterValueItem">
-            <input
-              type="checkbox"
-              :class="$style.filterCheckbox"
-              :checked="isSelectAllChecked(activeFilterColumn!)"
-              @change="selectAllFilterValues(activeFilterColumn!)"
-            />
-            <span>(Select All)</span>
-          </label>
+          <!-- Loading indicator -->
+          <div v-if="columnFilters[activeFilterColumn!]?.isLoading" :class="$style.filterLoadingState">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>جاري تحميل القيم...</span>
+          </div>
+          
+          <template v-else>
+            <!-- Select All -->
+            <label :class="$style.filterValueItem">
+              <input
+                type="checkbox"
+                :class="$style.filterCheckbox"
+                :checked="isSelectAllChecked(activeFilterColumn!)"
+                @change="selectAllFilterValues(activeFilterColumn!)"
+              />
+              <span>(Select All)</span>
+            </label>
 
-          <!-- Dynamic Values -->
-          <label
-            v-for="value in getFilteredFilterValues(activeFilterColumn!)"
-            :key="value"
-            :class="$style.filterValueItem"
-          >
-            <input
-              type="checkbox"
-              :class="$style.filterCheckbox"
-              :checked="!columnFilters[activeFilterColumn!].excludedValues.has(value)"
-              @change="toggleFilterValue(activeFilterColumn!, value)"
-            />
-            <span>{{ value }}</span>
-          </label>
+            <!-- Dynamic Values from Backend -->
+            <label
+              v-for="value in getFilteredFilterValues(activeFilterColumn!)"
+              :key="value"
+              :class="$style.filterValueItem"
+            >
+              <input
+                type="checkbox"
+                :class="$style.filterCheckbox"
+                :checked="!columnFilters[activeFilterColumn!].excludedValues.has(value)"
+                @change="toggleFilterValue(activeFilterColumn!, value)"
+              />
+              <span>{{ value }}</span>
+            </label>
 
-          <!-- Blanks -->
-          <label :class="$style.filterValueItem">
-            <input
-              type="checkbox"
-              :class="$style.filterCheckbox"
-              :checked="columnFilters[activeFilterColumn!].showBlanks"
-              @change="toggleBlanksFilter(activeFilterColumn!)"
-            />
-            <span>(Blanks)</span>
-          </label>
+            <!-- Blanks (only show if column has blanks in data) -->
+            <label v-if="columnFilters[activeFilterColumn!]?.hasBlanks" :class="$style.filterValueItem">
+              <input
+                type="checkbox"
+                :class="$style.filterCheckbox"
+                :checked="columnFilters[activeFilterColumn!].showBlanks"
+                @change="toggleBlanksFilter(activeFilterColumn!)"
+              />
+              <span>(Blanks)</span>
+            </label>
+            
+            <!-- No values message -->
+            <div v-if="getFilteredFilterValues(activeFilterColumn!).length === 0 && !columnFilters[activeFilterColumn!]?.hasBlanks" :class="$style.filterNoValues">
+              لا توجد قيم في هذا العمود
+            </div>
+          </template>
         </div>
 
         <!-- Footer Buttons -->

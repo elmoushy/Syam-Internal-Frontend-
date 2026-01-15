@@ -1717,6 +1717,29 @@
   background: #64748b;
 }
 
+/* Filter Loading State */
+.filterLoadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 12px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.filterLoadingState i {
+  color: #b78a41;
+}
+
+/* Filter No Values Message */
+.filterNoValues {
+  padding: 20px 12px;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
 /* Filter Value Item */
 .filterValueItem {
   display: flex;

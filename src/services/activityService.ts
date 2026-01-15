@@ -662,19 +662,50 @@ export const titleService = {
   },
 
   /**
-   * Get user's data for a specific sheet WITH PAGINATION
+   * Get user's data for a specific sheet WITH PAGINATION, FILTERING, and SORTING
    */
   async getUserData(
     titleId: number, 
     sheetId: number, 
     page: number = 1, 
-    pageSize: number = 100
+    pageSize: number = 100,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    filters?: Record<string, { excluded: string[], show_blanks: boolean }>
   ): Promise<PaginatedUserDataResponse> {
-    const response = await apiClient.get(`${BASE_URL}/titles/${titleId}/my-data/`, {
-      params: { 
+    const params: Record<string, string | number> = { 
+      sheet_id: sheetId,
+      page,
+      page_size: pageSize
+    }
+    
+    if (sortBy) {
+      params.sort_by = sortBy
+      params.sort_order = sortOrder || 'asc'
+    }
+    
+    if (filters && Object.keys(filters).length > 0) {
+      params.filters = JSON.stringify(filters)
+    }
+    
+    const response = await apiClient.get(`${BASE_URL}/titles/${titleId}/my-data/`, { params })
+    return response.data
+  },
+
+  /**
+   * Get unique values for a column (for filter dropdowns)
+   */
+  async getColumnValues(
+    titleId: number,
+    sheetId: number,
+    columnKey: string,
+    limit: number = 1000
+  ): Promise<{ column_key: string, values: string[], has_blanks: boolean, total_unique: number, truncated: boolean }> {
+    const response = await apiClient.get(`${BASE_URL}/titles/${titleId}/column-values/`, {
+      params: {
         sheet_id: sheetId,
-        page,
-        page_size: pageSize
+        column_key: columnKey,
+        limit
       }
     })
     return response.data
