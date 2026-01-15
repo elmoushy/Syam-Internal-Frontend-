@@ -693,17 +693,6 @@ const columns = computed({
 })
 
 
-// Filter state interface - stores UNCHECKED (excluded) values for each column
-interface ColumnFilter {
-  excludedValues: Set<string>  // Values that are UNCHECKED (hidden)
-  showBlanks: boolean
-  searchQuery: string
-  // Backend-loaded values
-  availableValues: string[]
-  hasBlanks: boolean
-  isLoading: boolean
-}
-
 // Initialize filters for all columns
 const initializeFilters = () => {
   columns.value.forEach((col: Column) => {
