@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import Swal from 'sweetalert2'
 import { useActivitySheet } from '@/composables/useActivitySheet'
 
 const route = useRoute()
@@ -118,13 +119,35 @@ const handleAddRow = () => {
   }, 50)
 }
 
-const handleDeleteSelected = () => {
+const handleDeleteSelected = async () => {
   if (selectedRows.value.size === 0) return
   
-  if (!confirm(`هل أنت متأكد من حذف ${selectedRows.value.size} صف؟`)) return
+  const result = await Swal.fire({
+    title: 'تأكيد الحذف',
+    text: `هل أنت متأكد من حذف ${selectedRows.value.size} صف؟`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    reverseButtons: true
+  })
+  
+  if (!result.isConfirmed) return
   
   deleteRows(Array.from(selectedRows.value))
   selectedRows.value = new Set()
+  
+  await Swal.fire({
+    title: 'تم الحذف!',
+    text: 'تم حذف الصفوف بنجاح',
+    icon: 'success',
+    confirmButtonColor: '#A17D23',
+    confirmButtonText: 'حسناً',
+    timer: 2000,
+    timerProgressBar: true
+  })
 }
 
 // Save
@@ -136,20 +159,51 @@ const handleSave = async () => {
     const result = await saveRows()
     
     if (result.failedChunks.length > 0) {
-      errorMessage.value = `فشل حفظ ${result.failedChunks.length} مجموعات من الصفوف`
+      await Swal.fire({
+        title: 'تحذير',
+        text: `فشل حفظ ${result.failedChunks.length} مجموعات من الصفوف`,
+        icon: 'warning',
+        confirmButtonColor: '#A17D23',
+        confirmButtonText: 'حسناً'
+      })
     } else {
-      successMessage.value = `تم حفظ ${result.created + result.updated} صف بنجاح`
-      setTimeout(() => { successMessage.value = '' }, 3000)
+      await Swal.fire({
+        title: 'تم الحفظ!',
+        text: `تم حفظ ${result.created + result.updated} صف بنجاح`,
+        icon: 'success',
+        confirmButtonColor: '#A17D23',
+        confirmButtonText: 'حسناً',
+        timer: 2000,
+        timerProgressBar: true
+      })
     }
   } catch (error: any) {
-    errorMessage.value = error.message || 'فشل الحفظ'
+    await Swal.fire({
+      title: 'خطأ',
+      text: error.message || 'فشل الحفظ',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
   }
 }
 
 // Navigation guard for unsaved changes
-onBeforeRouteLeave((_to, _from, next) => {
+onBeforeRouteLeave(async (_to, _from, next) => {
   if (hasUnsavedChanges.value) {
-    if (confirm('لديك تغييرات غير محفوظة. هل تريد المغادرة؟')) {
+    const result = await Swal.fire({
+      title: 'تغييرات غير محفوظة',
+      text: 'لديك تغييرات غير محفوظة. هل تريد المغادرة؟',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      cancelButtonColor: '#A17D23',
+      confirmButtonText: 'نعم، غادر',
+      cancelButtonText: 'البقاء',
+      reverseButtons: true
+    })
+    
+    if (result.isConfirmed) {
       next()
     } else {
       next(false)

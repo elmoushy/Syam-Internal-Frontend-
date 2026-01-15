@@ -4,6 +4,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import * as XLSX from 'xlsx'
+import Swal from 'sweetalert2'
 import { templateService, titleService } from '@/services/activityService'
 import type { 
   TemplateListItem, 
@@ -147,29 +148,70 @@ const loadSubmittedSheets = async (page: number = 1) => {
 // Set title as active
 const setActiveTitle = async (title: TemplateListItem) => {
   if (title.status !== 'published') {
-    errorMessage.value = 'يجب أن يكون العنوان منشوراً لتعيينه كنشط'
-    setTimeout(() => { errorMessage.value = '' }, 3000)
+    await Swal.fire({
+      title: 'غير مسموح',
+      text: 'يجب أن يكون العنوان منشوراً لتعيينه كنشط',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
     return
   }
   
-  if (!confirm(`هل أنت متأكد من تعيين "${title.name}" كعنوان نشط؟ سيتم إلغاء تنشيط أي عنوان آخر.`)) {
+  const result = await Swal.fire({
+    title: 'تأكيد التفعيل',
+    text: `هل أنت متأكد من تعيين "${title.name}" كعنوان نشط؟ سيتم إلغاء تنشيط أي عنوان آخر.`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#A17D23',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'نعم، فعّل',
+    cancelButtonText: 'إلغاء',
+    reverseButtons: true
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
   try {
     await titleService.setActiveTitle(title.id)
-    successMessage.value = `تم تعيين "${title.name}" كعنوان نشط`
+    await Swal.fire({
+      title: 'تم التفعيل!',
+      text: `تم تعيين "${title.name}" كعنوان نشط`,
+      icon: 'success',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً',
+      timer: 2000,
+      timerProgressBar: true
+    })
     await loadTitles()
-    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
-    errorMessage.value = error.response?.data?.error || 'فشل في تعيين العنوان كنشط'
-    setTimeout(() => { errorMessage.value = '' }, 3000)
+    await Swal.fire({
+      title: 'خطأ',
+      text: error.response?.data?.error || 'فشل في تعيين العنوان كنشط',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
   }
 }
 
 // Deactivate title
 const deactivateTitle = async (title: TemplateListItem) => {
-  if (!confirm(`هل أنت متأكد من إلغاء تنشيط "${title.name}"؟`)) {
+  const result = await Swal.fire({
+    title: 'تأكيد إلغاء التفعيل',
+    text: `هل أنت متأكد من إلغاء تنشيط "${title.name}"؟`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'نعم، ألغِ التفعيل',
+    cancelButtonText: 'إلغاء',
+    reverseButtons: true
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
@@ -408,60 +450,136 @@ const saveColumns = async () => {
 // Publish title
 const publishTitle = async (title: TemplateListItem) => {
   if (title.column_count === 0) {
-    errorMessage.value = 'لا يمكن نشر عنوان بدون أعمدة'
-    setTimeout(() => { errorMessage.value = '' }, 3000)
+    await Swal.fire({
+      title: 'غير مسموح',
+      text: 'لا يمكن نشر عنوان بدون أعمدة',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
     return
   }
   
-  if (!confirm(`هل أنت متأكد من نشر "${title.name}"؟ لن تتمكن من تعديل الأعمدة بعد النشر.`)) {
+  const result = await Swal.fire({
+    title: 'تأكيد النشر',
+    text: `هل أنت متأكد من نشر "${title.name}"؟ لن تتمكن من تعديل الأعمدة بعد النشر.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#A17D23',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'نعم، انشر',
+    cancelButtonText: 'إلغاء',
+    reverseButtons: true
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
   try {
     await templateService.publish(title.id)
-    successMessage.value = 'تم نشر العنوان بنجاح'
+    await Swal.fire({
+      title: 'تم النشر!',
+      text: 'تم نشر العنوان بنجاح',
+      icon: 'success',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً',
+      timer: 2000,
+      timerProgressBar: true
+    })
     await loadTitles()
-    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
-    errorMessage.value = error.response?.data?.error || 'فشل في نشر العنوان'
-    setTimeout(() => { errorMessage.value = '' }, 3000)
+    await Swal.fire({
+      title: 'خطأ',
+      text: error.response?.data?.error || 'فشل في نشر العنوان',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
   }
 }
 
 // Archive title
 const archiveTitle = async (title: TemplateListItem) => {
-  if (!confirm(`هل أنت متأكد من أرشفة "${title.name}"؟`)) {
+  const result = await Swal.fire({
+    title: 'تأكيد الأرشفة',
+    text: `هل أنت متأكد من أرشفة "${title.name}"؟`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#A17D23',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'نعم، أرشف',
+    cancelButtonText: 'إلغاء',
+    reverseButtons: true
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
   try {
     await templateService.archive(title.id)
-    successMessage.value = 'تم أرشفة العنوان بنجاح'
+    await Swal.fire({
+      title: 'تم الأرشفة!',
+      text: 'تم أرشفة العنوان بنجاح',
+      icon: 'success',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً',
+      timer: 2000,
+      timerProgressBar: true
+    })
     await loadTitles()
-    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
-    errorMessage.value = error.response?.data?.error || 'فشل في أرشفة العنوان'
-    setTimeout(() => { errorMessage.value = '' }, 3000)
+    await Swal.fire({
+      title: 'خطأ',
+      text: error.response?.data?.error || 'فشل في أرشفة العنوان',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
   }
 }
 
 // Delete title
 const deleteTitle = async (title: TemplateListItem) => {
-  if (!confirm(`هل أنت متأكد من حذف "${title.name}"؟`)) {
+  const result = await Swal.fire({
+    title: 'تأكيد الحذف',
+    text: `هل أنت متأكد من حذف "${title.name}"؟`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    reverseButtons: true
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
   try {
     await templateService.delete(title.id)
-    successMessage.value = 'تم حذف العنوان بنجاح'
+    await Swal.fire({
+      title: 'تم الحذف!',
+      text: 'تم حذف العنوان بنجاح',
+      icon: 'success',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً',
+      timer: 2000,
+      timerProgressBar: true
+    })
     await loadTitles()
-    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
-    errorMessage.value = error.response?.data?.error || 'فشل في حذف العنوان'
-    setTimeout(() => { errorMessage.value = '' }, 3000)
+    await Swal.fire({
+      title: 'خطأ',
+      text: error.response?.data?.error || 'فشل في حذف العنوان',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
   }
 }
-
 // Get status label
 const getStatusLabel = (status: string) => {
   switch (status) {

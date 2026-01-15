@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 import ExcelJS from 'exceljs'
+import Swal from 'sweetalert2'
 import { titleService, type TitleItem, type TitleColumn, type TitleSheetItem, type PaginationInfo, type RowOperations, type UserSheetItem, type AdminSheetDataResponse } from '@/services/activityService'
 
 // Router for admin view mode
@@ -73,6 +74,99 @@ const isCreatingSheet = ref(false)
 
 // View tabs state (current sheet view vs all sheets view)
 const activeView = ref<'current' | 'all'>('current')
+
+// Search and list pagination state
+const searchQuery = ref('')
+const currentListPage = ref(1)
+const sheetsPerPage = ref(6)
+
+// Computed properties for list view filtering and pagination
+const filteredUserSheets = computed(() => {
+  let sheets = userSheets.value
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    sheets = sheets.filter(s => 
+      s.name.toLowerCase().includes(query) || 
+      (s.description && s.description.toLowerCase().includes(query))
+    )
+  }
+  const start = (currentListPage.value - 1) * sheetsPerPage.value
+  return sheets.slice(start, start + sheetsPerPage.value)
+})
+
+const filteredAllSheets = computed(() => {
+  let sheets = allUserSheets.value
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    sheets = sheets.filter(s => 
+      s.name.toLowerCase().includes(query) || 
+      (s.template_name && s.template_name.toLowerCase().includes(query))
+    )
+  }
+  const start = (currentListPage.value - 1) * sheetsPerPage.value
+  return sheets.slice(start, start + sheetsPerPage.value)
+})
+
+const totalFilteredSheets = computed(() => {
+  const source = activeView.value === 'current' ? userSheets.value : allUserSheets.value
+  if (!searchQuery.value) return source.length
+  const query = searchQuery.value.toLowerCase()
+  return source.filter(s => 
+    s.name.toLowerCase().includes(query) || 
+    ((s as any).description?.toLowerCase().includes(query)) ||
+    ((s as any).template_name?.toLowerCase().includes(query))
+  ).length
+})
+
+const totalListPages = computed(() => Math.ceil(totalFilteredSheets.value / sheetsPerPage.value))
+
+const visiblePages = computed(() => {
+  const pages: number[] = []
+  const total = totalListPages.value
+  const current = currentListPage.value
+  
+  if (total <= 5) {
+    for (let i = 1; i <= total; i++) pages.push(i)
+  } else {
+    if (current <= 3) {
+      pages.push(1, 2, 3, 4, 5)
+    } else if (current >= total - 2) {
+      for (let i = total - 4; i <= total; i++) pages.push(i)
+    } else {
+      for (let i = current - 2; i <= current + 2; i++) pages.push(i)
+    }
+  }
+  return pages
+})
+
+const tablePaginationPages = computed(() => {
+  const pages: number[] = []
+  const total = pagination.value.total_pages
+  const current = pagination.value.page
+  
+  if (total <= 5) {
+    for (let i = 1; i <= total; i++) pages.push(i)
+  } else {
+    if (current <= 3) {
+      pages.push(1, 2, 3, 4, 5)
+    } else if (current >= total - 2) {
+      for (let i = total - 4; i <= total; i++) pages.push(i)
+    } else {
+      for (let i = current - 2; i <= current + 2; i++) pages.push(i)
+    }
+  }
+  return pages
+})
+
+// Go back to list view
+const goBackToList = () => {
+  selectedSheetId.value = null
+  if (isAdminViewMode.value) {
+    isAdminViewMode.value = false
+    adminSheetData.value = null
+    router.replace({ query: {} })
+  }
+}
 
 const isLoadingTitles = ref(false)
 const isLoadingData = ref(false)
@@ -267,32 +361,56 @@ const loadUserSheets = async () => {
 const submitSheet = async () => {
   if (!selectedSheetId.value) return
   
-  // Confirm submission
-  if (!confirm('هل أنت متأكد من تقديم هذا الجدول؟ لن تتمكن من تعديله بعد التقديم.')) {
+  // Confirm submission with SweetAlert2
+  const result = await Swal.fire({
+    title: 'تأكيد التقديم',
+    text: 'هل أنت متأكد من تقديم هذا الجدول؟ لن تتمكن من تعديله بعد التقديم.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#A17D23',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'نعم، قدم الجدول',
+    cancelButtonText: 'إلغاء',
+    reverseButtons: true
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
   isSubmitting.value = true
   
   try {
-    const result = await titleService.submitSheet(selectedSheetId.value)
+    const submitResult = await titleService.submitSheet(selectedSheetId.value)
     
     // Update local sheet state
     const sheet = userSheets.value.find(s => s.id === selectedSheetId.value)
     if (sheet) {
       sheet.is_submitted = true
-      sheet.submitted_at = result.submitted_at
+      sheet.submitted_at = submitResult.submitted_at
     }
     
-    saveSuccess.value = 'تم تقديم الجدول بنجاح'
-    setTimeout(() => { saveSuccess.value = null }, 3000)
+    // Show success message
+    await Swal.fire({
+      title: 'تم التقديم!',
+      text: 'تم تقديم الجدول بنجاح',
+      icon: 'success',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
     
     // Reload all sheets to update the list
     await loadAllUserSheets()
     
   } catch (error: any) {
     console.error('Failed to submit sheet:', error)
-    dataError.value = error.response?.data?.error || 'فشل في تقديم الجدول'
+    await Swal.fire({
+      title: 'خطأ',
+      text: error.response?.data?.error || 'فشل في تقديم الجدول',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
   } finally {
     isSubmitting.value = false
   }
@@ -609,11 +727,29 @@ const deleteSheet = async (sheetId: number) => {
   // Check if sheet is submitted
   const sheet = userSheets.value.find(s => s.id === sheetId)
   if (sheet?.is_submitted) {
-    dataError.value = 'لا يمكن حذف جدول تم تقديمه'
+    await Swal.fire({
+      title: 'غير مسموح',
+      text: 'لا يمكن حذف جدول تم تقديمه',
+      icon: 'error',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً'
+    })
     return
   }
   
-  if (!confirm('هل أنت متأكد من حذف هذا الجدول؟')) {
+  const result = await Swal.fire({
+    title: 'تأكيد الحذف',
+    text: 'هل أنت متأكد من حذف هذا الجدول؟',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    reverseButtons: true
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
@@ -630,8 +766,15 @@ const deleteSheet = async (sheetId: number) => {
       localRows.value = generateInitialRows()
     }
     
-    saveSuccess.value = 'تم حذف الجدول بنجاح'
-    setTimeout(() => { saveSuccess.value = null }, 3000)
+    await Swal.fire({
+      title: 'تم الحذف!',
+      text: 'تم حذف الجدول بنجاح',
+      icon: 'success',
+      confirmButtonColor: '#A17D23',
+      confirmButtonText: 'حسناً',
+      timer: 2000,
+      timerProgressBar: true
+    })
     
     // Reload all user sheets
     await loadAllUserSheets()
@@ -1336,8 +1479,23 @@ const startEditing = (rowId: number, colKey: string) => {
     
     if (selectElement instanceof HTMLSelectElement) {
       selectElement.focus()
-      // For select, we can trigger click to open dropdown immediately
-      selectElement.click()
+      // Programmatically open the dropdown by simulating mouse event
+      // This works better across browsers than just click()
+      const mousedownEvent = new MouseEvent('mousedown', {
+        view: window,
+        bubbles: true,
+        cancelable: true
+      })
+      selectElement.dispatchEvent(mousedownEvent)
+      
+      // Also try showPicker for modern browsers
+      try {
+        if ('showPicker' in selectElement) {
+          (selectElement as any).showPicker()
+        }
+      } catch (e) {
+        // showPicker may throw in some contexts, ignore
+      }
     } else if (inputElement instanceof HTMLInputElement) {
       inputElement.focus()
       inputElement.select()
@@ -1347,6 +1505,29 @@ const startEditing = (rowId: number, colKey: string) => {
 
 const finishEditing = () => {
   editingCell.value = null
+}
+
+// Function to open select dropdown when mounted
+const openSelectDropdown = (event: { el: HTMLSelectElement }) => {
+  const selectElement = event.el
+  if (selectElement instanceof HTMLSelectElement) {
+    selectElement.focus()
+    // Try showPicker for modern browsers (Chrome, Edge, etc.)
+    try {
+      if ('showPicker' in selectElement) {
+        (selectElement as any).showPicker()
+      }
+    } catch (e) {
+      // showPicker may not be available or may throw, use fallback
+      // Simulate mousedown to open dropdown
+      const mousedownEvent = new MouseEvent('mousedown', {
+        view: window,
+        bubbles: true,
+        cancelable: true
+      })
+      selectElement.dispatchEvent(mousedownEvent)
+    }
+  }
 }
 
 const updateCellValue = (rowId: number, colKey: string, value: string, autoFinish: boolean = false) => {
@@ -2413,6 +2594,8 @@ const isImporting = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const importMode = ref<'replace' | 'append'>('replace') // 'replace' = remove old data, 'append' = add to existing
 const importError = ref<string | null>(null)
+const currentStep = ref(1) // 1: تحميل قالب, 2: طريقة الاستيراد, 3: رفع ملف
+const templateDownloaded = ref(false)
 
 // Create Excel workbook from scratch with header image
 // Create Excel workbook from scratch with header image
@@ -2620,6 +2803,10 @@ const downloadTemplate = async () => {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+    
+    // Mark template as downloaded and move to next step
+    templateDownloaded.value = true
+    currentStep.value = 2
   } catch (error) {
     console.error('Template download error:', error)
   }
@@ -2664,6 +2851,8 @@ const exportToExcel = async () => {
 const openImportModal = () => {
   importError.value = null
   importMode.value = 'replace' // Default to replace mode
+  currentStep.value = 1
+  templateDownloaded.value = false
   showImportModal.value = true
 }
 
@@ -2671,9 +2860,29 @@ const openImportModal = () => {
 const closeImportModal = () => {
   showImportModal.value = false
   importError.value = null
+  currentStep.value = 1
+  templateDownloaded.value = false
   // Reset file input
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
+  }
+}
+
+// Go to next step
+const goToNextStep = () => {
+  if (currentStep.value === 1 && templateDownloaded.value) {
+    currentStep.value = 2
+  } else if (currentStep.value === 2 && importMode.value) {
+    currentStep.value = 3
+  }
+}
+
+// Go to previous step
+const goToPreviousStep = () => {
+  if (currentStep.value > 1) {
+    currentStep.value--
+  } else {
+    closeImportModal()
   }
 }
 
@@ -2915,9 +3124,21 @@ const handleBeforeUnload = (e: BeforeUnloadEvent) => {
 }
 
 // Navigation guard for unsaved changes
-onBeforeRouteLeave((_to, _from, next) => {
+onBeforeRouteLeave(async (_to, _from, next) => {
   if (hasMeaningfulChanges.value && selectedTitleId.value) {
-    if (confirm('لديك تغييرات غير محفوظة. هل تريد المغادرة؟')) {
+    const result = await Swal.fire({
+      title: 'تغييرات غير محفوظة',
+      text: 'لديك تغييرات غير محفوظة. هل تريد المغادرة؟',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      cancelButtonColor: '#A17D23',
+      confirmButtonText: 'نعم، غادر',
+      cancelButtonText: 'البقاء',
+      reverseButtons: true
+    })
+    
+    if (result.isConfirmed) {
       next()
     } else {
       next(false)
@@ -2961,566 +3182,468 @@ onUnmounted(() => {
 
 <template>
   <div :class="$style.container">
-    <!-- Admin View Banner -->
-    <div v-if="isAdminViewMode" :class="$style.adminBanner">
-      <div :class="$style.adminBannerContent">
-        <i class="fas fa-eye"></i>
-        <div :class="$style.adminBannerInfo">
-          <span :class="$style.adminBannerTitle">عرض المسؤول - للقراءة فقط</span>
-          <span v-if="adminSheetData" :class="$style.adminBannerDetails">
-            {{ adminSheetData.sheet_name }} | {{ adminSheetData.template_name }} | {{ adminSheetData.owner_name }} (@{{ adminSheetData.owner_username }})
-          </span>
+    <!-- ==================== LIST VIEW (when no sheet selected) ==================== -->
+    <template v-if="!selectedSheetId && !isAdminViewMode">
+      <!-- Page Header -->
+      <div :class="$style.pageHeader">
+        <h1 :class="$style.pageTitle">قائمة الانشطة</h1>
+        <button :class="$style.createNewBtn" @click="openCreateSheetModal">
+          <i class="fas fa-plus"></i>
+          <span>انشاء جدول جديد</span>
+        </button>
+      </div>
+
+      <!-- View Tabs -->
+      <div :class="$style.viewTabsWrapper">
+        <div :class="$style.viewTabsContainer">
+          <button 
+            :class="[$style.viewTabBtn, activeView === 'current' ? $style.viewTabBtnActive : '']"
+            @click="activeView = 'current'"
+          >
+            الجدول الحالي
+          </button>
+          <button 
+            :class="[$style.viewTabBtn, activeView === 'all' ? $style.viewTabBtnActive : '']"
+            @click="activeView = 'all'"
+          >
+            جداولي
+          </button>
         </div>
       </div>
-      <button :class="$style.adminBannerClose" @click="exitAdminView">
-        <i class="fas fa-times"></i>
-        إغلاق
-      </button>
-    </div>
 
-    <!-- Header -->
-    <div :class="$style.header">
-      <div :class="$style.headerContent">
-        <!-- Admin View Sheet Info -->
-        <template v-if="isAdminViewMode && adminSheetData">
-          <div :class="$style.activeTitleDisplay">
-            <span :class="$style.titleLabel">الجدول:</span>
-            <span :class="$style.activeTitleName">
-              {{ adminSheetData.sheet_name }}
-              <span :class="$style.titleColumnCount">
-                ({{ adminSheetData.pagination.total_count }} صف)
-              </span>
-            </span>
+      <!-- Main Content Area -->
+      <div :class="$style.mainContent">
+        <!-- Search Bar -->
+        <div :class="$style.searchBarWrapper">
+          <div :class="$style.searchBar">
+            <input 
+              type="text" 
+              :class="$style.searchInput" 
+              placeholder="بحث"
+              v-model="searchQuery"
+            />
+            <span :class="$style.searchShortcut">⌘ F</span>
+            <i class="fas fa-search" :class="$style.searchIcon"></i>
           </div>
-          <div :class="$style.sheetInfoContainer">
-            <span :class="$style.selectedTitleInfo">
-              <i class="fas fa-folder"></i> {{ adminSheetData.template_name }}
-              &nbsp;|&nbsp;
-              <i class="fas fa-user"></i> {{ adminSheetData.owner_name }}
-            </span>
-            <span v-if="adminSheetData.is_submitted" :class="$style.submittedBadge">
-              <i class="fas fa-check-circle"></i>
-              تم التقديم
-              <span v-if="adminSheetData.submitted_at" :class="$style.submittedDate">
-                {{ new Date(adminSheetData.submitted_at).toLocaleDateString('ar-SA') }}
-              </span>
-            </span>
-          </div>
-        </template>
-        
-        <!-- Normal Mode: Active Title Display (read-only) -->
-        <template v-else>
-          <div :class="$style.activeTitleDisplay">
-            <span :class="$style.titleLabel">العنوان النشط:</span>
-            <span v-if="activeTitle" :class="$style.activeTitleName">
-              {{ activeTitle.name }}
-              <span :class="$style.titleColumnCount">({{ activeTitle.column_count }} عمود)</span>
-            </span>
-            <span v-else-if="isLoadingTitles" :class="$style.loadingText">
-              <i class="fas fa-spinner fa-spin"></i>
-              جاري التحميل...
-            </span>
-            <span v-else :class="$style.noActiveTitle">
-              لا يوجد عنوان نشط
-            </span>
-          </div>
-          
-          <!-- Sheet Selection Dropdown (shows when title is selected) -->
-          <div v-if="selectedTitleId && !isLoadingSheetsForTitle" :class="$style.sheetSelector">
-            <label :class="$style.titleLabel">اختر الجدول:</label>
-            <select 
-              v-model="selectedSheetId" 
-              :class="$style.titleDropdown"
-              :disabled="isLoadingData"
-            >
-              <option :value="null">-- اختر جدولاً --</option>
-              <option 
-                v-for="sheet in userSheets" 
-                :key="sheet.id" 
-                :value="sheet.id"
-              >
-                {{ sheet.name }} ({{ sheet.row_count }} صف)
-                {{ sheet.is_submitted ? '✓ مقدم' : '' }}
-              </option>
-            </select>
-            <button 
-              :class="$style.newSheetBtn"
-              @click="openCreateSheetModal"
-              title="إنشاء جدول جديد"
-            >
-              <i class="fas fa-plus"></i>
-            </button>
         </div>
-        
-        <!-- Loading sheets indicator -->
-        <span v-if="isLoadingSheetsForTitle" :class="$style.loadingText">
+
+        <!-- Loading State -->
+        <div v-if="isLoadingSheetsForTitle || isLoadingTitles" :class="$style.loadingState">
           <i class="fas fa-spinner fa-spin"></i>
-          جاري تحميل الجداول...
-        </span>
-        
-        <!-- Selected sheet info with submit status -->
-        <div v-if="selectedSheet" :class="$style.sheetInfoContainer">
-          <span :class="$style.selectedTitleInfo">
-            {{ selectedSheet.description || activeTitle?.description }}
-          </span>
-          <!-- Submitted badge -->
-          <span v-if="isSubmitted" :class="$style.submittedBadge">
-            <i class="fas fa-check-circle"></i>
-            تم التقديم
-            <span v-if="submittedAt" :class="$style.submittedDate">
-              ({{ formatDate(submittedAt) }})
-            </span>
-          </span>
+          <span>جاري التحميل...</span>
         </div>
-        </template>
-      </div>
-      
-      <!-- View Tabs (not shown in admin view) -->
-      <div v-if="activeTitle && !isAdminViewMode" :class="$style.viewTabs">
-        <button 
-          :class="[$style.viewTab, activeView === 'current' ? $style.viewTabActive : '']"
-          @click="activeView = 'current'"
-        >
-          <i class="fas fa-file-spreadsheet"></i>
-          <span>الجدول الحالي</span>
-        </button>
-        <button 
-          :class="[$style.viewTab, activeView === 'all' ? $style.viewTabActive : '']"
-          @click="activeView = 'all'"
-        >
-          <i class="fas fa-history"></i>
-          <span>جداولي</span>
-          <span v-if="allUserSheets.length > 0" :class="$style.sheetCount">{{ allUserSheets.length }}</span>
-        </button>
-      </div>
-      
-      <div :class="$style.toolbar">
-        <!-- Unsaved indicator -->
-        <span v-if="hasMeaningfulChanges && selectedSheetId && isEditingAllowed" :class="$style.unsavedIndicator">
-          <i class="fas fa-circle"></i>
-          تغييرات غير محفوظة
-        </span>
-        
-        <!-- Read-only warning -->
-        <span v-if="readOnlyReason" :class="$style.submittedToolbarBadge">
-          <i class="fas fa-lock"></i>
-          {{ readOnlyReason }}
-        </span>
-        
-        <!-- Save button (disabled if not allowed to edit) -->
-        <button 
-          v-if="selectedSheetId && isEditingAllowed"
-          :class="[$style.toolbarBtn, $style.saveBtn]" 
-          title="حفظ"
-          @click="saveUserData"
-          :disabled="!hasMeaningfulChanges || isSavingData"
-        >
-          <i v-if="isSavingData" class="fas fa-spinner fa-spin"></i>
-          <i v-else class="fas fa-save"></i>
-          <span>{{ isSavingData ? 'جاري الحفظ...' : 'حفظ' }}</span>
-        </button>
-        
-        <!-- Submit button (only if not submitted and has data and editing allowed) -->
-        <button 
-          v-if="selectedSheetId && isEditingAllowed && (selectedSheet?.row_count ?? 0) > 0"
-          :class="[$style.toolbarBtn, $style.submitBtn]" 
-          title="تقديم الجدول للمسؤول"
-          @click="submitSheet"
-          :disabled="isSubmitting || hasMeaningfulChanges"
-        >
-          <i v-if="isSubmitting" class="fas fa-spinner fa-spin"></i>
-          <i v-else class="fas fa-paper-plane"></i>
-          <span>{{ isSubmitting ? 'جاري التقديم...' : 'تقديم' }}</span>
-        </button>
-        
-        <button 
-          :class="$style.toolbarBtn" 
-          title="إضافة صفوف" 
-          @click="addMoreRows" 
-          :disabled="!selectedSheetId || !isEditingAllowed"
-        >
-          <i class="fas fa-plus"></i>
-          <span>إضافة صفوف</span>
-        </button>
-        <button 
-          :class="$style.toolbarBtn" 
-          title="استيراد من Excel" 
-          @click="openImportModal" 
-          :disabled="!selectedSheetId || !isEditingAllowed"
-        >
-          <i class="fas fa-file-import"></i>
-          <span>استيراد</span>
-        </button>
-        <button :class="$style.toolbarBtn" title="تصدير إلى Excel" @click="exportToExcel" :disabled="isExporting || !selectedSheetId">
-          <i class="fas fa-file-export"></i>
-          <span>{{ isExporting ? 'جاري التصدير...' : 'تصدير' }}</span>
-        </button>
-      </div>
-    </div>
 
-    <!-- Success/Error messages -->
-    <div v-if="saveSuccess" :class="$style.successMessage">
-      <i class="fas fa-check-circle"></i>
-      {{ saveSuccess }}
-    </div>
-    <div v-if="dataError" :class="$style.errorMessage">
-      <i class="fas fa-exclamation-circle"></i>
-      {{ dataError }}
-    </div>
-
-    <!-- Loading sheets state (not in admin view) -->
-    <div v-if="isLoadingSheetsForTitle && !isAdminViewMode" :class="$style.loadingSheets">
-      <i class="fas fa-spinner"></i>
-      <span>جاري تحميل الجداول...</span>
-    </div>
-
-    <!-- Loading state -->
-    <div v-if="isLoadingData && !isLoadingSheetsForTitle" :class="$style.loadingOverlay">
-      <i class="fas fa-spinner fa-spin"></i>
-      جاري تحميل البيانات...
-    </div>
-
-    <!-- No active title message (not in admin view) -->
-    <div v-if="!activeTitle && !isLoadingTitles && !isAdminViewMode" :class="$style.noTitleSelected">
-      <i class="fas fa-table"></i>
-      <p>لا يوجد عنوان نشط حالياً</p>
-      <p :class="$style.hint">
-        لا توجد عناوين منشورة. اطلب من المسؤول إنشاء عنوان.
-      </p>
-    </div>
-
-    <!-- All Sheets View Tab Content (not in admin view) -->
-    <div v-if="activeView === 'all' && !isAdminViewMode" :class="$style.allSheetsView">
-      <div :class="$style.allSheetsHeader">
-        <h3 :class="$style.allSheetsTitle">
-          <i class="fas fa-history"></i>
-          جميع جداولي
-        </h3>
-        <span :class="$style.allSheetsCount">{{ allUserSheets.length }} جدول</span>
-      </div>
-      
-      <div v-if="allUserSheets.length === 0" :class="$style.noSheetsMessage">
-        <div :class="$style.noSheetsIcon"><i class="fas fa-folder-open"></i></div>
-        <p :class="$style.noSheetsText">لا توجد جداول حتى الآن</p>
-        <p :class="$style.noSheetsDesc">قم بإنشاء جدول جديد للبدء</p>
-      </div>
-      
-      <div v-else :class="$style.sheetsList">
-        <div 
-          v-for="sheet in allUserSheets" 
-          :key="sheet.id"
-          :class="[$style.sheetCard, selectedSheetId === sheet.id ? $style.sheetCardActive : '']"
-          @click="openRecentSheet(sheet)"
-        >
-          <div :class="$style.sheetCardIcon">
-            <i class="fas fa-file-spreadsheet"></i>
-          </div>
-          <div :class="$style.sheetCardContent">
-            <h4 :class="$style.sheetName">{{ sheet.name }}</h4>
-            <p :class="$style.sheetTemplate">
-              <i class="fas fa-folder"></i>
-              {{ sheet.template_name || 'عنوان محذوف' }}
-              <span v-if="!sheet.template_is_active" :class="$style.inactiveLabel">(غير نشط)</span>
-            </p>
-            <div :class="$style.sheetMeta">
-              <span><i class="fas fa-rows"></i> {{ sheet.row_count }} صف</span>
-              <span><i class="fas fa-clock"></i> {{ formatDate(sheet.updated_at) }}</span>
-              <span v-if="sheet.is_submitted" :class="$style.sheetSubmittedBadge">
-                <i class="fas fa-check-circle"></i> مقدم
-              </span>
-            </div>
-          </div>
+        <!-- No Active Title -->
+        <div v-else-if="!activeTitle" :class="$style.emptyState">
+          <div :class="$style.emptyStateIcon"><i class="fas fa-table"></i></div>
+          <p :class="$style.emptyStateText">لا يوجد عنوان نشط حالياً</p>
+          <p :class="$style.emptyStateDesc">اطلب من المسؤول إنشاء عنوان</p>
         </div>
-      </div>
-    </div>
 
-    <!-- Current Sheet View Tab Content (not in admin view) -->
-    <div v-if="activeView === 'current' && selectedTitleId && !selectedSheetId && !isLoadingSheetsForTitle && !isLoadingData && !isAdminViewMode" :class="$style.sheetSelectionArea">
-      <div :class="$style.sheetsHeader">
-        <h3 :class="$style.sheetsTitle"><i class="fas fa-file-spreadsheet"></i> جداولك لهذا العنوان</h3>
-        <button :class="$style.createSheetBtn" @click="openCreateSheetModal">
-          <i class="fas fa-plus"></i>
-          إنشاء جدول جديد
-        </button>
-      </div>
-      
-      <div v-if="userSheets.length === 0" :class="$style.noSheetsMessage">
-        <div :class="$style.noSheetsIcon"><i class="fas fa-folder-open"></i></div>
-        <p :class="$style.noSheetsText">لم تقم بإنشاء أي جدول لهذا العنوان بعد</p>
-        <p :class="$style.noSheetsDesc">أنشئ جدولك الأول لبدء إدخال البيانات</p>
-        <button :class="$style.createFirstSheetBtn" @click="openCreateSheetModal">
-          <i class="fas fa-plus"></i>
-          إنشاء جدولك الأول
-        </button>
-      </div>
-      
-      <div v-else :class="$style.sheetsList">
-        <div 
-          v-for="sheet in userSheets" 
-          :key="sheet.id" 
-          :class="$style.sheetCard"
-          @click="selectedSheetId = sheet.id"
-        >
-          <div :class="$style.sheetCardIcon">
-            <i class="fas fa-file-spreadsheet"></i>
-          </div>
-          <div :class="$style.sheetCardContent">
-            <h4 :class="$style.sheetName">{{ sheet.name }}</h4>
-            <p v-if="sheet.description" :class="$style.sheetDescription">{{ sheet.description }}</p>
-            <div :class="$style.sheetMeta">
-              <span><i class="fas fa-rows"></i> {{ sheet.row_count }} صف</span>
-              <span><i class="fas fa-clock"></i> {{ formatDate(sheet.updated_at) }}</span>
-              <span v-if="sheet.is_submitted" :class="$style.sheetSubmittedBadge">
-                <i class="fas fa-check-circle"></i> مقدم
-              </span>
-            </div>
-          </div>
-          <div :class="$style.sheetCardActions">
-            <button 
-              v-if="!sheet.is_submitted"
-              :class="$style.sheetActionBtn"
-              @click.stop="deleteSheet(sheet.id)"
-              title="حذف الجدول"
-            >
-              <i class="fas fa-trash"></i>
+        <!-- Sheets Grid - Current Tab -->
+        <template v-else-if="activeView === 'current'">
+          <div v-if="filteredUserSheets.length === 0" :class="$style.emptyState">
+            <div :class="$style.emptyStateIcon"><i class="fas fa-folder-open"></i></div>
+            <p :class="$style.emptyStateText">لم تقم بإنشاء أي جدول لهذا العنوان بعد</p>
+            <p :class="$style.emptyStateDesc">أنشئ جدولك الأول لبدء إدخال البيانات</p>
+            <button :class="$style.emptyStateBtn" @click="openCreateSheetModal">
+              <i class="fas fa-plus"></i>
+              إنشاء جدولك الأول
             </button>
-            <span v-else :class="$style.sheetLockedIcon" title="جدول مقدم - لا يمكن حذفه">
-              <i class="fas fa-lock"></i>
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Spreadsheet (shows when sheet is selected or in admin view) -->
-    <div v-if="selectedSheetId || isAdminViewMode" :class="$style.spreadsheetWrapper">
-      <div 
-        ref="tableRef"
-        :class="$style.spreadsheet"
-        :style="{ minWidth: totalWidth + 'px' }"
-      >
-        <!-- Column Headers -->
-        <div :class="$style.headerRow">
-          <!-- Row number header -->
-          <div :class="[$style.headerCell, $style.rowNumberHeader]">
-            #
-          </div>
-          <!-- Column headers -->
-          <div
-            v-for="(col, index) in columns"
-            :key="col.id"
-            :class="$style.headerCell"
-            :style="{ width: col.width + 'px' }"
-            @dblclick="autoFitColumn(index)"
-          >
-            <span :class="$style.headerText">{{ col.label }}</span>
-            <!-- Filter button -->
-            <button
-              :class="[$style.filterBtn, { [$style.filterActive]: hasActiveFilter(col.key) }]"
-              @click.stop="openFilterDropdown(col.key, $event)"
-              :title="'تصفية ' + col.label.split('\n')[0]"
-            >
-              <i class="fas fa-caret-down"></i>
-            </button>
-            <!-- Column resize handle -->
-            <div
-              :class="$style.colResizeHandle"
-              @mousedown="startColResize($event, index)"
-            ></div>
-          </div>
-        </div>
-
-        <!-- Data Rows -->
-        <div :class="$style.dataRows">
-          <div
-            v-for="(row, rowIndex) in filteredRows"
-            :key="row.id"
-            :class="[$style.dataRow, { [$style.rowSelected]: isRowSelected(row.id) }, { [$style.rowHasCustomBg]: rowHasCustomBackground(row.id) }]"
-            :style="{ height: row.height + 'px' }"
-          >
-            <!-- Row number -->
-            <div 
-              :class="[$style.cell, $style.rowNumberCell, { [$style.rowNumberSelected]: isRowSelected(row.id) }]"
-              @click="selectRow(row.id, $event)"
-              @contextmenu="showRowContextMenu($event, row.id)"
-            >
-              {{ row.id }}
-              <!-- Row resize handle -->
-              <div
-                :class="$style.rowResizeHandle"
-                @mousedown.stop="startRowResize($event, rowIndex)"
-              ></div>
-            </div>
-            <!-- Data cells -->
-            <div
-              v-for="col in columns"
-              :key="getCellId(row.id, col.key)"
-              :data-cell-id="getCellId(row.id, col.key)"
-              :class="[
-                $style.cell,
-                { [$style.cellActive]: isCellActive(row.id, col.key) },
-                { [$style.cellSelected]: isCellSelected(row.id, col.key) },
-                { [$style.cellEditing]: isCellEditing(row.id, col.key) },
-                { [$style.cellCut]: isCellCut(row.id, col.key) },
-                { [$style.hasCustomBg]: hasCustomBackground(row.id, col.key) }
-              ]"
-              :style="{ width: col.width + 'px', ...getCellStyle(row.id, col.key) }"
-              @click="selectCell(row.id, col.key, $event)"
-              @dblclick="startEditing(row.id, col.key)"
-              @contextmenu="showCellContextMenu($event, row.id, col.key)"
-            >
-              <template v-if="isCellEditing(row.id, col.key)">
-                <!-- Boolean checkbox/select for boolean type columns -->
-                <select
-                  v-if="col.data_type === 'boolean'"
-                  :class="$style.cellInput"
-                  :value="row.cells[col.key]"
-                  @change="updateCellValue(row.id, col.key, ($event.target as HTMLSelectElement).value, true)"
-                  @keydown.esc="finishEditing"
-                  @keydown.stop
-                  @click.stop
-                >
-                  <option value="">-- اختر --</option>
-                  <option value="نعم">نعم</option>
-                  <option value="لا">لا</option>
-                </select>
-                <!-- Select dropdown for select type columns -->
-                <select
-                  v-else-if="col.data_type === 'select' && col.options && col.options.length > 0"
-                  :class="$style.cellInput"
-                  :value="row.cells[col.key]"
-                  @change="updateCellValue(row.id, col.key, ($event.target as HTMLSelectElement).value, true)"
-                  @keydown.esc="finishEditing"
-                  @keydown.stop
-                  @click.stop
-                >
-                  <option value="">-- اختر --</option>
-                  <option v-for="option in col.options" :key="option" :value="option">
-                    {{ option }}
-                  </option>
-                </select>
-                <!-- Date input for date type columns -->
-                <input
-                  v-else-if="col.data_type === 'date'"
-                  type="date"
-                  :class="$style.cellInput"
-                  :value="row.cells[col.key]"
-                  @change="updateCellValue(row.id, col.key, ($event.target as HTMLInputElement).value, true)"
-                  @keydown.esc="finishEditing"
-                  @keydown.stop
-                  @click.stop
-                />
-                <!-- Number input for number type columns -->
-                <input
-                  v-else-if="col.data_type === 'number'"
-                  type="number"
-                  :class="$style.cellInput"
-                  :value="row.cells[col.key]"
-                  @input="updateCellValue(row.id, col.key, ($event.target as HTMLInputElement).value)"
-                  @blur="finishEditing"
-                  @keydown.stop
-                />
-                <!-- Text input for text type columns (default) -->
-                <input
-                  v-else
-                  type="text"
-                  :class="$style.cellInput"
-                  :value="row.cells[col.key]"
-                  @input="updateCellValue(row.id, col.key, ($event.target as HTMLInputElement).value)"
-                  @blur="finishEditing"
-                  @keydown.stop
-                />
-              </template>
-              <template v-else>
-                <span :class="$style.cellContent">{{ row.cells[col.key] }}</span>
-              </template>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Pagination Controls -->
-      <div :class="$style.paginationBar">
-        <div :class="$style.paginationInfo">
-          <span>
-            {{ pagination.total_count.toLocaleString('ar-EG') }} صف إجمالي
-          </span>
-          <span v-if="pagination.total_pages > 1">
-            • صفحة {{ pagination.page }} من {{ pagination.total_pages }}
-          </span>
-        </div>
-        
-        <div :class="$style.paginationControls">
-          <!-- Page size selector -->
-          <div :class="$style.pageSizeSelector">
-            <label>صفوف:</label>
-            <select 
-              :value="pageSize"
-              @change="changePageSize(Number(($event.target as HTMLSelectElement).value))"
-              :disabled="isLoadingData"
-            >
-              <option :value="50">50</option>
-              <option :value="100">100</option>
-              <option :value="200">200</option>
-              <option :value="500">500</option>
-            </select>
           </div>
           
-          <!-- Navigation buttons -->
-          <div :class="$style.paginationNav">
-            <button 
-              :class="[$style.paginationBtn, { [$style.disabled]: !pagination.has_prev || isLoadingData }]"
-              @click="goToFirstPage"
-              :disabled="!pagination.has_prev || isLoadingData"
-              title="الصفحة الأولى"
+          <div v-else :class="$style.sheetsGrid">
+            <div 
+              v-for="sheet in filteredUserSheets" 
+              :key="sheet.id"
+              :class="$style.sheetCard"
+              @click="selectedSheetId = sheet.id"
             >
-              <i class="fas fa-angle-double-right"></i>
-            </button>
-            <button 
-              :class="[$style.paginationBtn, { [$style.disabled]: !pagination.has_prev || isLoadingData }]"
-              @click="goToPrevPage"
-              :disabled="!pagination.has_prev || isLoadingData"
-              title="الصفحة السابقة"
-            >
-              <i class="fas fa-angle-right"></i>
-            </button>
-            
-            <!-- Page input -->
-            <div :class="$style.pageInputWrapper">
-              <input 
-                type="number"
-                v-model="goToPageInput"
-                :placeholder="String(pagination.page)"
-                :min="1"
-                :max="pagination.total_pages"
-                @keydown.enter="goToPage"
-                :class="$style.pageInput"
-                :disabled="isLoadingData || pagination.total_pages <= 1"
-              />
-              <span :class="$style.pageInputSeparator">/</span>
-              <span :class="$style.totalPages">{{ pagination.total_pages }}</span>
+              <!-- Delete Button - for جداولي tab -->
+              <button 
+                v-if="!sheet.is_submitted"
+                :class="$style.deleteCardBtn"
+                @click.stop="deleteSheet(sheet.id)"
+                title="حذف الجدول"
+              >
+                <i class="fas fa-trash-alt"></i>
+              </button>
+              
+              <!-- Card Content -->
+              <div :class="$style.cardHeader">
+                <h3 :class="$style.cardTitle">{{ sheet.name }}</h3>
+                <p :class="$style.cardDesc">{{ sheet.description || activeTitle?.description || 'نص تجريبي للوصف' }}</p>
+              </div>
+              
+              <!-- Card Divider -->
+              <div :class="$style.cardDivider"></div>
+              
+              <!-- Card Footer -->
+              <div :class="$style.cardFooter">
+                <span :class="$style.cardMeta">
+                  <i class="fas fa-database"></i>
+                  {{ sheet.row_count }} صف
+                </span>
+                <span :class="$style.cardMeta">
+                  <i class="fas fa-clock"></i>
+                  {{ formatDate(sheet.updated_at) === 'اليوم' ? 'اليوم' : formatDate(sheet.updated_at) }}
+                </span>
+              </div>
             </div>
+          </div>
+        </template>
+
+        <!-- Sheets Grid - All Sheets Tab -->
+        <template v-else-if="activeView === 'all'">
+          <div v-if="filteredAllSheets.length === 0" :class="$style.emptyState">
+            <div :class="$style.emptyStateIcon"><i class="fas fa-folder-open"></i></div>
+            <p :class="$style.emptyStateText">لا توجد جداول حتى الآن</p>
+            <p :class="$style.emptyStateDesc">قم بإنشاء جدول جديد للبدء</p>
+          </div>
+          
+          <div v-else :class="$style.sheetsGrid">
+            <div 
+              v-for="sheet in filteredAllSheets" 
+              :key="sheet.id"
+              :class="$style.sheetCard"
+              @click="openRecentSheet(sheet)"
+            >
+              <!-- Delete Button -->
+              <button 
+                v-if="!sheet.is_submitted"
+                :class="$style.deleteCardBtn"
+                @click.stop="deleteSheet(sheet.id)"
+                title="حذف الجدول"
+              >
+                <i class="fas fa-trash-alt"></i>
+              </button>
+              
+              <!-- Card Content -->
+              <div :class="$style.cardHeader">
+                <div :class="$style.cardTitleRow">
+                  <h3 :class="$style.cardTitle">{{ sheet.name }}</h3>
+                  <!-- Badges -->
+                  <div :class="$style.cardBadges">
+                    <span v-if="sheet.is_submitted" :class="[$style.badge, $style.badgeGreen]">مقدم</span>
+                    <span v-if="!sheet.template_is_active" :class="[$style.badge, $style.badgeOrange]">غير نشط</span>
+                  </div>
+                </div>
+                <p :class="$style.cardDesc">{{ sheet.template_name || 'نص تجريبي للوصف' }}</p>
+              </div>
+              
+              <!-- Card Divider -->
+              <div :class="$style.cardDivider"></div>
+              
+              <!-- Card Footer -->
+              <div :class="$style.cardFooter">
+                <span :class="$style.cardMeta">
+                  <i class="fas fa-database"></i>
+                  {{ sheet.row_count }} صف
+                </span>
+                <span :class="$style.cardMeta">
+                  <i class="fas fa-clock"></i>
+                  {{ formatDate(sheet.updated_at) === 'اليوم' ? 'اليوم' : formatDate(sheet.updated_at) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Pagination -->
+        <div v-if="totalFilteredSheets > sheetsPerPage" :class="$style.listPagination">
+          <div :class="$style.paginationLeft">
+            <button 
+              :class="$style.paginationArrow"
+              :disabled="currentListPage === 1"
+              @click="currentListPage--"
+            >
+              <i class="fas fa-chevron-right"></i>
+            </button>
             
             <button 
-              :class="[$style.paginationBtn, { [$style.disabled]: !pagination.has_next || isLoadingData }]"
-              @click="goToNextPage"
-              :disabled="!pagination.has_next || isLoadingData"
-              title="الصفحة التالية"
+              v-for="page in visiblePages" 
+              :key="page"
+              :class="[$style.paginationNum, currentListPage === page ? $style.paginationNumActive : '']"
+              @click="currentListPage = page"
             >
-              <i class="fas fa-angle-left"></i>
+              {{ page }}
             </button>
+            
+            <span v-if="totalListPages > 5" :class="$style.paginationDots">...</span>
+            
             <button 
-              :class="[$style.paginationBtn, { [$style.disabled]: !pagination.has_next || isLoadingData }]"
-              @click="goToLastPage"
-              :disabled="!pagination.has_next || isLoadingData"
-              title="الصفحة الأخيرة"
+              :class="$style.paginationArrow"
+              :disabled="currentListPage === totalListPages"
+              @click="currentListPage++"
             >
-              <i class="fas fa-angle-double-left"></i>
+              <i class="fas fa-chevron-left"></i>
             </button>
+          </div>
+          
+          <div :class="$style.paginationRight">
+            <span :class="$style.paginationLabel">عرض</span>
+            <select v-model="sheetsPerPage" :class="$style.paginationSelect">
+              <option :value="6">6</option>
+              <option :value="12">12</option>
+              <option :value="24">24</option>
+            </select>
+            <span :class="$style.paginationLabel">من {{ totalFilteredSheets }}</span>
           </div>
         </div>
       </div>
-    </div>
+    </template>
+
+    <!-- ==================== SPREADSHEET VIEW (when sheet selected) ==================== -->
+    <template v-else>
+      <!-- Breadcrumb Header -->
+      <div :class="$style.spreadsheetHeader">
+        <div :class="$style.breadcrumb">
+          <span :class="$style.breadcrumbLink" @click="goBackToList">قائمة الانشطة</span>
+          <span :class="$style.breadcrumbSeparator">/</span>
+          <span :class="$style.breadcrumbCurrent">
+            {{ isAdminViewMode && adminSheetData ? adminSheetData.sheet_name : selectedSheet?.name || 'اسم الملف' }}
+          </span>
+        </div>
+        
+        <!-- Toolbar -->
+        <div :class="$style.spreadsheetToolbar">
+          <button 
+            v-if="isEditingAllowed && (selectedSheet?.row_count ?? 0) > 0"
+            :class="$style.toolbarBtnPrimary"
+            @click="submitSheet"
+            :disabled="isSubmitting || hasMeaningfulChanges"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.1411 2.96004L7.11109 5.96004C1.04109 7.99004 1.04109 11.3 7.11109 13.32L9.79109 14.21L10.6811 16.89C12.7011 22.96 16.0211 22.96 18.0411 16.89L21.0511 7.87004C22.3911 3.82004 20.1911 1.61004 16.1411 2.96004ZM16.4611 8.34004L12.6611 12.16C12.5111 12.31 12.3211 12.38 12.1311 12.38C11.9411 12.38 11.7511 12.31 11.6011 12.16C11.3111 11.87 11.3111 11.39 11.6011 11.1L15.4011 7.28004C15.6911 6.99004 16.1711 6.99004 16.4611 7.28004C16.7511 7.57004 16.7511 8.05004 16.4611 8.34004Z" fill="white"/>
+            </svg>
+            <span>{{ isSubmitting ? 'جاري التقديم...' : 'اعتماد' }}</span>
+          </button>
+         <button 
+            :class="[$style.toolbarBtnOutline, $style.draftBtn]"
+            @click="saveUserData"
+            :disabled="!hasMeaningfulChanges || isSavingData || !isEditingAllowed"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g clip-path="url(#clip0_808_26179)">
+                <path d="M1.06641 13.4778C2.41383 11.5921 6.50069 6.23496 11.287 3.22296C14.8853 0.956675 18.2813 3.9481 15.6464 6.9601C13.0698 9.90525 9.61555 13.9595 8.13955 15.9721C6.61041 18.0584 9.22812 20.5835 11.8475 18.1801C13.5961 16.5755 15.4218 14.7292 17.275 13.3647C19.7778 11.5235 21.9241 13.1487 20.8321 15.2247C20.0436 16.7247 19.4693 17.3864 18.8093 18.6498C18.151 19.9115 18.8487 21.4252 19.8481 21.5555C21.0858 21.715 21.8693 20.8287 22.927 19.4452" stroke="#A17D23" stroke-width="2.14286" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <defs>
+                <clipPath id="clip0_808_26179">
+                  <rect width="24" height="24" fill="white"/>
+                </clipPath>
+              </defs>
+            </svg>
+            <span>{{ isSavingData ? 'جاري الحفظ...' : 'مسودة' }}</span>
+          </button>
+         <button 
+            :class="$style.toolbarBtnOutline" 
+            @click="exportToExcel"
+            :disabled="isExporting"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#525866" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M12 15L12 2M12 2L9 5.5M12 2L15 5.5" stroke="#525866" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>{{ isExporting ? 'جاري...' : 'تصدير' }}</span>
+          </button>
+          <button 
+            :class="$style.toolbarBtnOutline" 
+            @click="openImportModal"
+            :disabled="!isEditingAllowed"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#525866" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M12 2L12 15M12 15L9 11.5M12 15L15 11.5" stroke="#525866" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>استيراد</span>
+          </button>
+          
+         
+          
+        
+          
+         
+        </div>
+      </div>
+
+      <!-- Success/Error messages -->
+      <div v-if="saveSuccess" :class="$style.successMessage">
+        <i class="fas fa-check-circle"></i>
+        {{ saveSuccess }}
+      </div>
+      <div v-if="dataError" :class="$style.errorMessage">
+        <i class="fas fa-exclamation-circle"></i>
+        {{ dataError }}
+      </div>
+
+      <!-- Read-only Badge -->
+      <div v-if="readOnlyReason" :class="$style.readOnlyBadge">
+        <i class="fas fa-lock"></i>
+        {{ readOnlyReason }}
+      </div>
+
+      <!-- Loading state -->
+      <div v-if="isLoadingData" :class="$style.loadingOverlay">
+        <i class="fas fa-spinner fa-spin"></i>
+        جاري تحميل البيانات...
+      </div>
+
+      <!-- Spreadsheet Table -->
+      <div :class="$style.tableWrapper">
+        <table :class="$style.dataTable">
+          <thead>
+            <tr>
+              <th :class="$style.tableHeaderCell">#</th>
+              <th 
+                v-for="col in columns" 
+                :key="col.id"
+                :class="$style.tableHeaderCell"
+                :style="{ width: col.width + 'px' }"
+              >
+                <div :class="$style.headerCellContent">
+                  <span>{{ col.label.split('\n')[0] }}</span>
+                  <button
+                    :class="[$style.filterBtn, { [$style.filterActive]: hasActiveFilter(col.key) }]"
+                    @click.stop="openFilterDropdown(col.key, $event)"
+                  >
+                    <i class="fas fa-caret-down"></i>
+                  </button>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr 
+              v-for="row in filteredRows" 
+              :key="row.id"
+              :class="{ [$style.rowSelected]: isRowSelected(row.id) }"
+            >
+              <td 
+                :class="$style.rowNumberCell"
+                @click="selectRow(row.id, $event)"
+                @contextmenu="showRowContextMenu($event, row.id)"
+              >
+                {{ row.id }}
+              </td>
+              <td 
+                v-for="col in columns" 
+                :key="getCellId(row.id, col.key)"
+                :data-cell-id="getCellId(row.id, col.key)"
+                :class="[
+                  $style.tableCell,
+                  { [$style.cellActive]: isCellActive(row.id, col.key) },
+                  { [$style.cellEditing]: isCellEditing(row.id, col.key) }
+                ]"
+                :style="getCellStyle(row.id, col.key)"
+                @click="selectCell(row.id, col.key, $event)"
+                @dblclick="startEditing(row.id, col.key)"
+                @contextmenu="showCellContextMenu($event, row.id, col.key)"
+              >
+                <template v-if="isCellEditing(row.id, col.key)">
+                  <select
+                    v-if="col.data_type === 'boolean'"
+                    :class="$style.cellInput"
+                    :value="row.cells[col.key]"
+                    @change="updateCellValue(row.id, col.key, ($event.target as HTMLSelectElement).value, true)"
+                    @keydown.esc="finishEditing"
+                    @blur="finishEditing"
+                    @vue:mounted="openSelectDropdown"
+                  >
+                    <option value="">-- اختر --</option>
+                    <option value="نعم">نعم</option>
+                    <option value="لا">لا</option>
+                  </select>
+                  <select
+                    v-else-if="col.data_type === 'select' && col.options?.length"
+                    :class="$style.cellInput"
+                    :value="row.cells[col.key]"
+                    @change="updateCellValue(row.id, col.key, ($event.target as HTMLSelectElement).value, true)"
+                    @keydown.esc="finishEditing"
+                    @blur="finishEditing"
+                    @vue:mounted="openSelectDropdown"
+                  >
+                    <option value="">-- اختر --</option>
+                    <option v-for="option in col.options" :key="option" :value="option">{{ option }}</option>
+                  </select>
+                  <input
+                    v-else
+                    type="text"
+                    :class="$style.cellInput"
+                    :value="row.cells[col.key]"
+                    @input="updateCellValue(row.id, col.key, ($event.target as HTMLInputElement).value)"
+                    @blur="finishEditing"
+                    @keydown.stop
+                  />
+                </template>
+                <template v-else>
+                  {{ row.cells[col.key] }}
+                </template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table Pagination -->
+      <div :class="$style.tablePagination">
+        <div :class="$style.paginationLeft">
+          <button 
+            :class="$style.paginationArrow"
+            :disabled="!pagination.has_prev || isLoadingData"
+            @click="goToFirstPage"
+          >
+            <i class="fas fa-angle-double-right"></i>
+          </button>
+          <button 
+            :class="$style.paginationArrow"
+            :disabled="!pagination.has_prev || isLoadingData"
+            @click="goToPrevPage"
+          >
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          
+          <button 
+            v-for="page in tablePaginationPages" 
+            :key="page"
+            :class="[$style.paginationNum, pagination.page === page ? $style.paginationNumActive : '']"
+            @click="loadPageData(page)"
+          >
+            {{ page }}
+          </button>
+          
+          <span v-if="pagination.total_pages > 5" :class="$style.paginationDots">...</span>
+          
+          <button 
+            :class="$style.paginationArrow"
+            :disabled="!pagination.has_next || isLoadingData"
+            @click="goToNextPage"
+          >
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button 
+            :class="$style.paginationArrow"
+            :disabled="!pagination.has_next || isLoadingData"
+            @click="goToLastPage"
+          >
+            <i class="fas fa-angle-double-left"></i>
+          </button>
+        </div>
+        
+        <div :class="$style.paginationRight">
+          <span :class="$style.paginationLabel">عرض</span>
+          <select 
+            :value="pageSize" 
+            @change="changePageSize(Number(($event.target as HTMLSelectElement).value))"
+            :class="$style.paginationSelect"
+          >
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+            <option :value="200">200</option>
+          </select>
+          <span :class="$style.paginationLabel">من {{ pagination.total_count }}</span>
+        </div>
+      </div>
+    </template>
 
     <!-- Context Menu -->
     <Transition name="fade">
@@ -3847,52 +3970,51 @@ onUnmounted(() => {
     <Transition name="fade">
       <div v-if="showCreateSheetModal" :class="$style.modalOverlay" @click="closeCreateSheetModal">
         <div :class="$style.createSheetModal" @click.stop>
-          <div :class="$style.modalHeader">
-            <h3 :class="$style.modalTitle">
-              <i class="fas fa-plus-circle"></i>
-              إنشاء جدول جديد
-            </h3>
-            <button :class="$style.modalCloseBtn" @click="closeCreateSheetModal">
+          <!-- Simple Header with X button -->
+          <div :class="$style.createModalHeader">
+            <button :class="$style.createModalCloseBtn" @click="closeCreateSheetModal">
               <i class="fas fa-times"></i>
             </button>
+            <h3 :class="$style.createModalTitle">انشاء جدول جديد</h3>
           </div>
           
-          <div :class="$style.modalBody">
-            <div :class="$style.formGroup">
-              <label :class="$style.formLabel">اسم الجدول *</label>
+          <!-- Modal Body -->
+          <div :class="$style.createModalBody">
+            <div :class="$style.createFormGroup">
+              <label :class="$style.createFormLabel">اسم الجدول</label>
               <input 
                 v-model="newSheetName"
                 type="text"
-                :class="$style.formInput"
-                placeholder="أدخل اسم الجدول"
+                :class="$style.createFormInput"
+                placeholder="ادخل اسم الجدول"
                 :disabled="isCreatingSheet"
               />
             </div>
             
-            <div :class="$style.formGroup">
-              <label :class="$style.formLabel">الوصف (اختياري)</label>
+            <div :class="$style.createFormGroup">
+              <label :class="$style.createFormLabel">الوصف (اختياري)</label>
               <textarea 
                 v-model="newSheetDescription"
-                :class="$style.formTextarea"
-                placeholder="أدخل وصفاً للجدول (اختياري)"
-                rows="3"
+                :class="$style.createFormTextarea"
+                placeholder="ادخل وصفا للجدول"
+                rows="4"
                 :disabled="isCreatingSheet"
               ></textarea>
             </div>
           </div>
 
-          <div :class="$style.modalFooter">
-            <button :class="$style.cancelBtn" @click="closeCreateSheetModal" :disabled="isCreatingSheet">
-              إلغاء
+          <!-- Modal Footer -->
+          <div :class="$style.createModalFooter">
+            <button :class="$style.createCancelBtn" @click="closeCreateSheetModal" :disabled="isCreatingSheet">
+              الغاء
             </button>
             <button 
-              :class="$style.saveBtn" 
+              :class="$style.createSubmitBtn" 
               @click="createSheet"
               :disabled="isCreatingSheet || !newSheetName.trim()"
             >
-              <i v-if="isCreatingSheet" class="fas fa-spinner fa-spin"></i>
-              <i v-else class="fas fa-plus"></i>
-              {{ isCreatingSheet ? 'جاري الإنشاء...' : 'إنشاء' }}
+              <span v-if="isCreatingSheet">جاري الإنشاء...</span>
+              <span v-else>انشاء</span>
             </button>
           </div>
         </div>
@@ -3905,8 +4027,7 @@ onUnmounted(() => {
         <div :class="$style.importModal" @click.stop>
           <div :class="$style.modalHeader">
             <h3 :class="$style.modalTitle">
-              <i class="fas fa-file-import"></i>
-              استيراد البيانات من Excel
+              استيراد
             </h3>
             <button :class="$style.modalCloseBtn" @click="closeImportModal">
               <i class="fas fa-times"></i>
@@ -3914,83 +4035,109 @@ onUnmounted(() => {
           </div>
           
           <div :class="$style.modalBody">
-            <!-- Download Template Section -->
-            <div :class="$style.importSection">
-              <div :class="$style.sectionIcon">
-                <i class="fas fa-download"></i>
+            <!-- Stepper -->
+            <div :class="$style.stepperContainer">
+              <div :class="$style.stepperLine"></div>
+              
+              <div :class="$style.stepItem">
+                <div :class="[$style.stepCircle, currentStep >= 1 ? $style.stepCircleCompleted : '']">
+                  <i v-if="currentStep > 1" class="fas fa-check"></i>
+                  <span v-else>1</span>
+                </div>
+                <span :class="[$style.stepLabel, currentStep === 1 ? $style.stepLabelActive : '']">تحميل قالب</span>
               </div>
+              
+              <div :class="$style.stepItem">
+                <div :class="[$style.stepCircle, currentStep === 2 ? $style.stepCircleActive : currentStep > 2 ? $style.stepCircleCompleted : '']">
+                  <i v-if="currentStep > 2" class="fas fa-check"></i>
+                  <span v-else>2</span>
+                </div>
+                <span :class="[$style.stepLabel, currentStep === 2 ? $style.stepLabelActive : '']">طريقة الاستيراد</span>
+              </div>
+              
+              <div :class="$style.stepItem">
+                <div :class="[$style.stepCircle, currentStep === 3 ? $style.stepCircleActive : '']">3</div>
+                <span :class="[$style.stepLabel, currentStep === 3 ? $style.stepLabelActive : '']">رفع ملف</span>
+              </div>
+            </div>
+
+            <!-- Step 1: Download Template Section -->
+            <div v-if="currentStep === 1" :class="$style.importSection">
               <div :class="$style.sectionContent">
-                <h4 :class="$style.sectionTitle">الخطوة 1: تحميل القالب</h4>
+                <h4 :class="$style.sectionTitle">تحميل قالب ال Excel</h4>
                 <p :class="$style.sectionDesc">
-                  قم بتحميل قالب Excel الجاهز وملء البيانات المطلوبة
+                  قم بتنزيل ملف القالب، تم إدخال بيانات النشاط المطلوبة، وقم برفع الملف في الخطوة التالية.
                 </p>
                 <button :class="$style.downloadBtn" @click="downloadTemplate">
-                  <i class="fas fa-file-excel"></i>
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.5 12.5V15.8333C17.5 16.2754 17.3244 16.6993 17.0118 17.0118C16.6993 17.3244 16.2754 17.5 15.8333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V12.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5.83334 8.33334L10 12.5L14.1667 8.33334" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M10 2.5V12.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
                   تحميل القالب
                 </button>
               </div>
             </div>
 
-            <div :class="$style.sectionDivider">
-              <span :class="$style.dividerLine"></span>
-              <span :class="$style.dividerText">ثم</span>
-              <span :class="$style.dividerLine"></span>
-            </div>
-
-            <!-- Import Mode Selection -->
-            <div :class="$style.importModeSection">
-              <h4 :class="$style.sectionTitle">الخطوة 2: اختر طريقة الاستيراد</h4>
-              <div :class="$style.importModeOptions">
-                <label :class="[$style.importModeOption, { [$style.importModeActive]: importMode === 'replace' }]">
-                  <input type="radio" v-model="importMode" value="replace" :class="$style.radioInput" />
-                  <div :class="$style.importModeContent">
-                    <i class="fas fa-sync-alt" :class="$style.importModeIcon"></i>
-                    <div>
-                      <span :class="$style.importModeTitle">استبدال البيانات</span>
-                      <span :class="$style.importModeDesc">حذف البيانات الحالية واستبدالها بالبيانات الجديدة</span>
-                    </div>
-                  </div>
-                </label>
-                <label :class="[$style.importModeOption, { [$style.importModeActive]: importMode === 'append' }]">
-                  <input type="radio" v-model="importMode" value="append" :class="$style.radioInput" />
-                  <div :class="$style.importModeContent">
-                    <i class="fas fa-plus-circle" :class="$style.importModeIcon"></i>
-                    <div>
-                      <span :class="$style.importModeTitle">إضافة للبيانات</span>
-                      <span :class="$style.importModeDesc">الاحتفاظ بالبيانات الحالية وإضافة البيانات الجديدة</span>
-                    </div>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div :class="$style.sectionDivider">
-              <span :class="$style.dividerLine"></span>
-              <span :class="$style.dividerText">ثم</span>
-              <span :class="$style.dividerLine"></span>
-            </div>
-
-            <!-- Upload Section -->
-            <div :class="$style.importSection">
-              <div :class="$style.sectionIcon">
-                <i class="fas fa-upload"></i>
-              </div>
-              <div :class="$style.sectionContent">
-                <h4 :class="$style.sectionTitle">الخطوة 3: رفع الملف</h4>
+            <!-- Step 2: Import Mode Selection -->
+            <div v-if="currentStep === 2" :class="$style.importModeSection">
+              <div :class="$style.importSection">
+                <h4 :class="$style.sectionTitle">استبدال البيانات</h4>
                 <p :class="$style.sectionDesc">
-                  بعد ملء القالب، قم برفع الملف لاستيراد البيانات
+                  حذف البيانات الحالية واستبدالها بالبيانات الجديدة
+                </p>
+                <div :class="$style.importModeOptions">
+                  <label :class="[$style.importModeOption, { [$style.importModeActive]: importMode === 'replace' }]">
+                    <input type="radio" v-model="importMode" value="replace" :class="$style.radioInput" />
+                    <div :class="$style.importModeContent">
+                      <div :class="$style.importModeIcon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2L12 12M12 22L12 12M12 12L8 8M12 12L16 8M12 12L8 16M12 12L16 16" stroke="#A17D23" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <span :class="$style.importModeTitle">استبدال البيانات</span>
+                        <span :class="$style.importModeDesc">حذف البيانات الحالية واستبدالها بالبيانات الجديدة</span>
+                      </div>
+                    </div>
+                  </label>
+                  <label :class="[$style.importModeOption, { [$style.importModeActive]: importMode === 'append' }]">
+                    <input type="radio" v-model="importMode" value="append" :class="$style.radioInput" />
+                    <div :class="$style.importModeContent">
+                      <div :class="$style.importModeIcon">
+                        <i class="fas fa-plus-circle"></i>
+                      </div>
+                      <div>
+                        <span :class="$style.importModeTitle">إضافة بيانات</span>
+                        <span :class="$style.importModeDesc">الاحتفاظ بالبيانات الحالية وإضافة البيانات الجديدة</span>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3: Upload Section -->
+            <div v-if="currentStep === 3" :class="$style.importSection">
+              <div :class="$style.sectionContent">
+                <h4 :class="$style.sectionTitle">حدد ملف Excel المعبأ بيانات النشاط أو اسحبه هنا</h4>
+                <p :class="$style.sectionDesc">
+                  الصيغ المدعومة: CSV, XLSX, XLS
                 </p>
                 <div :class="$style.uploadArea" @dragover.prevent @drop.prevent="handleDrop">
                   <input
                     ref="fileInputRef"
                     type="file"
-                    accept=".xlsx,.xls"
+                    accept=".xlsx,.xls,.csv"
                     :class="$style.fileInput"
                     @change="handleFileUpload"
                     @click.stop
                   />
                   <div :class="$style.uploadContent" @click="triggerFileInput">
-                    <i class="fas fa-cloud-upload-alt" :class="$style.uploadIcon"></i>
+                    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" :class="$style.uploadIcon">
+                      <path d="M32 8V40M32 8L24 16M32 8L40 16" stroke="#A17D23" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M8 36V52C8 53.0609 8.42143 54.0783 9.17157 54.8284C9.92172 55.5786 10.9391 56 12 56H52C53.0609 56 54.0783 55.5786 54.8284 54.8284C55.5786 54.0783 56 53.0609 56 52V36" stroke="#A17D23" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                     <span :class="$style.uploadText">
                       {{ isImporting ? 'جاري الاستيراد...' : 'اضغط أو اسحب الملف هنا' }}
                     </span>
@@ -4008,8 +4155,17 @@ onUnmounted(() => {
           </div>
 
           <div :class="$style.modalFooter">
-            <button :class="$style.cancelBtn" @click="closeImportModal">
-              إلغاء
+            <button :class="$style.cancelBtn" @click="goToPreviousStep">
+              {{ currentStep === 1 ? 'إلغاء' : 'رجوع' }}
+            </button>
+            <button 
+              v-if="currentStep < 3"
+              :class="$style.nextStepBtn" 
+              :disabled="currentStep === 1 && !templateDownloaded || currentStep === 2 && !importMode"
+              @click="goToNextStep"
+            >
+              التالي
+              <i class="fas fa-arrow-left"></i>
             </button>
           </div>
         </div>
