@@ -7,7 +7,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
-  max-width: 1400px;
+
   z-index: 100;
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -1364,7 +1364,6 @@
   .headerMenu {
     top: 20px;
     width: calc(100% - 48px);
-    max-width: 1600px;
     border-radius: 28px;
   }
   

@@ -60,6 +60,8 @@ const QuickLinksPage = () => import("../pages/QuickLinks/QuickLinksPage.vue");
 
 // Activities
 const ListingActivities = () => import("../pages/Activities/ListingActivities.vue");
+const LocalActivitiesDetail = () => import("../pages/Activities/LocalActivitiesDetail.vue");
+const CreateActivity = () => import("../pages/Activities/CreateActivity.vue");
 // const OrganizationChart = () => import("../pages/OrganizationChart/OrganizationChart.vue");
 // const OrganizationDetails = () => import("../pages/OrganizationChart/OrganizationDetails.vue");
 
@@ -98,6 +100,18 @@ const routes: RouteRecordRaw[] = [
     name: "ListingActivitiesLocal",
     component: ListingActivities,
     meta: { title: "قائمة الأنشطة - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  {
+    path: "/activities/local/:id",
+    name: "LocalActivitiesDetail",
+    component: LocalActivitiesDetail,
+    meta: { title: "تفاصيل الأنشطة - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  {
+    path: "/activities/local/:id/create",
+    name: "CreateActivity",
+    component: CreateActivity,
+    meta: { title: "إنشاء نشاط جديد - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
   /*
   {

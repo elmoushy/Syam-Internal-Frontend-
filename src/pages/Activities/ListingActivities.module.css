@@ -20,9 +20,9 @@
 }
 
 .pageTitle {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-size: 40px;
+  font-weight: 400;
+  color: #121011;
   margin: 0;
 }
 
@@ -99,59 +99,6 @@
   padding: 24px;
   flex: 1;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-/* ==================== SEARCH BAR ==================== */
-.searchBarWrapper {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 24px;
-}
-
-.searchBar {
-  display: flex;
-  align-items: center;
-  flex-direction: row-reverse;
-  background: #f8f8f8;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 10px 16px;
-  min-width: 300px;
-  gap: 12px;
-  transition: all 0.2s ease;
-}
-
-.searchBar:focus-within {
-  border-color: #A17D23;
-  box-shadow: 0 0 0 3px rgba(161, 125, 35, 0.1);
-}
-
-.searchInput {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: #333;
-  outline: none;
-  text-align: right;
-}
-
-.searchInput::placeholder {
-  color: #999;
-}
-
-.searchShortcut {
-  font-size: 11px;
-  color: #999;
-  background: #eee;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-family: monospace;
-}
-
-.searchIcon {
-  color: #999;
-  font-size: 16px;
 }
 
 /* ==================== LOADING & EMPTY STATES ==================== */
@@ -249,133 +196,54 @@
 .sheetCard {
   position: relative;
   background: white;
-  border: 1px solid #e8e8e8;
+  border: 0.5px solid #E1E4EA;
   border-radius: 16px;
-  padding: 24px;
+  padding: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  text-align:center;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .sheetCard:hover {
-  border-color: #ddd;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg,#C9A961 10%, #A17D23 80%,  #A17D23 100%);
+  border-color: #A17D23;
   transform: translateY(-2px);
+  /* box-shadow: 0 8px 20px rgba(161, 125, 35, 0.3); */
 }
 
-.deleteCardBtn {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff5f5;
-  border: 1px solid #ffccc7;
+.sheetCard:hover .cardTitle,
+.sheetCard:hover .cardDesc {
+  color: white !important;
+}
+
+.cardIcon{
+  background-color: #F5F7FA;
   border-radius: 50%;
-  color: #ff4d4f;
-  font-size: 14px;
-  cursor: pointer;
+  padding: 10px;
   transition: all 0.2s ease;
 }
 
-.sheetCard:hover .deleteCardBtn {
-  opacity: 1;
-}
 
-.deleteCardBtn:hover {
-  background: #ff4d4f;
-  color: white;
-  border-color: #ff4d4f;
-}
-
-.cardHeader {
-  margin-bottom: 16px;
-  text-align: right;
-}
 
 .cardTitle {
   font-size: 18px;
   font-weight: 700;
-  color: #1a1a1a;
-  margin: 0 0 6px 0;
+  color: #0E121B;
+  transition: all 0.2s ease;
 }
 
 .cardDesc {
   font-size: 14px;
-  color: #888;
-  margin: 0;
+  color: #717784;
   line-height: 1.5;
+  transition: all 0.2s ease;
 }
 
-.cardBadges {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  justify-content: flex-end;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.badgeGreen {
-  background: #0d7e2d;
-  color: white;
-}
-
-.badgeGray {
-  background: #666;
-  color: white;
-}
-
-.badgeOrange {
-  background: #A17D23;
-  color: white;
-}
-
-.cardTitleRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
-.cardDivider {
-  height: 1px;
-  background: #f0f0f0;
-  margin: 16px 0;
-}
-
-.cardFooter {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 0;
-  border-top: none;
-  margin-top: auto;
-}
-
-.cardMeta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #666;
-}
-
-.cardMeta i {
-  font-size: 14px;
-  color: #999;
-}
 
 /* ==================== LIST PAGINATION ==================== */
 .listPagination {
@@ -2909,23 +2777,8 @@
   gap: 20px;
 }
 
-.sheetCard {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 20px;
-  border: 2px solid #e2e8f0;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
 
-.sheetCard:hover {
-  border-color: #b78a41;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-}
+
 
 :global(.night) .sheetCard {
   background: #1e293b;
