@@ -133,6 +133,31 @@ export const columnService = {
    */
   async deleteValidation(validationId: number): Promise<void> {
     await apiClient.delete(`${BASE_URL}/validations/${validationId}/`)
+  },
+
+  /**
+   * Detect columns from Excel file (for template creation)
+   * Analyzes the Excel file headers and infers column types
+   */
+  async detectColumnsFromExcel(file: File): Promise<{
+    success: boolean
+    columns: Array<{
+      name: string
+      type: string
+      width: number
+      excel_column: number
+    }>
+    column_count: number
+    message?: string
+    error?: string
+  }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await apiClient.post(`${BASE_URL}/columns/detect-from-excel/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
   }
 }
 
@@ -173,7 +198,11 @@ export const templateService = {
    * Create new template
    */
   async create(data: TemplateCreate): Promise<Template> {
+    console.log('🌐 templateService.create() called');
+    console.log('📤 POST data:', data);
+    console.log('📍 URL:', `${BASE_URL}/templates/`);
     const response = await apiClient.post(`${BASE_URL}/templates/`, data)
+    console.log('📥 Response:', response.data);
     return response.data
   },
 
@@ -181,7 +210,12 @@ export const templateService = {
    * Update template (name, description)
    */
   async update(id: number, data: TemplateUpdate): Promise<Template> {
+    console.log('🌐 templateService.update() called');
+    console.log('🆔 Template ID:', id);
+    console.log('📤 PATCH data:', data);
+    console.log('📍 URL:', `${BASE_URL}/templates/${id}/`);
     const response = await apiClient.patch(`${BASE_URL}/templates/${id}/`, data)
+    console.log('📥 Response:', response.data);
     return response.data
   },
 
@@ -579,7 +613,10 @@ export interface TitleColumn {
   width: number
   min_width: number
   is_required: boolean
+  is_visible?: boolean
   options: string[]
+  allows_attachment?: boolean
+  attachment_required?: boolean
   validations: Array<{
     rule_type: string
     rule_value: string
@@ -661,7 +698,36 @@ export interface SubmittedSheetItem {
   created_at: string
 }
 
+// ============================================================================
+// USER ACTIVITY PAGE - Response type for /activities/local
+// ============================================================================
+export interface UserActivityPageResponse {
+  has_active_templates: boolean
+  active_templates: Array<{
+    id: number
+    name: string
+    description: string
+    notes: string
+    header_image: string | null
+    column_count: number
+    is_active_title: boolean
+  }>
+  count: number
+  user_sheets?: TitleSheetItem[]
+  columns?: TitleColumn[]
+  message?: string
+}
+
 export const titleService = {
+  /**
+   * **NEW** - Get everything needed for the user activity page (/activities/local)
+   * Returns active template, user's sheets, and columns in a single request
+   */
+  async getUserActivityPage(): Promise<UserActivityPageResponse> {
+    const response = await apiClient.get(`${BASE_URL}/user/activity-page/`)
+    return response.data
+  },
+
   /**
    * Get list of published titles for dropdown
    */
@@ -912,6 +978,86 @@ export const titleService = {
     
     const response = await apiClient.get(`${BASE_URL}/admin/sheets/${sheetId}/data/?${queryParams}`)
     return response.data
+  },
+
+  /**
+   * Admin: Get all submitted activities for a specific template
+   * Returns individual activity rows with user filtering and search
+   */
+  async getAdminTemplateActivities(
+    templateId: number,
+    params?: {
+      user_id?: number
+      search?: string
+      status?: 'submitted' | 'draft' | ''
+      page?: number
+      page_size?: number
+    }
+  ): Promise<AdminTemplateActivitiesResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.user_id) queryParams.append('user_id', String(params.user_id))
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.page) queryParams.append('page', String(params.page))
+    if (params?.page_size) queryParams.append('page_size', String(params.page_size))
+    
+    const url = queryParams.toString() 
+      ? `${BASE_URL}/admin/templates/${templateId}/activities/?${queryParams}` 
+      : `${BASE_URL}/admin/templates/${templateId}/activities/`
+    const response = await apiClient.get(url)
+    return response.data
+  },
+
+  /**
+   * Admin: Get users with submission counts for a specific template
+   * Supports search filter on user names
+   */
+  async getAdminTemplateUsers(
+    templateId: number,
+    params?: {
+      search?: string
+    }
+  ): Promise<{
+    template: { id: number; name: string; description: string; status: string }
+    users: AdminTemplateUser[]
+    total_count: number
+  }> {
+    const queryParams = new URLSearchParams()
+    if (params?.search) queryParams.append('search', params.search)
+    
+    const url = queryParams.toString() 
+      ? `${BASE_URL}/admin/templates/${templateId}/users/?${queryParams}` 
+      : `${BASE_URL}/admin/templates/${templateId}/users/`
+    const response = await apiClient.get(url)
+    return response.data
+  },
+
+  /**
+   * Admin: Export activities for a template with batched fetching support
+   * Designed for large datasets - supports pagination for efficient export
+   */
+  async getAdminTemplateActivitiesExport(
+    templateId: number,
+    params?: {
+      user_id?: number
+      search?: string
+      status?: 'submitted' | 'draft' | 'all' | ''
+      page?: number
+      page_size?: number
+    }
+  ): Promise<AdminTemplateActivitiesExportResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.user_id) queryParams.append('user_id', String(params.user_id))
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.page) queryParams.append('page', String(params.page))
+    if (params?.page_size) queryParams.append('page_size', String(params.page_size))
+    
+    const url = queryParams.toString() 
+      ? `${BASE_URL}/admin/templates/${templateId}/activities/export/?${queryParams}` 
+      : `${BASE_URL}/admin/templates/${templateId}/activities/export/`
+    const response = await apiClient.get(url)
+    return response.data
   }
 }
 
@@ -947,10 +1093,334 @@ export interface AdminSheetDataResponse {
   pagination: PaginationInfo
 }
 
+// Admin template activities response type
+export interface AdminTemplateActivitiesResponse {
+  template: {
+    id: number
+    name: string
+    description: string
+    status: string
+  }
+  columns: Array<{
+    id: number
+    key: string
+    label: string
+    data_type: string
+    order: number
+  }>
+  activities: AdminTemplateActivity[]
+  users: AdminTemplateUser[]
+  pagination: PaginationInfo
+}
+
+export interface AdminTemplateActivity {
+  id: number
+  title: string
+  description?: string
+  data: Record<string, string>
+  styles: Record<string, any>
+  status: 'draft' | 'submitted'
+  is_submitted: boolean
+  submitted_at: string | null
+  row_number: number
+  sheet_id: number
+  owner_id: number
+  author: string
+  owner_username: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminTemplateUser {
+  id: number
+  username: string
+  full_name: string
+  submitted_count: number
+}
+
+// Export response type for batched fetching
+export interface AdminTemplateActivitiesExportResponse {
+  template: {
+    id: number
+    name: string
+  }
+  columns: Array<{
+    id: number
+    key: string
+    label: string
+    data_type: string
+    order: number
+  }>
+  activities: AdminTemplateExportActivity[]
+  export_info: {
+    page: number
+    page_size: number
+    total_count: number
+    total_pages: number
+    has_more: boolean
+    fetched_count: number
+  }
+}
+
+export interface AdminTemplateExportActivity {
+  id: number
+  data: Record<string, string>
+  styles: Record<string, any>
+  is_submitted: boolean
+  submitted_at: string | null
+  row_number: number
+  owner_id: number
+  author: string
+  owner_username: string
+}
+
+// ============================================================================
+// USER ACTIVITIES - Types and Service
+// ============================================================================
+
+export interface ActivityAttachment {
+  id: number
+  column_key: string
+  original_filename: string
+  file_size: number
+  mime_type: string
+  is_image: boolean
+  download_url: string
+  preview_url: string | null
+  created_at: string
+}
+
+export interface UserActivity {
+  id: number
+  title: string
+  description?: string
+  data: Record<string, string>
+  styles: Record<string, any>
+  attachments?: ActivityAttachment[]
+  author: string
+  date: string
+  created_at: string
+  updated_at: string
+  status: 'draft' | 'submitted'
+  is_submitted: boolean
+}
+
+export interface UserActivitiesListResponse {
+  template: {
+    id: number
+    name: string
+    description: string
+  }
+  sheet?: {
+    id: number
+    name: string
+    is_submitted: boolean
+    submitted_at: string | null
+  }
+  activities: UserActivity[]
+  columns: TitleColumn[]
+  pagination: PaginationInfo
+}
+
+export interface UserActivityDetailResponse {
+  id: number
+  title: string
+  description?: string
+  data: Record<string, string>
+  styles: Record<string, any>
+  attachments: ActivityAttachment[] | Record<string, ActivityAttachment[]>
+  author: string
+  date: string
+  created_at: string
+  updated_at: string
+  status: 'draft' | 'submitted'
+  is_submitted: boolean
+  sheet: {
+    id: number
+    name: string
+    is_submitted: boolean
+  }
+  template: {
+    id: number
+    name: string
+  } | null
+  columns: TitleColumn[]
+  submitted_at?: string | null
+}
+
+export const userActivitiesService = {
+  /**
+   * Get user's activities for a specific template
+   */
+  async getActivities(
+    templateId: number,
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<UserActivitiesListResponse> {
+    const response = await apiClient.get(`${BASE_URL}/user/templates/${templateId}/activities/`, {
+      params: { page, page_size: pageSize }
+    })
+    return response.data
+  },
+
+  /**
+   * Get a single activity by ID
+   */
+  async getActivity(activityId: number): Promise<UserActivityDetailResponse> {
+    const response = await apiClient.get(`${BASE_URL}/user/activities/${activityId}/`)
+    return response.data
+  },
+
+  /**
+   * Create a new activity for a template
+   */
+  async createActivity(
+    templateId: number,
+    data: Record<string, string>,
+    styles?: Record<string, any>
+  ): Promise<UserActivity> {
+    const response = await apiClient.post(`${BASE_URL}/user/templates/${templateId}/activities/`, {
+      data,
+      styles: styles || {}
+    })
+    return response.data
+  },
+
+  /**
+   * Update an activity (partial update)
+   */
+  async updateActivity(
+    activityId: number,
+    data: Record<string, string>,
+    styles?: Record<string, any>
+  ): Promise<UserActivity> {
+    const response = await apiClient.patch(`${BASE_URL}/user/activities/${activityId}/`, {
+      data,
+      styles: styles || {}
+    })
+    return response.data
+  },
+
+  /**
+   * Delete an activity
+   */
+  async deleteActivity(activityId: number): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.delete(`${BASE_URL}/user/activities/${activityId}/`)
+    return response.data
+  },
+
+  /**
+   * Submit a single activity (per-activity submission)
+   */
+  async submitActivity(activityId: number): Promise<{ success: boolean; message: string; activity_id: number; submitted_at: string }> {
+    const response = await apiClient.post(`${BASE_URL}/user/activities/${activityId}/submit/`)
+    return response.data
+  },
+
+  /**
+   * Submit all unsubmitted activities for a template (bulk submit)
+   */
+  async submitTemplate(templateId: number): Promise<{ success: boolean; message: string; submitted_count: number; submitted_at: string }> {
+    const response = await apiClient.post(`${BASE_URL}/user/templates/${templateId}/submit/`)
+    return response.data
+  },
+
+  /**
+   * Upload an attachment for an activity row
+   */
+  async uploadAttachment(
+    activityId: number,
+    columnKey: string,
+    file: File
+  ): Promise<{ id: number; filename: string; download_url: string; preview_url: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('column_key', columnKey)
+    
+    const response = await apiClient.post(
+      `${BASE_URL}/rows/${activityId}/attachments/`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    )
+    return response.data
+  },
+
+  /**
+   * Delete an attachment
+   */
+  async deleteAttachment(attachmentId: number): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.delete(`${BASE_URL}/attachments/${attachmentId}/`)
+    return response.data
+  },
+
+  /**
+   * Download an attachment - fetches the file content and triggers browser download
+   */
+  async downloadAttachment(attachmentId: number): Promise<void> {
+    const response = await apiClient.get(`${BASE_URL}/attachments/${attachmentId}/download/`)
+    const data = response.data
+    
+    // Convert base64 to blob
+    const byteCharacters = atob(data.content)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: data.mime_type })
+    
+    // Create download link
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = data.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  },
+
+  /**
+   * Preview an attachment - fetches the file content and returns data URL for display
+   */
+  async previewAttachment(attachmentId: number): Promise<{ dataUrl: string; filename: string; mimeType: string }> {
+    const response = await apiClient.get(`${BASE_URL}/attachments/${attachmentId}/preview/`)
+    const data = response.data
+    
+    // Create data URL from base64 content
+    const dataUrl = `data:${data.mime_type};base64,${data.content}`
+    
+    return {
+      dataUrl,
+      filename: data.filename,
+      mimeType: data.mime_type
+    }
+  },
+
+  /**
+   * Get attachment download URL (relative path - for reference only, use downloadAttachment method)
+   */
+  getAttachmentDownloadUrl(attachmentId: number): string {
+    return `${BASE_URL}/attachments/${attachmentId}/download/`
+  },
+
+  /**
+   * Get attachment preview URL (relative path - for reference only, use previewAttachment method)
+   */
+  getAttachmentPreviewUrl(attachmentId: number): string {
+    return `${BASE_URL}/attachments/${attachmentId}/preview/`
+  }
+}
+
 // Default export with all services
 export default {
   columns: columnService,
   templates: templateService,
   sheets: sheetService,
-  titles: titleService
+  titles: titleService,
+  userActivities: userActivitiesService
 }

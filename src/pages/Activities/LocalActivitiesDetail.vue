@@ -1,56 +1,81 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
 import SidePanel from '@/components/shared/SidePanel.vue'
+import { userActivitiesService, type UserActivity, type UserActivitiesListResponse, type TitleColumn } from '@/services/activityService'
 
 const route = useRoute()
 const router = useRouter()
 
-// Get the sheet ID from the route params
-const sheetId = computed(() => route.params.id)
+// Get the template ID from the route params
+const templateId = computed(() => Number(route.params.id))
 
-// Mock data - replace with actual API call
-const sheetName = ref('ورش العمل')
-const activities = ref([
-  {
-    id: 1,
-    title: 'اجتماع',
-    description: 'اجتماع مناقشة ملف مينا قيرس طاوارى وأزمات المواد الخطرة في جائزة مؤسسة الإمارات للطاقة النووية',
-    author: 'أحمد محمد السعيدي',
-    date: '10 يناير 2025, 2:05 م',
-    status: 'submitted' // or 'draft'
-  },
-  {
-    id: 2,
-    title: 'أخرى',
-    description: 'مقابلات توظيف ( قسم المعلومات / قسم البحث والتطوير)',
-    author: 'كريم محمد',
-    date: '10 يناير 2025, 5:05 م',
-    status: 'draft'
-  },
-  {
-    id: 3,
-    title: 'اجتماع',
-    description: 'اجتماع مناقشة ملف مينا قيرس طاوارى وأزمات المواد الخطرة في جائزة مؤسسة الإمارات للطاقة النووية',
-    author: 'سامي محمد احمد',
-    date: '10 يناير 2025, 5:05 م',
-    status: 'submitted'
-  },
-  {
-    id: 4,
-    title: 'ورش العمل',
-    description: 'اجتماع مناقشة ملف مينا قيرس طاوارى وأزمات المواد الخطرة في جائزة مؤسسة الإمارات للطاقة النووية',
-    author: 'محمد ابراهيم',
-    date: '10 يناير 2025, 5:05 م',
-    status: 'draft'
-  }
-])
+// Loading and error states
+const isLoading = ref(false)
+const isDeleting = ref(false)
+const error = ref<string | null>(null)
+
+// Data from API
+const templateInfo = ref<{ id: number; name: string; description: string } | null>(null)
+const sheetInfo = ref<{ id: number; name: string; is_submitted: boolean; submitted_at: string | null } | null>(null)
+const activities = ref<UserActivity[]>([])
+const columns = ref<TitleColumn[]>([])
+
+// Pagination
+const pagination = ref({
+  page: 1,
+  page_size: 20,
+  total_count: 0,
+  total_pages: 0,
+  has_next: false,
+  has_prev: false
+})
 
 // Side panel state
 const isPanelOpen = ref(false)
-const selectedActivity = ref<any>(null)
+const selectedActivity = ref<UserActivity | null>(null)
 
-const handleCardClick = (activity: any) => {
+// Format date for display
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('ar-EG', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// Load activities from API
+const loadActivities = async (page: number = 1) => {
+  if (!templateId.value) return
+  
+  isLoading.value = true
+  error.value = null
+  
+  try {
+    const response: UserActivitiesListResponse = await userActivitiesService.getActivities(
+      templateId.value,
+      page,
+      pagination.value.page_size
+    )
+    
+    templateInfo.value = response.template
+    sheetInfo.value = response.sheet || null
+    activities.value = response.activities
+    columns.value = response.columns
+    pagination.value = response.pagination
+  } catch (err: any) {
+    console.error('Failed to load activities:', err)
+    error.value = err.response?.data?.error || 'فشل في تحميل الأنشطة'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const handleCardClick = (activity: UserActivity) => {
   selectedActivity.value = activity
   isPanelOpen.value = true
 }
@@ -62,28 +87,57 @@ const handleClosePanel = () => {
 
 const handleViewFullDetails = () => {
   if (selectedActivity.value) {
-    router.push(`/activities/local/${sheetId.value}/activity/${selectedActivity.value.id}`)
+    router.push(`/activities/local/${templateId.value}/activity/${selectedActivity.value.id}`)
   }
 }
 
 const handleEditActivity = () => {
-  if (selectedActivity.value) {
-    console.log('Edit activity:', selectedActivity.value.id)
-    // You can navigate to edit page or open edit modal here
+  if (selectedActivity.value && !selectedActivity.value.is_submitted) {
+    router.push(`/activities/local/${templateId.value}/edit/${selectedActivity.value.id}`)
   }
 }
 
 const handleCreateNew = () => {
-  router.push(`/activities/local/${sheetId.value}/create`)
+  console.log('Create new button clicked')
+  console.log('Template ID:', templateId.value)
+  console.log('Template info:', templateInfo.value)
+  
+  // Backend will validate if template is active/inactive
+  router.push(`/activities/local/${templateId.value}/create`)
 }
 
 const handleEdit = (activityId: number) => {
-  console.log('Edit activity:', activityId)
+  router.push(`/activities/local/${templateId.value}/edit/${activityId}`)
 }
 
-const handleDelete = (activityId: number) => {
-  if (confirm('هل أنت متأكد من حذف هذا النشاط؟')) {
+const handleDelete = async (activityId: number) => {
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: 'تأكيد الحذف',
+    text: 'هل أنت متأكد من حذف هذا النشاط؟',
+    showCancelButton: true,
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#d33'
+  })
+  
+  if (!result.isConfirmed) {
+    return
+  }
+  
+  isDeleting.value = true
+  
+  try {
+    await userActivitiesService.deleteActivity(activityId)
+    // Remove from local list
     activities.value = activities.value.filter(a => a.id !== activityId)
+    // Update total count
+    pagination.value.total_count = Math.max(0, pagination.value.total_count - 1)
+  } catch (err: any) {
+    console.error('Failed to delete activity:', err)
+    error.value = err.response?.data?.error || 'فشل في حذف النشاط'
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -91,9 +145,27 @@ const goBack = () => {
   router.push('/activities/local')
 }
 
+// Pagination handlers
+const goToPage = (page: number) => {
+  if (page >= 1 && page <= pagination.value.total_pages) {
+    loadActivities(page)
+  }
+}
+
+// Get activity column value by key
+const getColumnValue = (activity: UserActivity, colKey: string): string => {
+  return activity.data?.[colKey] || ''
+}
+
+// Watch for route changes
+watch(templateId, (newVal) => {
+  if (newVal) {
+    loadActivities()
+  }
+})
+
 onMounted(() => {
-  // Load activities for this sheet
-  console.log('Loading activities for sheet:', sheetId.value)
+  loadActivities()
 })
 </script>
 
@@ -104,54 +176,80 @@ onMounted(() => {
       <div :class="$style.breadcrumb">
         <span :class="$style.breadcrumbLink" @click="goBack">حصر الأنشطة</span>
         <span :class="$style.breadcrumbSeparator">/</span>
-        <span :class="$style.breadcrumbCurrent">{{ sheetName }}</span>
+        <span :class="$style.breadcrumbCurrent">{{ templateInfo?.name || 'جاري التحميل...' }}</span>
       </div>
       
-      <button :class="$style.createNewBtn" @click="handleCreateNew">
+      <button 
+        :class="$style.createNewBtn" 
+        @click="handleCreateNew"
+      >
         <i class="fas fa-plus"></i>
         إنشاء نشاط جديد
       </button>
     </div>
 
+    <!-- Error Message -->
+    <div v-if="error" :class="$style.errorMessage">
+      <i class="fas fa-exclamation-circle"></i>
+      {{ error }}
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="isLoading" :class="$style.loadingState">
+      <i class="fas fa-spinner fa-spin"></i>
+      <span>جاري تحميل الأنشطة...</span>
+    </div>
+
     <!-- Activities Grid -->
-    <div :class="$style.mainContent">
-      <div :class="$style.activitiesGrid">
+    <div v-else :class="$style.mainContent">
+      <!-- Empty State -->
+      <div v-if="activities.length === 0" :class="$style.emptyState">
+        <div :class="$style.emptyIcon"><i class="fas fa-folder-open"></i></div>
+        <p :class="$style.emptyText">لا توجد أنشطة حالياً</p>
+        <p :class="$style.emptyDesc">ابدأ بإنشاء نشاط جديد</p>
+        <button 
+          :class="$style.createNewBtn" 
+          @click="handleCreateNew"
+        >
+          <i class="fas fa-plus"></i>
+          إنشاء نشاط جديد
+        </button>
+      </div>
+
+      <div v-else :class="$style.activitiesGrid">
         <div 
           v-for="activity in activities" 
           :key="activity.id"
           :class="$style.activityCard"
           @click="handleCardClick(activity)"
         >
-   
-
           <!-- Card Content -->
           <div :class="$style.cardBody">
             <div :class="$style.cardHeader">
-            <h3 :class="$style.cardTitle">{{ activity.title }}</h3>
-                  <span 
-              :class="[
-                $style.statusBadge,
-                activity.status === 'draft' ? $style.statusDraft : $style.statusSubmitted
-              ]"
-            >
-              {{ activity.status === 'draft' ? 'مسودة' : 'تم التقديم' }}
-            </span>
-                        </div>
-            <p :class="$style.cardDesc">{{ activity.description }}</p>
+              <h3 :class="$style.cardTitle">{{ activity.title }}</h3>
+              <span 
+                :class="[
+                  $style.statusBadge,
+                  activity.status === 'draft' ? $style.statusDraft : $style.statusSubmitted
+                ]"
+              >
+                {{ activity.status === 'draft' ? 'مسودة' : 'تم التقديم' }}
+              </span>
+            </div>
+            <p :class="$style.cardDesc">{{ activity.description || 'لا يوجد وصف' }}</p>
           </div>
 
           <!-- Card Footer -->
           <div :class="$style.cardFooter">
-                <div :class="$style.cardDate">
+            <div :class="$style.cardDate">
               <i class="fas fa-clock"></i>
-              {{ activity.date }}
+              {{ formatDate(activity.updated_at) }}
             </div>
             <div v-if="activity.status !== 'draft'" :class="$style.cardAuthor">
               <i class="fas fa-user"></i>
               {{ activity.author }}
             </div>
         
-              
             <div v-if="activity.status === 'draft'" :class="$style.cardActions">
               <button 
                 :class="$style.actionBtn"
@@ -171,6 +269,7 @@ onMounted(() => {
                 :class="$style.actionBtn"
                 @click.stop="handleDelete(activity.id)"
                 title="حذف"
+                :disabled="isDeleting"
               >
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M14 0.5C21.4558 0.5 27.5 6.54416 27.5 14C27.5 21.4558 21.4558 27.5 14 27.5C6.54416 27.5 0.5 21.4558 0.5 14C0.5 6.54416 6.54416 0.5 14 0.5Z" fill="white"/>
@@ -184,67 +283,62 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
+      <!-- Pagination -->
+      <div v-if="pagination.total_pages > 1" :class="$style.paginationContainer">
+        <button 
+          :class="$style.paginationBtn"
+          :disabled="!pagination.has_prev"
+          @click="goToPage(pagination.page - 1)"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        
+        <span :class="$style.paginationInfo">
+          صفحة {{ pagination.page }} من {{ pagination.total_pages }}
+        </span>
+        
+        <button 
+          :class="$style.paginationBtn"
+          :disabled="!pagination.has_next"
+          @click="goToPage(pagination.page + 1)"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Side Panel -->
     <SidePanel 
       v-model:isOpen="isPanelOpen" 
-      :title="selectedActivity?.title || 'ورش عمل'"
+      :title="selectedActivity?.title || 'تفاصيل النشاط'"
       @close="handleClosePanel"
     >
       <div v-if="selectedActivity" :class="$style.panelContent">
         <!-- Header Buttons -->
         <div :class="$style.headerButtons">
           <button :class="$style.viewFullBtn" @click="handleViewFullDetails">عرض التفاصيل الكاملة</button>
-          <button :class="$style.editBtn" @click="handleEditActivity">تعديل النشاط</button>
+          <button 
+            v-if="!selectedActivity.is_submitted"
+            :class="$style.editBtn" 
+            @click="handleEditActivity"
+          >
+            تعديل النشاط
+          </button>
         </div>
 
-        <!-- Activity Details Sections -->
+        <!-- Activity Details Sections - Dynamic from columns -->
         <div :class="$style.detailsContainer">
-          <!-- Section 1: منتدى النشاط -->
-          <div :class="$style.detailSection">
-            <h3 :class="$style.sectionTitle">منتدى النشاط</h3>
-            <div :class="$style.detailItem">
-              <span :class="$style.itemLabel">القسم / الجهة المستودعة</span>
-              <span :class="$style.itemValue">قسم إدارة الأزمات والطوارئ</span>
+          <template v-for="column in columns" :key="column.key">
+            <div v-if="getColumnValue(selectedActivity, column.key)" :class="$style.detailSection">
+              <h3 :class="$style.sectionTitle">{{ column.label }}</h3>
+              <div :class="$style.detailItem">
+                <span :class="$style.itemValue">{{ getColumnValue(selectedActivity, column.key) }}</span>
+              </div>
             </div>
-          </div>
+          </template>
 
-          <!-- Section 2: نطاق النشاط -->
-          <div :class="$style.detailSection">
-            <h3 :class="$style.sectionTitle">نطاق النشاط</h3>
-            <div :class="$style.detailItem">
-              <span :class="$style.itemValue">محلي - على مستوى الإمارة</span>
-            </div>
-          </div>
-
-          <!-- Section 3: إدارة جوانب المواد الخطرة -->
-          <div :class="$style.detailSection">
-            <h3 :class="$style.sectionTitle">إدارة جوانب المواد الخطرة</h3>
-            <div :class="$style.detailItem">
-              <span :class="$style.itemLabel">الجهات المشاركة</span>
-              <span :class="$style.itemValue">{{ selectedActivity.description }}</span>
-            </div>
-          </div>
-
-          <!-- Section 4: مبادرة داخلية - قسم التخطيط -->
-          <div :class="$style.detailSection">
-            <h3 :class="$style.sectionTitle">مبادرة داخلية - قسم التخطيط</h3>
-            <div :class="$style.detailItem">
-              <span :class="$style.itemLabel">مصدر النشاط</span>
-              <span :class="$style.itemValue">مبادرة داخلية - قسم التخطيط</span>
-            </div>
-          </div>
-
-          <!-- Section 5: يوجد محضر اجتماع -->
-          <div :class="$style.detailSection">
-            <h3 :class="$style.sectionTitle">يوجد محضر اجتماع</h3>
-            <div :class="$style.detailItem">
-              <span :class="[$style.itemValue, $style.greenText]">نعم</span>
-            </div>
-          </div>
-
-          <!-- Section 6: معلومات النظام -->
+          <!-- System Info Section -->
           <div :class="$style.detailSection">
             <h3 :class="$style.sectionTitle">معلومات النظام</h3>
             <div :class="$style.detailItem">
@@ -253,18 +347,17 @@ onMounted(() => {
             </div>
             <div :class="$style.detailItem">
               <span :class="$style.itemLabel">تاريخ الإنشاء</span>
-              <span :class="$style.itemValue">{{ selectedActivity.date }}</span>
+              <span :class="$style.itemValue">{{ formatDate(selectedActivity.created_at) }}</span>
             </div>
-          </div>
-
-          <!-- Section 7: المخرجات الرئيسية -->
-          <div :class="$style.detailSection">
-            <h3 :class="$style.sectionTitle">المخرجات الرئيسية</h3>
             <div :class="$style.detailItem">
-              <p :class="$style.itemValue">
-                مراجعة شاملة لخطط الطوارئ الحالية وتحديث الإجراءات التشغيلية بما يتماشى مع أحدث المعايير الدولية. تحديد نقاط الضعف في الخطط الموجودة واقتراح التحسينات اللازمة. إعداد تقرير مفصل بالتوصيات والإجراءات المطلوبة مع جدول زمني للتنفيذ.
-              </p>
-              <a href="#" :class="$style.viewMoreLink">عرض المزيد</a>
+              <span :class="$style.itemLabel">آخر تحديث</span>
+              <span :class="$style.itemValue">{{ formatDate(selectedActivity.updated_at) }}</span>
+            </div>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">الحالة</span>
+              <span :class="[$style.itemValue, selectedActivity.is_submitted ? $style.greenText : '']">
+                {{ selectedActivity.is_submitted ? 'تم التقديم' : 'مسودة' }}
+              </span>
             </div>
           </div>
         </div>
@@ -333,6 +426,7 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(161, 125, 35, 0.25);
+  font-family: "Cairo", "Segoe UI", Tahoma, sans-serif;
 }
 
 .createNewBtn:hover {
@@ -598,6 +692,122 @@ onMounted(() => {
 
 .viewMoreLink:hover {
   text-decoration: underline;
+}
+
+/* ==================== LOADING & ERROR STATES ==================== */
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 16px;
+  gap: 16px;
+  color: #717784;
+  font-size: 16px;
+}
+
+.loadingState i {
+  font-size: 32px;
+  color: #A17D23;
+}
+
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #FFF5F5;
+  border: 1px solid #FADBD7;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  color: #D44333;
+  font-size: 14px;
+}
+
+.errorMessage i {
+  font-size: 18px;
+}
+
+/* ==================== EMPTY STATE ==================== */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFF8ED;
+  border-radius: 50%;
+  margin-bottom: 24px;
+}
+
+.emptyIcon i {
+  font-size: 32px;
+  color: #A17D23;
+}
+
+.emptyText {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0E121B;
+  margin: 0 0 8px 0;
+}
+
+.emptyDesc {
+  font-size: 14px;
+  color: #717784;
+  margin: 0 0 24px 0;
+}
+
+/* ==================== PAGINATION ==================== */
+.paginationContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #E1E4EA;
+}
+
+.paginationBtn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1px solid #E1E4EA;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #717784;
+}
+
+.paginationBtn:hover:not(:disabled) {
+  background: #FFF8ED;
+  border-color: #A17D23;
+  color: #A17D23;
+}
+
+.paginationBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paginationInfo {
+  font-size: 14px;
+  color: #717784;
 }
 </style>
 

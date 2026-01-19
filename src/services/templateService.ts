@@ -122,6 +122,28 @@ export const templateService = {
   },
 
   /**
+   * Get a specific template by ID (for Activity Templates)
+   * GET /activities/templates/{id}/
+   */
+  async getById(templateId: number): Promise<any> {
+    try {
+      console.log('🌐 Fetching activity template:', templateId);
+      const response = await apiClient.get(`/activities/templates/${templateId}/`);
+      
+      console.log('📡 Raw API response:', response);
+      console.log('📦 Response data:', response.data);
+      console.log('🔍 Response data.data:', response.data?.data);
+      
+      // The backend returns data directly, not wrapped in { data: {...} }
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Failed to get activity template:', error);
+      console.error('❌ Error response:', error.response?.data);
+      throw new Error(error.response?.data?.error || error.message || 'Failed to load activity template');
+    }
+  },
+
+  /**
    * Create a custom template from an existing survey
    * POST /surveys/templates/create/
    */

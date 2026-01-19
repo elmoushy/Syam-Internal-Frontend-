@@ -665,7 +665,7 @@ export const handleSecurityApiError = (error: any): {
   }
 }
 
-export { apiClient, clearTokens }
+export { apiClient, clearTokens, API_BASE_URL }
 
 // Function to reset refresh failure count (useful after successful login)
 export const resetRefreshFailureCount = (): void => {

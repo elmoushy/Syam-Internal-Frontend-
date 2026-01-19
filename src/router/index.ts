@@ -304,6 +304,26 @@ const routes: RouteRecordRaw[] = [
       requiresAdmin: true,
     },
   },
+  {
+    path: "/control/templates/edit/:id",
+    name: "SurveyTemplateEdit",
+    component: () => import("../pages/Control/TemplateCreate.vue"),
+    meta: {
+      title: "تعديل النموذج - WPC | WeaponpowerCloud App",
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: "/control/templates/:id/activities",
+    name: "TemplateActivitiesDetail",
+    component: () => import("../pages/Control/TemplateActivitiesDetail.vue"),
+    meta: {
+      title: "أنشطة القالب - WPC | WeaponpowerCloud App",
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
   
   {
     path: "/control/surveys/:surveyId/responses",
@@ -366,6 +386,12 @@ const routes: RouteRecordRaw[] = [
     name: "CreateActivity",
     component: CreateActivity,
     meta: { title: "إنشاء نشاط جديد - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  {
+    path: "/activities/local/:id/edit/:activityId",
+    name: "EditActivity",
+    component: () => import("../pages/Activities/EditActivity.vue"),
+    meta: { title: "تعديل النشاط - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
 
   {

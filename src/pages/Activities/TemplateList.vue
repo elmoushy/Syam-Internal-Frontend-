@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
 import { useActivitySheet } from '@/composables/useActivitySheet'
 import type { TemplateListItem, TemplateStatus } from '@/types/activity.types'
 
@@ -84,7 +85,16 @@ const goToEditor = (templateId?: number) => {
 
 // Actions
 const handlePublish = async (template: TemplateListItem) => {
-  if (!confirm('هل أنت متأكد من نشر هذا القالب؟ لن تتمكن من تعديل الأعمدة بعد النشر.')) return
+  const result = await Swal.fire({
+    icon: 'question',
+    title: 'تأكيد النشر',
+    text: 'هل أنت متأكد من نشر هذا القالب؟ لن تتمكن من تعديل الأعمدة بعد النشر.',
+    showCancelButton: true,
+    confirmButtonText: 'نعم، انشر',
+    cancelButtonText: 'إلغاء'
+  })
+  
+  if (!result.isConfirmed) return
   
   actionError.value = ''
   try {
@@ -99,7 +109,16 @@ const handleArchive = async (template: TemplateListItem) => {
     ? `سيتم أرشفة هذا القالب. الأوراق الموجودة (${template.sheet_count}) ستبقى متاحة مع بياناتها.`
     : 'هل أنت متأكد من أرشفة هذا القالب؟'
   
-  if (!confirm(message)) return
+  const result = await Swal.fire({
+    icon: 'question',
+    title: 'تأكيد الأرشفة',
+    text: message,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، أرشف',
+    cancelButtonText: 'إلغاء'
+  })
+  
+  if (!result.isConfirmed) return
   
   actionError.value = ''
   try {

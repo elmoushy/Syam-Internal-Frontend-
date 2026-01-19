@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import Swal from 'sweetalert2'
 import * as XLSX from 'xlsx'
 import { templateService, titleService } from '@/services/activityService'
 import type { 
@@ -152,7 +153,16 @@ const setActiveTitle = async (title: TemplateListItem) => {
     return
   }
   
-  if (!confirm(`هل أنت متأكد من تعيين "${title.name}" كعنوان نشط؟ سيتم إلغاء تنشيط أي عنوان آخر.`)) {
+  const result = await Swal.fire({
+    icon: 'question',
+    title: 'تأكيد التعيين',
+    text: `هل أنت متأكد من تعيين "${title.name}" كعنوان نشط؟ سيتم إلغاء تنشيط أي عنوان آخر.`,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، عين',
+    cancelButtonText: 'إلغاء'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
@@ -169,7 +179,16 @@ const setActiveTitle = async (title: TemplateListItem) => {
 
 // Deactivate title
 const deactivateTitle = async (title: TemplateListItem) => {
-  if (!confirm(`هل أنت متأكد من إلغاء تنشيط "${title.name}"؟`)) {
+  const result = await Swal.fire({
+    icon: 'question',
+    title: 'تأكيد إلغاء التنشيط',
+    text: `هل أنت متأكد من إلغاء تنشيط "${title.name}"؟`,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، ألغ التنشيط',
+    cancelButtonText: 'إلغاء'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
@@ -413,7 +432,16 @@ const publishTitle = async (title: TemplateListItem) => {
     return
   }
   
-  if (!confirm(`هل أنت متأكد من نشر "${title.name}"؟ لن تتمكن من تعديل الأعمدة بعد النشر.`)) {
+  const result = await Swal.fire({
+    icon: 'question',
+    title: 'تأكيد النشر',
+    text: `هل أنت متأكد من نشر "${title.name}"؟ لن تتمكن من تعديل الأعمدة بعد النشر.`,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، انشر',
+    cancelButtonText: 'إلغاء'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
@@ -430,7 +458,16 @@ const publishTitle = async (title: TemplateListItem) => {
 
 // Archive title
 const archiveTitle = async (title: TemplateListItem) => {
-  if (!confirm(`هل أنت متأكد من أرشفة "${title.name}"؟`)) {
+  const result = await Swal.fire({
+    icon: 'question',
+    title: 'تأكيد الأرشفة',
+    text: `هل أنت متأكد من أرشفة "${title.name}"؟`,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، أرشف',
+    cancelButtonText: 'إلغاء'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
@@ -447,7 +484,17 @@ const archiveTitle = async (title: TemplateListItem) => {
 
 // Delete title
 const deleteTitle = async (title: TemplateListItem) => {
-  if (!confirm(`هل أنت متأكد من حذف "${title.name}"؟`)) {
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: 'تأكيد الحذف',
+    text: `هل أنت متأكد من حذف "${title.name}"؟`,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#d33'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   

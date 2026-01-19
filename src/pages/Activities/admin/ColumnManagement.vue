@@ -1,6 +1,7 @@
 <!-- src/pages/Activities/admin/ColumnManagement.vue -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import Swal from 'sweetalert2'
 import { columnService } from '@/services/activityService'
 import type { ColumnDefinition, ColumnDefinitionCreate, DataType } from '@/types/activity.types'
 import ValidationRulesModal from './ValidationRulesModal.vue'
@@ -166,7 +167,17 @@ const deleteColumn = async (column: ColumnDefinition) => {
     return
   }
   
-  if (!confirm(`هل أنت متأكد من حذف العمود "${column.label}"؟`)) {
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: 'تأكيد الحذف',
+    text: `هل أنت متأكد من حذف العمود "${column.label}"؟`,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#d33'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   

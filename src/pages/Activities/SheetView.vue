@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import Swal from 'sweetalert2'
 import { useActivitySheet } from '@/composables/useActivitySheet'
 
 const route = useRoute()
@@ -118,10 +119,20 @@ const handleAddRow = () => {
   }, 50)
 }
 
-const handleDeleteSelected = () => {
+const handleDeleteSelected = async () => {
   if (selectedRows.value.size === 0) return
   
-  if (!confirm(`هل أنت متأكد من حذف ${selectedRows.value.size} صف؟`)) return
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: 'تأكيد الحذف',
+    text: `هل أنت متأكد من حذف ${selectedRows.value.size} صف؟`,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#d33'
+  })
+  
+  if (!result.isConfirmed) return
   
   deleteRows(Array.from(selectedRows.value))
   selectedRows.value = new Set()
@@ -147,9 +158,19 @@ const handleSave = async () => {
 }
 
 // Navigation guard for unsaved changes
-onBeforeRouteLeave((_to, _from, next) => {
+onBeforeRouteLeave(async (_to, _from, next) => {
   if (hasUnsavedChanges.value) {
-    if (confirm('لديك تغييرات غير محفوظة. هل تريد المغادرة؟')) {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'تغييرات غير محفوظة',
+      text: 'لديك تغييرات غير محفوظة. هل تريد المغادرة؟',
+      showCancelButton: true,
+      confirmButtonText: 'نعم، غادر',
+      cancelButtonText: 'إلغاء',
+      confirmButtonColor: '#d33'
+    })
+    
+    if (result.isConfirmed) {
       next()
     } else {
       next(false)

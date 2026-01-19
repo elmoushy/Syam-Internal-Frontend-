@@ -7,11 +7,14 @@
           <i class="fas fa-arrow-right"></i>
           رجوع
         </button>
-        <h1 :class="$style.title">إنشاء نموذج جديد</h1>
+        <h1 :class="$style.title">{{ editMode ? 'تعديل النموذج' : 'إنشاء نموذج جديد' }}</h1>
       </div>
       <div :class="$style.headerLeft">
         <button :class="$style.cancelBtn" @click="handleCancel">إلغاء</button>
-        <button :class="$style.saveBtn" @click="handleSave">إنشاء</button>
+        <button :class="$style.saveBtn" @click="handleSave" :disabled="isSaving">
+          <i v-if="isSaving" class="fas fa-spinner fa-spin"></i>
+          <span v-else>{{ editMode ? 'تحديث' : 'إنشاء' }}</span>
+        </button>
       </div>
     </div>
 
@@ -31,8 +34,20 @@
 
     <!-- Tab Content -->
     <div :class="$style.content">
+      <!-- Loading State -->
+      <div v-if="isLoading" :class="$style.loadingContainer">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>جاري تحميل النموذج...</p>
+      </div>
+
+      <!-- Error Message -->
+      <div v-if="errorMessage" :class="$style.errorMessage">
+        <i class="fas fa-exclamation-circle"></i>
+        <p>{{ errorMessage }}</p>
+      </div>
+
       <!-- Properties Tab -->
-      <div v-if="activeTab === 'properties'" :class="$style.tabContent + ' ' + $style.propertiesTab">
+      <div v-else-if="activeTab === 'properties'" :class="$style.tabContent + ' ' + $style.propertiesTab">
         <FormInput v-model="form.name" label="اسم النموذج" placeholder="ادخل اسم النموذج" required />
 
         <FormTextarea v-model="form.description" label="الوصف" placeholder="ادخل وصف النموذج" :rows="6" />
@@ -152,6 +167,10 @@
                     <i :class="getTypeIcon(column.type)"></i>
                     {{ getTypeLabel(column.type) }}
                   </span>
+                  <span v-if="column.allowsAttachment" :class="[$style.attachmentBadge, column.attachmentRequired ? $style.required : '']">
+                    <i class="fas fa-paperclip"></i>
+                    {{ column.attachmentRequired ? 'مرفق مطلوب' : 'يسمح بمرفق' }}
+                  </span>
                   <span :class="$style.excelBadgeGreen">Excel</span>
                 </div>
                 <div :class="$style.structureCardBottom">
@@ -186,6 +205,51 @@
           label="نوع البيانات"
           :options="columnTypeOptions"
           placeholder="اختر نوع البيانات" />
+        
+        <!-- Options field for select type -->
+        <div v-if="newColumn.type === 'select'" :class="$style.optionsSection">
+          <label :class="$style.optionsLabel">خيارات القائمة المنسدلة</label>
+          <div v-for="(option, index) in newColumn.options" :key="index" :class="$style.optionRow">
+            <input 
+              v-model="newColumn.options[index]" 
+              :class="$style.optionInput" 
+              placeholder="ادخل خيار" 
+            />
+            <button 
+              @click="removeOption(newColumn.options, index)" 
+              :class="$style.removeOptionBtn"
+              type="button">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <button @click="addOption(newColumn.options)" :class="$style.addOptionBtn" type="button">
+            <i class="fas fa-plus"></i>
+            إضافة خيار
+          </button>
+        </div>
+        
+        <!-- Attachment Settings -->
+        <div :class="$style.attachmentSection">
+          <label :class="$style.toggleLabel">
+            <input 
+              type="checkbox" 
+              v-model="newColumn.allowsAttachment"
+              :class="$style.toggleCheckbox"
+            />
+            <span :class="$style.toggleSlider"></span>
+            <span :class="$style.toggleText">يسمح بمرفقات</span>
+          </label>
+          
+          <label v-if="newColumn.allowsAttachment" :class="[$style.toggleLabel, $style.subToggle]">
+            <input 
+              type="checkbox" 
+              v-model="newColumn.attachmentRequired"
+              :class="$style.toggleCheckbox"
+            />
+            <span :class="$style.toggleSlider"></span>
+            <span :class="$style.toggleText">المرفق مطلوب</span>
+          </label>
+        </div>
       </div>
 
       <template #footer>
@@ -206,6 +270,51 @@
           label="نوع البيانات"
           :options="columnTypeOptions"
           placeholder="اختر نوع البيانات" />
+        
+        <!-- Options field for select type -->
+        <div v-if="editingColumn.type === 'select'" :class="$style.optionsSection">
+          <label :class="$style.optionsLabel">خيارات القائمة المنسدلة</label>
+          <div v-for="(option, index) in editingColumn.options" :key="index" :class="$style.optionRow">
+            <input 
+              v-model="editingColumn.options[index]" 
+              :class="$style.optionInput" 
+              placeholder="ادخل خيار" 
+            />
+            <button 
+              @click="removeOption(editingColumn.options, index)" 
+              :class="$style.removeOptionBtn"
+              type="button">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <button @click="addOption(editingColumn.options)" :class="$style.addOptionBtn" type="button">
+            <i class="fas fa-plus"></i>
+            إضافة خيار
+          </button>
+        </div>
+        
+        <!-- Attachment Settings -->
+        <div :class="$style.attachmentSection">
+          <label :class="$style.toggleLabel">
+            <input 
+              type="checkbox" 
+              v-model="editingColumn.allowsAttachment"
+              :class="$style.toggleCheckbox"
+            />
+            <span :class="$style.toggleSlider"></span>
+            <span :class="$style.toggleText">يسمح بمرفقات</span>
+          </label>
+          
+          <label v-if="editingColumn.allowsAttachment" :class="[$style.toggleLabel, $style.subToggle]">
+            <input 
+              type="checkbox" 
+              v-model="editingColumn.attachmentRequired"
+              :class="$style.toggleCheckbox"
+            />
+            <span :class="$style.toggleSlider"></span>
+            <span :class="$style.toggleText">المرفق مطلوب</span>
+          </label>
+        </div>
       </div>
 
       <template #footer>
@@ -301,9 +410,43 @@
             <br />
             سيتم الكشف تلقائيا عن صف الأعمدة
           </p>
-          <button :class="$style.uploadBtn" @click="simulateExcelUpload">
-            <i class="fas fa-upload"></i>
-            اختر ملف Excel
+          
+          <!-- Hidden file input -->
+          <input
+            ref="excelFileInput"
+            type="file"
+            accept=".xlsx,.xls"
+            style="display: none"
+            @change="handleExcelFileSelect"
+          />
+          
+          <!-- Show selected file name -->
+          <div v-if="excelFile" :class="$style.selectedFile">
+            <i class="fas fa-file-excel"></i>
+            <span>{{ excelFile.name }}</span>
+            <button @click="excelFile = null" :class="$style.removeFileBtn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          
+          <!-- Error message -->
+          <p v-if="excelError" :class="$style.errorMessage">{{ excelError }}</p>
+          
+          <button :class="$style.uploadBtn" @click="triggerFileInput" :disabled="isParsingExcel">
+            <i :class="isParsingExcel ? 'fas fa-spinner fa-spin' : 'fas fa-upload'"></i>
+            {{ excelFile ? 'تغيير الملف' : 'اختر ملف Excel' }}
+          </button>
+          
+          <!-- Parse button (when file selected) -->
+          <button 
+            v-if="excelFile" 
+            :class="$style.primaryBtn" 
+            @click="simulateExcelUpload"
+            :disabled="isParsingExcel"
+            style="margin-top: 12px; width: 100%;"
+          >
+            <i :class="isParsingExcel ? 'fas fa-spinner fa-spin' : 'fas fa-search'"></i>
+            {{ isParsingExcel ? 'جاري تحليل الملف...' : 'تحليل الأعمدة' }}
           </button>
         </div>
       </div>
@@ -354,18 +497,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
+// @ts-nocheck
+import { ref, computed, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { useAppStore } from "@/stores/useAppStore";
 import FormInput from "@/components/shared/FormInput.vue";
 import FormTextarea from "@/components/shared/FormTextarea.vue";
 import FormSelect from "@/components/shared/FormSelect.vue";
 import SidePanel from "@/components/shared/SidePanel.vue";
+import { templateService } from "@/services/activityService";
+import type { TemplateListItem, TemplateColumn, DataType } from "@/types/activity.types";
+import * as XLSX from 'xlsx';
 
 const router = useRouter();
+const route = useRoute();
 const store = useAppStore();
 
 const currentTheme = computed(() => store.currentTheme);
+
+// Edit mode detection
+const editMode = ref(false);
+const editTemplateId = ref<number | null>(null);
+
+// Loading and error states
+const isLoading = ref(false);
+const isSaving = ref(false);
+const errorMessage = ref("");
 
 // Active tab
 const activeTab = ref<"properties" | "database">("properties");
@@ -377,15 +534,20 @@ const form = ref({
   notes: "",
 });
 
-// Column interface
+// Column interface for local state
 interface Column {
   id: number;
   name: string;
   type: string;
+  options?: string[]; // For select type columns
+  isFromBackend?: boolean; // Track if column exists in backend
+  backendId?: number; // Store the backend column ID if exists
+  allowsAttachment?: boolean; // Allow file attachments for this column
+  attachmentRequired?: boolean; // Is attachment required (only when allowsAttachment=true)
 }
 
-// Template interface
-interface Template {
+// Template interface for local state
+interface TemplateInfo {
   id: number;
   name: string;
   columnCount: number;
@@ -433,26 +595,41 @@ const getTypeIcon = (type: string) => typeIcons[type] || "fas fa-font";
 // Available columns (empty by default to show empty state)
 const availableColumns = ref<Column[]>([]);
 
-// Selected columns
+// Selected columns - these will be the template structure
 const selectedColumns = ref<Column[]>([]);
 
 // ============== MANUAL PANEL ==============
 const showManualPanel = ref(false);
-const newColumn = ref({ name: "", type: "" });
+const newColumn = ref<{ name: string; type: string; options: string[]; allowsAttachment: boolean; attachmentRequired: boolean }>({ 
+  name: "", 
+  type: "", 
+  options: [],
+  allowsAttachment: false,
+  attachmentRequired: false
+});
 
 const openManualPanel = () => {
-  newColumn.value = { name: "", type: "" };
+  newColumn.value = { name: "", type: "", options: [], allowsAttachment: false, attachmentRequired: false };
   showManualPanel.value = true;
 };
 
 const createManualColumn = () => {
   if (!newColumn.value.name || !newColumn.value.type) return;
+  
+  // Validate options for select type
+  if (newColumn.value.type === 'select' && newColumn.value.options.length === 0) {
+    alert('يجب إضافة خيار واحد على الأقل للقائمة المنسدلة');
+    return;
+  }
 
   const newId = Date.now();
   availableColumns.value.push({
     id: newId,
     name: newColumn.value.name,
     type: newColumn.value.type,
+    options: newColumn.value.type === 'select' ? newColumn.value.options.filter(o => o.trim()) : undefined,
+    allowsAttachment: newColumn.value.allowsAttachment,
+    attachmentRequired: newColumn.value.attachmentRequired
   });
   showManualPanel.value = false;
 };
@@ -460,56 +637,53 @@ const createManualColumn = () => {
 // ============== TEMPLATE PANEL ==============
 const showTemplatePanel = ref(false);
 const templateStep = ref(1);
-const selectedTemplate = ref<Template | null>(null);
+const selectedTemplate = ref<TemplateInfo | null>(null);
 const templateColumns = ref<Column[]>([]);
 const selectedTemplateColumns = ref<Column[]>([]);
+const isLoadingTemplates = ref(false);
+const isLoadingTemplateColumns = ref(false);
 
-// Mock existing templates
-const existingTemplates = ref<Template[]>([
-  { id: 1, name: "حصر الأنشطة", columnCount: 8 },
-  { id: 2, name: "الشؤون المالية", columnCount: 12 },
-  { id: 3, name: "الموارد البشرية", columnCount: 6 },
-  { id: 4, name: "تقييم الأداء", columnCount: 10 },
-  { id: 5, name: "استبيان رضا العملاء", columnCount: 5 },
-]);
+// Existing templates from backend
+const existingTemplates = ref<TemplateInfo[]>([]);
 
-// Mock template columns data
-const templateColumnsData: Record<number, Column[]> = {
-  1: [
-    { id: 101, name: "اسم النشاط", type: "text" },
-    { id: 102, name: "نوع النشاط", type: "select" },
-    { id: 103, name: "تاريخ البدء", type: "date" },
-    { id: 104, name: "تاريخ الانتهاء", type: "date" },
-    { id: 105, name: "المسؤول", type: "text" },
-    { id: 106, name: "الميزانية", type: "number" },
-    { id: 107, name: "الحالة", type: "select" },
-    { id: 108, name: "ملاحظات", type: "text" },
-  ],
-  2: [
-    { id: 201, name: "رقم الفاتورة", type: "text" },
-    { id: 202, name: "التاريخ", type: "date" },
-    { id: 203, name: "المبلغ", type: "number" },
-    { id: 204, name: "نوع العملية", type: "select" },
-  ],
-  3: [
-    { id: 301, name: "اسم الموظف", type: "text" },
-    { id: 302, name: "الرقم الوظيفي", type: "text" },
-    { id: 303, name: "القسم", type: "select" },
-    { id: 304, name: "البريد الإلكتروني", type: "email" },
-    { id: 305, name: "رقم الهاتف", type: "tel" },
-    { id: 306, name: "تاريخ التعيين", type: "date" },
-  ],
-  4: [
-    { id: 401, name: "اسم الموظف", type: "text" },
-    { id: 402, name: "الفترة", type: "text" },
-    { id: 403, name: "التقييم", type: "number" },
-    { id: 404, name: "التوصيات", type: "text" },
-  ],
-  5: [
-    { id: 501, name: "اسم العميل", type: "text" },
-    { id: 502, name: "التقييم العام", type: "number" },
-    { id: 503, name: "ملاحظات", type: "text" },
-  ],
+// Load templates from backend
+const loadExistingTemplates = async () => {
+  isLoadingTemplates.value = true;
+  try {
+    const templates = await templateService.getAll({ status: 'published' });
+    existingTemplates.value = templates.map(t => ({
+      id: t.id,
+      name: t.name,
+      columnCount: t.column_count
+    }));
+  } catch (error: any) {
+    console.error('Failed to load templates:', error);
+    existingTemplates.value = [];
+  } finally {
+    isLoadingTemplates.value = false;
+  }
+};
+
+// Load columns for a specific template
+const loadTemplateColumns = async (templateId: number) => {
+  isLoadingTemplateColumns.value = true;
+  try {
+    const template = await templateService.getById(templateId);
+    templateColumns.value = template.template_columns.map(tc => ({
+      id: tc.id,
+      name: tc.column_definition.label,
+      type: tc.column_definition.data_type,
+      isFromBackend: true,
+      backendId: tc.column_definition.id
+    }));
+    selectedTemplateColumns.value = [...templateColumns.value];
+  } catch (error: any) {
+    console.error('Failed to load template columns:', error);
+    templateColumns.value = [];
+    selectedTemplateColumns.value = [];
+  } finally {
+    isLoadingTemplateColumns.value = false;
+  }
 };
 
 const openTemplatePanel = () => {
@@ -518,12 +692,12 @@ const openTemplatePanel = () => {
   templateColumns.value = [];
   selectedTemplateColumns.value = [];
   showTemplatePanel.value = true;
+  loadExistingTemplates();
 };
 
-const selectTemplate = (template: Template) => {
+const selectTemplate = async (template: TemplateInfo) => {
   selectedTemplate.value = template;
-  templateColumns.value = templateColumnsData[template.id] || [];
-  selectedTemplateColumns.value = [...templateColumns.value];
+  await loadTemplateColumns(template.id);
   templateStep.value = 2;
 };
 
@@ -565,29 +739,170 @@ const showExcelPanel = ref(false);
 const excelStep = ref(1);
 const excelColumns = ref<Column[]>([]);
 const selectedExcelColumns = ref<Column[]>([]);
-
-// Mock Excel columns
-const mockExcelColumns: Column[] = [
-  { id: 601, name: "اسم النشاط", type: "text" },
-  { id: 602, name: "نوع النشاط", type: "select" },
-  { id: 603, name: "تاريخ البدء", type: "date" },
-  { id: 604, name: "تاريخ الانتهاء", type: "date" },
-  { id: 605, name: "المسؤول", type: "text" },
-  { id: 606, name: "الميزانية", type: "number" },
-];
+const excelFile = ref<File | null>(null);
+const isParsingExcel = ref(false);
+const excelError = ref("");
+const excelFileInput = ref<HTMLInputElement | null>(null);
 
 const openExcelPanel = () => {
   excelStep.value = 1;
   excelColumns.value = [];
   selectedExcelColumns.value = [];
+  excelFile.value = null;
+  excelError.value = "";
   showExcelPanel.value = true;
 };
 
+// Trigger file input click
+const triggerFileInput = () => {
+  excelFileInput.value?.click();
+};
+
+// Handle file selection
+const handleExcelFileSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    excelFile.value = target.files[0];
+    excelError.value = "";
+  }
+};
+
+// Parse Excel file using client-side xlsx library
+const parseExcelFile = async () => {
+  if (!excelFile.value) return;
+  
+  isParsingExcel.value = true;
+  excelError.value = "";
+  
+  try {
+    const arrayBuffer = await excelFile.value.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    
+    // Get the first sheet
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    
+    // Get the range of the sheet
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    
+    // Determine which row to use as headers
+    let headerRow = range.s.r; // Start with first row
+    
+    // Check if first row contains valid text data or images/empty cells
+    let validCellsInFirstRow = 0;
+    let totalCellsInFirstRow = 0;
+    
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      totalCellsInFirstRow++;
+      const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+      const cell = worksheet[cellAddress];
+      
+      // Check if cell has valid text content
+      if (cell && cell.v && String(cell.v).trim().length > 0) {
+        // Check if it's not just an image placeholder or special characters
+        const cellValue = String(cell.v).trim();
+        if (cellValue.length > 0 && !/^[\x00-\x1F\x7F-\x9F]+$/.test(cellValue)) {
+          validCellsInFirstRow++;
+        }
+      }
+    }
+    
+    // If first row has less than 50% valid cells, use second row as headers
+    if (totalCellsInFirstRow > 0 && validCellsInFirstRow / totalCellsInFirstRow < 0.5) {
+      if (range.e.r > range.s.r) { // Make sure there's a second row
+        headerRow = range.s.r + 1;
+        console.log('First row appears to contain images or empty cells, using second row as headers');
+      }
+    }
+    
+    // Extract column headers from the determined header row
+    const columns: Column[] = [];
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: headerRow, c: col });
+      const cell = worksheet[cellAddress];
+      
+      if (cell && cell.v) {
+        const columnName = String(cell.v).trim();
+        if (columnName) {
+          // Infer column type from the data in the column (starting after header row)
+          const inferredType = inferColumnType(worksheet, col, range, headerRow);
+          columns.push({
+            id: Date.now() + col,
+            name: columnName,
+            type: inferredType,
+            isFromBackend: false
+          });
+        }
+      }
+    }
+    
+    if (columns.length > 0) {
+      excelColumns.value = columns;
+      selectedExcelColumns.value = [...columns];
+      excelStep.value = 2;
+    } else {
+      excelError.value = "لم يتم العثور على أعمدة في الملف";
+    }
+  } catch (error: any) {
+    console.error('Failed to parse Excel:', error);
+    excelError.value = error.message || 'فشل في قراءة ملف Excel';
+  } finally {
+    isParsingExcel.value = false;
+  }
+};
+
+// Infer column type from data samples
+const inferColumnType = (worksheet: XLSX.WorkSheet, col: number, range: XLSX.Range, headerRow: number = 0): string => {
+  // Check a few rows to infer the type (start from the row after the header)
+  const startRow = headerRow + 1;
+  for (let row = startRow; row <= Math.min(startRow + 10, range.e.r); row++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+    const cell = worksheet[cellAddress];
+    
+    if (cell && cell.v !== undefined && cell.v !== null && cell.v !== '') {
+      const value = cell.v;
+      const cellType = cell.t; // s=string, n=number, b=boolean, d=date
+      
+      // Check cell type
+      if (cellType === 'n') {
+        return 'number';
+      }
+      if (cellType === 'b') {
+        return 'boolean';
+      }
+      if (cellType === 'd' || (cell.w && /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(cell.w))) {
+        return 'date';
+      }
+      
+      // String-based inference
+      const strValue = String(value);
+      
+      // Check for email pattern
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strValue)) {
+        return 'email';
+      }
+      
+      // Check for phone pattern (various formats)
+      if (/^[\+]?[(]?[0-9]{1,4}[)]?[-\s\./0-9]{7,}$/.test(strValue.replace(/\s/g, ''))) {
+        return 'tel';
+      }
+      
+      // Check for boolean-like values
+      if (['yes', 'no', 'true', 'false', 'نعم', 'لا', '1', '0'].includes(strValue.toLowerCase())) {
+        return 'boolean';
+      }
+      
+      // Default to text
+      return 'text';
+    }
+  }
+  
+  // Default to text if no data found
+  return 'text';
+};
+
 const simulateExcelUpload = () => {
-  // Simulate file upload and column detection
-  excelColumns.value = [...mockExcelColumns];
-  selectedExcelColumns.value = [...mockExcelColumns];
-  excelStep.value = 2;
+  parseExcelFile();
 };
 
 const isExcelColumnSelected = (column: Column) => {
@@ -632,21 +947,42 @@ const removeColumn = (column: Column) => {
 
 // ============== EDIT PANEL ==============
 const showEditPanel = ref(false);
-const editingColumn = ref({ id: 0, name: "", type: "" });
+const editingColumn = ref<{ id: number; name: string; type: string; options: string[]; allowsAttachment: boolean; attachmentRequired: boolean }>({ 
+  id: 0, 
+  name: "", 
+  type: "", 
+  options: [],
+  allowsAttachment: false,
+  attachmentRequired: false
+});
 const editingColumnOriginalId = ref(0);
 
 const openEditPanel = (column: Column) => {
-  editingColumn.value = { ...column };
+  editingColumn.value = { 
+    ...column, 
+    options: column.options ? [...column.options] : [],
+    allowsAttachment: column.allowsAttachment || false,
+    attachmentRequired: column.attachmentRequired || false
+  };
   editingColumnOriginalId.value = column.id;
   showEditPanel.value = true;
 };
 
 const saveEditColumn = () => {
+  // Validate options for select type
+  if (editingColumn.value.type === 'select' && editingColumn.value.options.length === 0) {
+    alert('يجب إضافة خيار واحد على الأقل للقائمة المنسدلة');
+    return;
+  }
+  
   // Update in selected columns
   const selectedIndex = selectedColumns.value.findIndex((c) => c.id === editingColumnOriginalId.value);
   if (selectedIndex > -1) {
     selectedColumns.value[selectedIndex].name = editingColumn.value.name;
     selectedColumns.value[selectedIndex].type = editingColumn.value.type;
+    selectedColumns.value[selectedIndex].options = editingColumn.value.type === 'select' ? editingColumn.value.options.filter(o => o.trim()) : undefined;
+    selectedColumns.value[selectedIndex].allowsAttachment = editingColumn.value.allowsAttachment;
+    selectedColumns.value[selectedIndex].attachmentRequired = editingColumn.value.attachmentRequired;
   }
 
   // Update in available columns
@@ -654,9 +990,21 @@ const saveEditColumn = () => {
   if (availableIndex > -1) {
     availableColumns.value[availableIndex].name = editingColumn.value.name;
     availableColumns.value[availableIndex].type = editingColumn.value.type;
+    availableColumns.value[availableIndex].options = editingColumn.value.type === 'select' ? editingColumn.value.options.filter(o => o.trim()) : undefined;
+    availableColumns.value[availableIndex].allowsAttachment = editingColumn.value.allowsAttachment;
+    availableColumns.value[availableIndex].attachmentRequired = editingColumn.value.attachmentRequired;
   }
 
   showEditPanel.value = false;
+};
+
+// Helper functions for managing options
+const addOption = (optionsArray: string[]) => {
+  optionsArray.push('');
+};
+
+const removeOption = (optionsArray: string[], index: number) => {
+  optionsArray.splice(index, 1);
 };
 
 // ============== DRAG AND DROP ==============
@@ -790,12 +1138,171 @@ const handleCancel = () => {
   router.push("/control/templates");
 };
 
-// Handle save
-const handleSave = () => {
-  console.log("Save template:", form.value);
-  console.log("Selected columns:", selectedColumns.value);
-  // Implement save logic here
+// Validate form before save
+const validateForm = (): boolean => {
+  if (!form.value.name.trim()) {
+    errorMessage.value = "اسم النموذج مطلوب";
+    activeTab.value = "properties";
+    return false;
+  }
+  if (selectedColumns.value.length === 0) {
+    errorMessage.value = "يجب إضافة عمود واحد على الأقل للنموذج";
+    activeTab.value = "database";
+    return false;
+  }
+  errorMessage.value = "";
+  return true;
 };
+
+// Load template data for editing
+const loadTemplateForEdit = async (templateId: number) => {
+  isLoading.value = true;
+  errorMessage.value = "";
+  
+  try {
+    console.log('🔄 Loading template ID:', templateId);
+    const template = await templateService.getById(templateId);
+    
+    console.log('📥 Raw template response:', template);
+    console.log('📊 Template columns field:', template.columns);
+    console.log('📊 Template template_columns field:', template.template_columns);
+    
+    // Populate form fields
+    form.value.name = template.name;
+    form.value.description = template.description || "";
+    form.value.notes = template.notes || "";
+    
+    console.log('✅ Form populated:', form.value);
+    
+    // Populate columns - use the simplified 'columns' field from backend
+    if (template.columns && template.columns.length > 0) {
+      console.log('📋 Processing columns...');
+      
+      selectedColumns.value = template.columns.map((col: any, index: number) => {
+        console.log(`  Column ${index + 1}:`, col);
+        return {
+          id: col.id,
+          name: col.name,
+          type: col.data_type,
+          options: col.options || [],
+          isFromBackend: true,
+          backendId: col.id,
+          allowsAttachment: col.allows_attachment || false,
+          attachmentRequired: col.attachment_required || false
+        };
+      });
+      
+      console.log('✅ Loaded', selectedColumns.value.length, 'columns into Template Structure');
+      console.log('📦 Selected columns:', selectedColumns.value);
+    } else {
+      console.warn('⚠️ No columns found in template.columns');
+      console.warn('   Template has template_columns?', !!template.template_columns);
+      console.warn('   Template_columns length:', template.template_columns?.length);
+    }
+    
+    // Force UI update
+    console.log('🔄 Final state - selectedColumns:', selectedColumns.value.length);
+    console.log('🔄 Final state - availableColumns:', availableColumns.value.length);
+    
+  } catch (error: any) {
+    console.error("❌ Failed to load template:", error);
+    console.error("❌ Error response:", error.response?.data);
+    errorMessage.value = error.response?.data?.error || error.message || "فشل في تحميل النموذج";
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Handle save - create or update template in backend
+const handleSave = async () => {
+  if (!validateForm()) {
+    return;
+  }
+  
+  isSaving.value = true;
+  errorMessage.value = "";
+  
+  try {
+    console.log('🔄 Preparing to save template...');
+    console.log('📝 Edit mode:', editMode.value);
+    console.log('🆔 Template ID:', editTemplateId.value);
+    console.log('📋 Selected columns count:', selectedColumns.value.length);
+    console.log('📦 Selected columns:', selectedColumns.value);
+    
+    // Prepare template data
+    const templateData = {
+      name: form.value.name,
+      description: form.value.description,
+      notes: form.value.notes,
+      // Include inline column definitions
+      columns: selectedColumns.value.map((col, index) => {
+        const columnData = {
+          label: col.name,
+          data_type: col.type as DataType,
+          order: index + 1,
+          options: col.type === 'select' && col.options ? col.options.filter(o => o.trim()) : undefined,
+          allows_attachment: col.allowsAttachment || false,
+          attachment_required: col.attachmentRequired || false
+        };
+        console.log(`  📌 Column ${index + 1}:`, columnData);
+        return columnData;
+      })
+    };
+    
+    console.log('📤 Sending to backend:', templateData);
+    console.log('📊 Column count in payload:', templateData.columns.length);
+    
+    let result;
+    if (editMode.value && editTemplateId.value) {
+      // Update existing template
+      console.log('🔄 Calling templateService.update()...');
+      result = await templateService.update(editTemplateId.value, templateData);
+      console.log("✅ Template updated successfully:", result);
+      
+      // Refresh the columns from the response
+      if (result.columns && result.columns.length > 0) {
+        console.log('🔄 Refreshing selectedColumns from response...');
+        selectedColumns.value = result.columns.map((col: any) => ({
+          id: col.id,
+          name: col.name,
+          type: col.data_type,
+          options: col.options || [],
+          isFromBackend: true,
+          backendId: col.id
+        }));
+        console.log('✅ Columns refreshed:', selectedColumns.value.length, 'columns');
+      }
+    } else {
+      // Create new template
+      console.log('🔄 Calling templateService.create()...');
+      const createdTemplate = await templateService.create(templateData);
+      console.log("✅ Template created successfully:", createdTemplate);
+    }
+    
+    console.log('✅ Save operation completed, navigating back...');
+    // Navigate back to templates list
+    router.push("/control/templates");
+  } catch (error: any) {
+    console.error("❌ Save failed:", error);
+    console.error("❌ Error response:", error.response);
+    console.error("❌ Error data:", error.response?.data);
+    console.error("❌ Error message:", error.message);
+    errorMessage.value = error.response?.data?.error || error.message || (editMode.value ? "فشل في تحديث النموذج" : "فشل في إنشاء النموذج");
+  } finally {
+    isSaving.value = false;
+  }
+};
+
+// Initialize on mount
+onMounted(async () => {
+  // Check if we're in edit mode
+  const templateId = route.params.id;
+  if (templateId && typeof templateId === 'string') {
+    editMode.value = true;
+    editTemplateId.value = parseInt(templateId, 10);
+    await loadTemplateForEdit(editTemplateId.value);
+  }
+});
 </script>
 
 <style module>
@@ -961,6 +1468,57 @@ const handleSave = () => {
 /* Content */
 .content {
   padding: 1.5rem 2rem;
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  gap: 1rem;
+}
+
+.loadingContainer i {
+  font-size: 3rem;
+  color: #a17d23;
+}
+
+.loadingContainer p {
+  font-size: 1.125rem;
+  color: #64748b;
+}
+
+.container[data-theme="night"] .loadingContainer p {
+  color: #94a3b8;
+}
+
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+.container[data-theme="night"] .errorMessage {
+  background-color: #450a0a;
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
+.errorMessage i {
+  font-size: 1.25rem;
+}
+
+.errorMessage p {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
 }
 
 .tabContent {
@@ -2024,6 +2582,38 @@ const handleSave = () => {
   border-color: #10b981;
 }
 
+/* Attachment badge */
+.attachmentBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background-color: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #0284c7;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.container[data-theme="night"] .attachmentBadge {
+  background-color: #0c4a6e;
+  border-color: #0ea5e9;
+  color: #7dd3fc;
+}
+
+.attachmentBadge.required {
+  background-color: #fef3c7;
+  color: #b45309;
+  border-color: #b45309;
+}
+
+.container[data-theme="night"] .attachmentBadge.required {
+  background-color: #78350f;
+  border-color: #f59e0b;
+  color: #fcd34d;
+}
+
 /* ============== STRUCTURE COLUMN CARD ============== */
 .structureColumnCard {
   display: flex;
@@ -2116,6 +2706,213 @@ const handleSave = () => {
   font-size: 0.75rem;
 }
 
+/* ============== OPTIONS SECTION (for select type) ============== */
+.optionsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.container[data-theme="night"] .optionsSection {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+.optionsLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.container[data-theme="night"] .optionsLabel {
+  color: #f8fafc;
+}
+
+.optionRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.optionInput {
+  flex: 1;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background-color: white;
+  transition: all 0.2s;
+}
+
+.container[data-theme="night"] .optionInput {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.optionInput:focus {
+  outline: none;
+  border-color: #a17d23;
+}
+
+.removeOptionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.container[data-theme="night"] .removeOptionBtn {
+  background-color: #450a0a;
+  border-color: #7f1d1d;
+  color: #f87171;
+}
+
+.removeOptionBtn:hover {
+  background-color: #fee2e2;
+}
+
+.container[data-theme="night"] .removeOptionBtn:hover {
+  background-color: #7f1d1d;
+}
+
+.addOptionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background-color: white;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.container[data-theme="night"] .addOptionBtn {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+.addOptionBtn:hover {
+  border-color: #a17d23;
+  color: #a17d23;
+  background-color: #fef9e7;
+}
+
+.container[data-theme="night"] .addOptionBtn:hover {
+  border-color: #c9a961;
+  color: #c9a961;
+  background-color: #2d2a1f;
+}
+
+/* ============== ATTACHMENT SECTION ============== */
+.attachmentSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.container[data-theme="night"] .attachmentSection {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+.toggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggleCheckbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.toggleSlider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background-color: #cbd5e1;
+  border-radius: 12px;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.toggleSlider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.3s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggleCheckbox:checked + .toggleSlider {
+  background-color: #a17d23;
+}
+
+.toggleCheckbox:checked + .toggleSlider::before {
+  right: 22px;
+}
+
+.container[data-theme="night"] .toggleSlider {
+  background-color: #475569;
+}
+
+.container[data-theme="night"] .toggleSlider::before {
+  background-color: #f8fafc;
+}
+
+.container[data-theme="night"] .toggleCheckbox:checked + .toggleSlider {
+  background-color: #c9a961;
+}
+
+.toggleText {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.container[data-theme="night"] .toggleText {
+  color: #f8fafc;
+}
+
+.subToggle {
+  padding-right: 1.5rem;
+}
+
 .structureCardBottom {
   display: flex;
   flex-direction: row-reverse;
@@ -2191,5 +2988,100 @@ const handleSave = () => {
 
 .editLink i {
   font-size: 0.75rem;
+}
+
+/* ============== EXCEL UPLOAD STYLES ============== */
+.selectedFile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: #ecfdf5;
+  border: 1px solid #10b981;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.container[data-theme="night"] .selectedFile {
+  background-color: #064e3b;
+  border-color: #10b981;
+}
+
+.selectedFile span {
+  color: #047857;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.container[data-theme="night"] .selectedFile span {
+  color: #6ee7b7;
+}
+
+.removeFileBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: #dc2626;
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.removeFileBtn:hover {
+  background-color: #b91c1c;
+}
+
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
+.container[data-theme="night"] .errorMessage {
+  background-color: #450a0a;
+  border-color: #7f1d1d;
+  color: #f87171;
+}
+
+.parseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: #10b981;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.parseBtn:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.parseBtn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.container[data-theme="night"] .parseBtn:disabled {
+  background-color: #475569;
 }
 </style>

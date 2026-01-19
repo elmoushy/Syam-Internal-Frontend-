@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
 import { useActivitySheet } from '@/composables/useActivitySheet'
 import { templateService } from '@/services/activityService'
 import type { ColumnDefinition, Template } from '@/types/activity.types'
@@ -169,12 +170,15 @@ const saveTemplate = async (publish = false) => {
   isSaving.value = true
   
   try {
-    const columnConfigs = selectedColumnIds.value.map((id, index) => ({
-      column_definition_id: id,
-      order: index,
-      is_required: false,
-      is_visible: true
-    }))
+    const columnConfigs = selectedColumnIds.value.map((id) => {
+      const col = columns.value.find(c => c.id === id)
+      if (!col) throw new Error(`Column ${id} not found`)
+      return {
+        label: col.label,
+        data_type: col.data_type,
+        options: col.options ? [...col.options] : []
+      }
+    })
     
     let savedTemplate: Template
     
@@ -193,8 +197,8 @@ const saveTemplate = async (publish = false) => {
         name: form.value.name,
         description: form.value.description
       })
-      // Then update columns separately
-      await templateService.setColumns(template.value!.id, columnConfigs)
+      // Then update columns separately using updateColumns (inline format)
+      await templateService.updateColumns(template.value!.id, columnConfigs)
       
       successMessage.value = 'تم تحديث القالب بنجاح'
     }
@@ -223,9 +227,19 @@ const saveTemplate = async (publish = false) => {
 }
 
 // Cancel and go back
-const handleCancel = () => {
+const handleCancel = async () => {
   if (form.value.name || selectedColumnIds.value.length > 0) {
-    if (!confirm('هل أنت متأكد من الإلغاء؟ سيتم فقدان التغييرات غير المحفوظة.')) {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'تأكيد الإلغاء',
+      text: 'هل أنت متأكد من الإلغاء؟ سيتم فقدان التغييرات غير المحفوظة.',
+      showCancelButton: true,
+      confirmButtonText: 'نعم، ألغ',
+      cancelButtonText: 'لا',
+      confirmButtonColor: '#d33'
+    })
+    
+    if (!result.isConfirmed) {
       return
     }
   }

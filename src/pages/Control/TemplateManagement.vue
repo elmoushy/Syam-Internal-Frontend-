@@ -27,7 +27,12 @@
 
     <!-- Templates Grid -->
     <div v-else-if="templates.length > 0" :class="$style.templatesGrid">
-      <div v-for="template in templates" :key="template.id" :class="$style.templateCard">
+      <div 
+        v-for="template in templates" 
+        :key="template.id" 
+        :class="$style.templateCard"
+        @click="handleViewActivities(template)"
+      >
         <!-- Card Actions (Top Left) -->
         <div :class="$style.cardRow">
           <div :class="$style.menuCardLogo">
@@ -35,22 +40,47 @@
           </div>
 
           <div :class="$style.cardActions">
-            <span v-if="template.is_active" :class="$style.statusBadge"> نشط </span>
+            <!-- Status Badges -->
+            <span v-if="template.status === 'published'" :class="$style.statusBadge"> نشط </span>
+            <span v-else-if="template.status === 'draft'" :class="$style.draftBadge"> مسودة </span>
 
             <span
-              v-if="template.is_active"
+              v-if="template.status"
               :style="{ borderLeft: '1px solid #e2e8f0', height: '24px', margin: '0 4px' }"></span>
+            
+            <!-- Publish Button (only for drafts) -->
+            <button 
+              v-if="template.status === 'draft'" 
+              :class="[$style.actionBtn, $style.publishBtn]" 
+              @click.stop="handlePublishTemplate(template)" 
+              :title="'نشر القالب'"
+              :disabled="isPublishing === template.id">
+              <i :class="isPublishing === template.id ? 'fas fa-spinner fa-spin' : 'fas fa-paper-plane'" :style="{ fontSize: '14px', color: '#10b981' }"></i>
+            </button>
+            
+            <!-- Delete Button -->
             <button :class="$style.actionBtn" @click.stop="handleDeleteTemplate(template)" :title="'حذف'">
               <img :class="$style.actionIcon" src="/icons/Delete.svg" alt="Delete" />
             </button>
-            <button :class="$style.actionBtn" @click.stop="handleEditTemplate(template)" :title="'تعديل'">
+            
+            <!-- Edit Button (only for drafts) -->
+            <button 
+              v-if="template.status === 'draft'"
+              :class="$style.actionBtn" 
+              @click.stop="handleEditTemplate(template)" 
+              :title="'تعديل'">
               <img :class="$style.actionIcon" src="/icons/Edit.svg" alt="Edit" />
             </button>
+            
+            <!-- Toggle Active Title (only for published templates) -->
             <button
-              :class="[$style.actionBtn, { [$style.starred]: template.is_favorite }]"
-              @click.stop="handleToggleFavorite(template)"
-              :title="template.is_favorite ? 'إلغاء التفضيل' : 'إضافة للمفضلة'">
-              <img :class="$style.actionIcon" src="/icons/star.svg" alt="Star" />
+              v-if="template.status === 'published'"
+              :class="[$style.actionBtn, { [$style.starred]: template.is_active_title }]"
+              @click.stop="handleToggleActiveTitle(template)"
+              :disabled="isTogglingActive === template.id"
+              :title="template.is_active_title ? 'إلغاء التفعيل' : 'تعيين كنشط'">
+              <i v-if="isTogglingActive === template.id" class="fas fa-spinner fa-spin" :style="{ fontSize: '14px' }"></i>
+              <img v-else :class="$style.actionIcon" src="/icons/star.svg" alt="Star" />
             </button>
           </div>
         </div>
@@ -82,88 +112,64 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAppStore } from "@/stores/useAppStore";
-import { templateService } from "@/services/templateService";
-import type { SurveyTemplate } from "@/types/survey.types";
+import { templateService } from "@/services/activityService";
+import type { TemplateListItem } from "@/types/activity.types";
 
 const router = useRouter();
 const store = useAppStore();
 
 const currentTheme = computed(() => store.currentTheme);
 
-// State
-const templates = ref<any[]>([
-  {
-    id: 1,
-    name: "حصر الأنشطة الدورية",
-    description:
-      "هذا نص تجريبي، يستخدم لملئ المساحات المخصصة الوصف. ولا يعبر عن محتوى فعلي، وهدفه فقط الى عرض شكل النص وتنظيمه داخل الملف الى حين إدخال البيانات الفعلية.",
-    is_active: true,
-    is_favorite: false,
-    created_at: "2024-01-15T10:30:00Z",
-    question_count: 12,
-  },
-  {
-    id: 2,
-    name: "حصر الأنشطة الدورية",
-    description:
-      "هذا نص تجريبي، يستخدم لملئ المساحات المخصصة الوصف. ولا يعبر عن محتوى فعلي، وهدفه فقط الى عرض شكل النص وتنظيمه داخل الملف الى حين إدخال البيانات الفعلية.",
-    is_active: true,
-    is_favorite: false,
-    created_at: "2024-01-14T09:15:00Z",
-    question_count: 8,
-  },
-  {
-    id: 3,
-    name: "حصر الأنشطة الدورية",
-    description:
-      "هذا نص تجريبي، يستخدم لملئ المساحات المخصصة الوصف. ولا يعبر عن محتوى فعلي، وهدفه فقط الى عرض شكل النص وتنظيمه داخل الملف الى حين إدخال البيانات الفعلية.",
-    is_active: true,
-    is_favorite: true,
-    created_at: "2024-01-13T14:45:00Z",
-    question_count: 15,
-  },
-  {
-    id: 4,
-    name: "حصر الأنشطة الدورية",
-    description:
-      "هذا نص تجريبي، يستخدم لملئ المساحات المخصصة الوصف. ولا يعبر عن محتوى فعلي، وهدفه فقط الى عرض شكل النص وتنظيمه داخل الملف الى حين إدخال البيانات الفعلية.",
-    is_active: true,
-    is_favorite: false,
-    created_at: "2024-01-12T11:20:00Z",
-    question_count: 10,
-  },
-  {
-    id: 5,
-    name: "حصر الأنشطة الدورية",
-    description:
-      "هذا نص تجريبي، يستخدم لملئ المساحات المخصصة الوصف. ولا يعبر عن محتوى فعلي، وهدفه فقط الى عرض شكل النص وتنظيمه داخل الملف الى حين إدخال البيانات الفعلية.",
-    is_active: true,
-    is_favorite: false,
-    created_at: "2024-01-11T16:00:00Z",
-    question_count: 20,
-  },
-  {
-    id: 6,
-    name: "حصر الأنشطة الدورية",
-    description:
-      "هذا نص تجريبي، يستخدم لملئ المساحات المخصصة الوصف. ولا يعبر عن محتوى فعلي، وهدفه فقط الى عرض شكل النص وتنظيمه داخل الملف الى حين إدخال البيانات الفعلية.",
-    is_active: true,
-    is_favorite: false,
-    created_at: "2024-01-10T08:30:00Z",
-    question_count: 6,
-  },
-]);
+// State - now typed with the correct interface
+const templates = ref<TemplateListItem[]>([]);
 const isLoading = ref(false);
 const errorMessage = ref("");
+const isPublishing = ref<number | null>(null);
+const isTogglingActive = ref<number | null>(null);
 
-// Load templates (using static data)
+// Load templates from backend API
 const loadTemplates = async () => {
-  // Static data is already loaded, no need to fetch
-  isLoading.value = false;
+  isLoading.value = true;
   errorMessage.value = "";
+  
+  try {
+    // Fetch templates from /activities/templates/ endpoint
+    const data = await templateService.getAll();
+    templates.value = data;
+  } catch (error: any) {
+    console.error("Failed to load templates:", error);
+    errorMessage.value = error.response?.data?.message || error.message || "فشل في تحميل النماذج";
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Handle toggle active title (via backend API)
+const handleToggleActiveTitle = async (template: TemplateListItem) => {
+  const newActiveState = !template.is_active_title;
+  
+  // Confirm activation (since it will deactivate other templates)
+  if (newActiveState && !confirm(`هل تريد تعيين "${template.name}" كالقالب النشط؟ \nسيتم إلغاء تفعيل القوالب الأخرى.`)) {
+    return;
+  }
+  
+  isTogglingActive.value = template.id;
+  
+  try {
+    await templateService.update(template.id, { is_active_title: newActiveState });
+    // Reload templates to reflect changes
+    await loadTemplates();
+  } catch (error: any) {
+    console.error("Failed to toggle active title:", error);
+    const message = error.response?.data?.error || error.response?.data?.is_active_title?.[0] || error.message || "فشل في تغيير حالة القالب";
+    alert(message);
+  } finally {
+    isTogglingActive.value = null;
+  }
 };
 
 // Handle create template
@@ -172,42 +178,56 @@ const handleCreateTemplate = () => {
 };
 
 // Handle edit template
-const handleEditTemplate = (template: SurveyTemplate) => {
-  // Navigate to edit page or open modal
-  console.log("Edit template:", template);
-  router.push(`/control/surveys/edit/${template.id}`);
+const handleEditTemplate = (template: TemplateListItem) => {
+  // Navigate to edit page with template ID
+  router.push(`/control/templates/edit/${template.id}`);
 };
 
 // Handle view template
-const handleViewTemplate = (template: SurveyTemplate) => {
-  console.log("View template:", template);
+const handleViewTemplate = (template: TemplateListItem) => {
+  router.push(`/control/templates/${template.id}`);
+};
+
+// Handle view activities for template (navigate to activities detail page)
+const handleViewActivities = (template: TemplateListItem) => {
+  router.push(`/control/templates/${template.id}/activities`);
 };
 
 // Handle delete template
-const handleDeleteTemplate = async (template: SurveyTemplate) => {
+const handleDeleteTemplate = async (template: TemplateListItem) => {
   if (!confirm(`هل أنت متأكد من حذف القالب "${template.name}"؟`)) {
     return;
   }
 
   try {
-    // Implement delete API call here
-    console.log("Delete template:", template);
-    // await templateService.deleteTemplate(template.id)
+    await templateService.delete(template.id);
+    // Reload templates after deletion
     await loadTemplates();
   } catch (error: any) {
     console.error("Failed to delete template:", error);
-    alert("فشل في حذف القالب");
+    const message = error.response?.data?.error || error.message || "فشل في حذف القالب";
+    alert(message);
   }
 };
 
-// Handle toggle favorite
-const handleToggleFavorite = async (template: SurveyTemplate) => {
+// Handle publish template (change status from draft to published)
+const handlePublishTemplate = async (template: TemplateListItem) => {
+  if (!confirm(`هل أنت متأكد من نشر القالب "${template.name}"؟`)) {
+    return;
+  }
+
+  isPublishing.value = template.id;
+  
   try {
-    // Implement toggle favorite API call here
-    console.log("Toggle favorite:", template);
-    template.is_favorite = !template.is_favorite;
+    await templateService.update(template.id, { status: 'published' });
+    // Reload templates after publishing
+    await loadTemplates();
   } catch (error: any) {
-    console.error("Failed to toggle favorite:", error);
+    console.error("Failed to publish template:", error);
+    const message = error.response?.data?.error || error.message || "فشل في نشر القالب";
+    alert(message);
+  } finally {
+    isPublishing.value = null;
   }
 };
 
@@ -372,6 +392,8 @@ onMounted(() => {
   overflow: hidden;
   border: 0.5px solid #e1e4ea;
   padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
   
   display: flex;
   flex-direction: column;
@@ -456,6 +478,33 @@ onMounted(() => {
   font-weight: 400;
 }
 
+.draftBadge {
+  padding: 0.25rem 0.75rem;
+  background-color: #f59e0b;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.publishBtn {
+  border-color: #10b981 !important;
+  background-color: #ecfdf5 !important;
+}
+
+.container[data-theme="night"] .publishBtn {
+  background-color: #064e3b !important;
+  border-color: #10b981 !important;
+}
+
+.publishBtn:hover {
+  background-color: #d1fae5 !important;
+}
+
+.container[data-theme="night"] .publishBtn:hover {
+  background-color: #065f46 !important;
+}
+
 /* Menu Button (Top Right) */
 .menuBtn {
   width: 40px;
@@ -519,6 +568,7 @@ onMounted(() => {
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   width: 100%;

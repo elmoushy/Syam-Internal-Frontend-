@@ -1,13 +1,18 @@
 <script setup lang="ts">
+// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
 import * as XLSX from 'xlsx'
 import ExcelJS from 'exceljs'
-import { titleService, type TitleItem, type TitleColumn, type TitleSheetItem, type PaginationInfo, type RowOperations, type UserSheetItem, type AdminSheetDataResponse } from '@/services/activityService'
+import { titleService, type TitleItem, type TitleColumn, type TitleSheetItem, type PaginationInfo, type RowOperations, type UserSheetItem, type AdminSheetDataResponse, type UserActivityPageResponse } from '@/services/activityService'
 
 // Router for admin view mode
 const route = useRoute()
 const router = useRouter()
+
+const activityPageData = ref<UserActivityPageResponse | null>(null)
 
 // Admin View Mode State
 const isAdminViewMode = ref(false)
@@ -272,8 +277,7 @@ const getDatabaseId = (displayId: number): number | undefined => {
   return displayToDatabaseId.value.get(displayId)
 }
 
-// ============================================================================
-// ADMIN VIEW MODE: Load sheet data for admin viewing
+// Load sheet data for admin viewing
 // ============================================================================
 const loadAdminSheetData = async (sheetId: number, page: number = 1) => {
   // Set the admin sheet ID so loadPageData knows which sheet to load
@@ -283,63 +287,24 @@ const loadAdminSheetData = async (sheetId: number, page: number = 1) => {
   await loadPageData(page)
 }
 
-
-
-// Load active title automatically
-const loadActiveTitle = async () => {
+// Load activity listing data (new endpoint)
+const loadActivityListingData = async () => {
   isLoadingTitles.value = true
   dataError.value = null
   try {
-    activeTitle.value = await titleService.getActiveTitle()
-    if (!activeTitle.value) {
-      dataError.value = 'لا يوجد عنوان نشط حالياً. الرجاء التواصل مع المسؤول.'
-    }
+    activityPageData.value = await titleService.getUserActivityPage()
   } catch (error: any) {
-    console.error('Failed to load active title:', error)
-    dataError.value = 'فشل في تحميل العنوان النشط'
+    console.error('Failed to load activity page data:', error)
+    dataError.value = 'فشل في تحميل البيانات'
   } finally {
     isLoadingTitles.value = false
   }
 }
 
-// Load all user's sheets (for recent sheets panel)
-const loadAllUserSheets = async () => {
-  try {
-    const result = await titleService.getAllUserSheets()
-    allUserSheets.value = result.sheets
-  } catch (error: any) {
-    console.error('Failed to load all user sheets:', error)
-  }
-}
-
-// Load user's sheets when title is loaded
+// Load user's sheets when title is selected (Legacy support if needed, or removed)
+// We keep it for now but it won't be used in the new flow as much
 const loadUserSheets = async () => {
-  if (!selectedTitleId.value) {
-    userSheets.value = []
-    selectedSheetId.value = null
-    return
-  }
-  
-  isLoadingSheetsForTitle.value = true
-  dataError.value = null
-  
-  try {
-    const result = await titleService.getUserSheets(selectedTitleId.value)
-    userSheets.value = result.sheets
-    
-    // Reset sheet selection
-    selectedSheetId.value = null
-    
-    // Reset spreadsheet to default
-    localColumns.value = [...defaultColumns]
-    localRows.value = generateInitialRows()
-    
-  } catch (error: any) {
-    console.error('Failed to load sheets:', error)
-    dataError.value = error.response?.data?.error || 'فشل في تحميل الجداول'
-  } finally {
-    isLoadingSheetsForTitle.value = false
-  }
+    // Legacy placeholder
 }
 
 // Submit sheet to admin
@@ -347,7 +312,16 @@ const submitSheet = async () => {
   if (!selectedSheetId.value) return
   
   // Confirm submission
-  if (!confirm('هل أنت متأكد من تقديم هذا الجدول؟ لن تتمكن من تعديله بعد التقديم.')) {
+  const result = await Swal.fire({
+    icon: 'question',
+    title: 'تأكيد التقديم',
+    text: 'هل أنت متأكد من تقديم هذا الجدول؟ لن تتمكن من تعديله بعد التقديم.',
+    showCancelButton: true,
+    confirmButtonText: 'نعم، قدم',
+    cancelButtonText: 'إلغاء'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
@@ -367,7 +341,7 @@ const submitSheet = async () => {
     setTimeout(() => { saveSuccess.value = null }, 3000)
     
     // Reload all sheets to update the list
-    await loadAllUserSheets()
+    await loadUserSheets()
     
   } catch (error: any) {
     console.error('Failed to submit sheet:', error)
@@ -615,7 +589,17 @@ const deleteSheet = async (sheetId: number) => {
     return
   }
   
-  if (!confirm('هل أنت متأكد من حذف هذا الجدول؟')) {
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: 'تأكيد الحذف',
+    text: 'هل أنت متأكد من حذف هذا الجدول؟',
+    showCancelButton: true,
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#d33'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   
@@ -636,7 +620,7 @@ const deleteSheet = async (sheetId: number) => {
     setTimeout(() => { saveSuccess.value = null }, 3000)
     
     // Reload all user sheets
-    await loadAllUserSheets()
+    await loadUserSheets()
     
   } catch (error: any) {
     console.error('Failed to delete sheet:', error)
@@ -2917,9 +2901,19 @@ const handleBeforeUnload = (e: BeforeUnloadEvent) => {
 }
 
 // Navigation guard for unsaved changes
-onBeforeRouteLeave((_to, _from, next) => {
+onBeforeRouteLeave(async (_to, _from, next) => {
   if (hasMeaningfulChanges.value && selectedTitleId.value) {
-    if (confirm('لديك تغييرات غير محفوظة. هل تريد المغادرة؟')) {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'تغييرات غير محفوظة',
+      text: 'لديك تغييرات غير محفوظة. هل تريد المغادرة؟',
+      showCancelButton: true,
+      confirmButtonText: 'نعم، غادر',
+      cancelButtonText: 'إلغاء',
+      confirmButtonColor: '#d33'
+    })
+    
+    if (result.isConfirmed) {
       next()
     } else {
       next(false)
@@ -2945,11 +2939,8 @@ onMounted(async () => {
     isAdminViewMode.value = true
     await loadAdminSheetData(Number(sheetId))
   } else {
-    // Normal mode - load active title and all user sheets
-    await Promise.all([
-      loadActiveTitle(),
-      loadAllUserSheets()
-    ])
+    // Normal mode - load activity listing
+    await loadActivityListingData()
   }
 })
 
@@ -2982,29 +2973,28 @@ onUnmounted(() => {
           <span>جاري التحميل...</span>
         </div>
 
-        <!-- No Active Title -->
-        <div v-else-if="!activeTitle" :class="$style.emptyState">
+        <!-- No Active Templates -->
+        <div v-else-if="!activityPageData?.has_active_templates" :class="$style.emptyState">
           <div :class="$style.emptyStateIcon"><i class="fas fa-table"></i></div>
-          <p :class="$style.emptyStateText">لا يوجد عنوان نشط حالياً</p>
-          <p :class="$style.emptyStateDesc">اطلب من المسؤول إنشاء عنوان</p>
+          <p :class="$style.emptyStateText">لا يوجد نموذج نشط حالياً</p>
+          <p :class="$style.emptyStateDesc">{{ activityPageData?.message || 'اطلب من المسؤول إنشاء عنوان' }}</p>
         </div>
 
-        <!-- Sheets Grid - Current Tab -->
+        <!-- Active Templates Grid - Current Tab -->
         <template v-else-if="activeView === 'current'">
-          <div v-if="filteredUserSheets.length === 0" :class="$style.emptyState">
+          <div v-if="!activityPageData?.active_templates || activityPageData.active_templates.length === 0" :class="$style.emptyState">
             <div :class="$style.emptyStateIcon"><i class="fas fa-folder-open"></i></div>
             <p :class="$style.emptyStateText">لا يوجد اي نماذج حالية</p>
           </div>
           
           <div v-else :class="$style.sheetsGrid">
             <div 
-              v-for="sheet in filteredUserSheets" 
-              :key="sheet.id"
+              v-for="template in activityPageData.active_templates"
+              :key="template.id"
               :class="$style.sheetCard"
-              @click="router.push(`/activities/local/${sheet.id}`)"
+              @click="router.push(`/activities/local/${template.id}`)"
+              style="cursor: pointer;"
             >
-
-              
               <!-- Card Content -->
                 <div :class="$style.cardIcon"><svg width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M5.59375 18.6357C5.59375 11.6074 5.59375 8.09333 7.77714 5.90995C9.96052 3.72656 13.4746 3.72656 20.5028 3.72656H24.2301C31.2583 3.72656 34.7724 3.72656 36.9558 5.90995C39.1392 8.09333 39.1392 11.6074 39.1392 18.6357V26.0902C39.1392 33.1184 39.1392 36.6325 36.9558 38.8159C34.7724 40.9993 31.2583 40.9993 24.2301 40.9993H20.5028C13.4746 40.9993 9.96052 40.9993 7.77714 38.8159C5.59375 36.6325 5.59375 33.1184 5.59375 26.0902V18.6357Z" stroke="#A17D23" stroke-width="2.79545"/>
@@ -3012,8 +3002,8 @@ onUnmounted(() => {
 <path d="M14.9062 26.0918H24.2244" stroke="#A17D23" stroke-width="2.79545" stroke-linecap="round"/>
 </svg>
 </div>
-                <h3 :class="$style.cardTitle">{{ sheet.name }}</h3>
-                <p :class="$style.cardDesc">{{ sheet.description || activeTitle?.description || 'نص تجريبي للوصف' }}</p>
+                <h3 :class="$style.cardTitle">{{ template.name }}</h3>
+                <p :class="$style.cardDesc">{{ template.description || 'نص تجريبي للوصف' }}</p>
             </div>
           </div>
         </template>

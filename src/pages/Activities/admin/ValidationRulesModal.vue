@@ -1,6 +1,7 @@
 <!-- src/pages/Activities/admin/ValidationRulesModal.vue -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import Swal from 'sweetalert2'
 import { columnService } from '@/services/activityService'
 import type { ColumnDefinition, ValidationRule, ValidationRuleType, ValidationRuleCreate } from '@/types/activity.types'
 
@@ -175,7 +176,17 @@ const saveValidation = async () => {
 
 // Delete validation
 const deleteValidation = async (validation: ValidationRule) => {
-  if (!confirm(`هل أنت متأكد من حذف قاعدة "${getRuleLabel(validation.rule_type)}"؟`)) {
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: 'تأكيد الحذف',
+    text: `هل أنت متأكد من حذف قاعدة "${getRuleLabel(validation.rule_type)}"؟`,
+    showCancelButton: true,
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#d33'
+  })
+  
+  if (!result.isConfirmed) {
     return
   }
   

@@ -104,12 +104,22 @@ export interface Template {
   id: number
   name: string
   description: string
+  notes?: string  // Added for user instructions
   status: TemplateStatus
   is_deleted: boolean
   owner: number
   owner_name: string
   header_image: string | null
-  template_columns: TemplateColumn[]
+  template_columns: TemplateColumn[]  // Full nested format
+  columns?: Array<{  // Simplified format for frontend
+    id: number
+    name: string
+    data_type: DataType
+    options?: string[]
+    order: number
+    is_required: boolean
+    is_visible: boolean
+  }>
   can_delete: boolean
   sheet_count: number
   created_at: string
@@ -123,6 +133,7 @@ export interface TemplateListItem {
   description: string
   status: TemplateStatus
   is_deleted: boolean
+  is_active_title?: boolean  // Indicates if this is the currently active template for users
   owner: number
   owner_name: string
   column_count: number
@@ -136,12 +147,17 @@ export interface TemplateListItem {
 export interface TemplateCreate {
   name: string
   description?: string
+  notes?: string
   columns?: InlineColumnCreate[]
 }
 
 export interface TemplateUpdate {
   name?: string
   description?: string
+  notes?: string
+  status?: TemplateStatus
+  is_active_title?: boolean
+  columns?: InlineColumnCreate[]
 }
 
 export interface ColumnSnapshot {
