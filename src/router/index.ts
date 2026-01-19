@@ -62,6 +62,7 @@ const QuickLinksPage = () => import("../pages/QuickLinks/QuickLinksPage.vue");
 const ListingActivities = () => import("../pages/Activities/ListingActivities.vue");
 const LocalActivitiesDetail = () => import("../pages/Activities/LocalActivitiesDetail.vue");
 const CreateActivity = () => import("../pages/Activities/CreateActivity.vue");
+const ActivityDetails = () => import("../pages/Activities/ActivityDetails.vue");
 // const OrganizationChart = () => import("../pages/OrganizationChart/OrganizationChart.vue");
 // const OrganizationDetails = () => import("../pages/OrganizationChart/OrganizationDetails.vue");
 
@@ -106,6 +107,12 @@ const routes: RouteRecordRaw[] = [
     name: "LocalActivitiesDetail",
     component: LocalActivitiesDetail,
     meta: { title: "تفاصيل الأنشطة - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  {
+    path: "/activities/local/:id/activity/:activityId",
+    name: "ActivityDetails",
+    component: ActivityDetails,
+    meta: { title: "تفاصيل النشاط - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
   {
     path: "/activities/local/:id/create",

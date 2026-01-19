@@ -60,6 +60,19 @@ const handleClosePanel = () => {
   selectedActivity.value = null
 }
 
+const handleViewFullDetails = () => {
+  if (selectedActivity.value) {
+    router.push(`/activities/local/${sheetId.value}/activity/${selectedActivity.value.id}`)
+  }
+}
+
+const handleEditActivity = () => {
+  if (selectedActivity.value) {
+    console.log('Edit activity:', selectedActivity.value.id)
+    // You can navigate to edit page or open edit modal here
+  }
+}
+
 const handleCreateNew = () => {
   router.push(`/activities/local/${sheetId.value}/create`)
 }
@@ -182,8 +195,8 @@ onMounted(() => {
       <div v-if="selectedActivity" :class="$style.panelContent">
         <!-- Header Buttons -->
         <div :class="$style.headerButtons">
-          <button :class="$style.viewFullBtn">عرض التفاصيل الكاملة</button>
-          <button :class="$style.editBtn">تعديل النشاط</button>
+          <button :class="$style.viewFullBtn" @click="handleViewFullDetails">عرض التفاصيل الكاملة</button>
+          <button :class="$style.editBtn" @click="handleEditActivity">تعديل النشاط</button>
         </div>
 
         <!-- Activity Details Sections -->
