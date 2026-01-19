@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import SidePanel from '@/components/shared/SidePanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,6 +45,20 @@ const activities = ref([
     status: 'draft'
   }
 ])
+
+// Side panel state
+const isPanelOpen = ref(false)
+const selectedActivity = ref<any>(null)
+
+const handleCardClick = (activity: any) => {
+  selectedActivity.value = activity
+  isPanelOpen.value = true
+}
+
+const handleClosePanel = () => {
+  isPanelOpen.value = false
+  selectedActivity.value = null
+}
 
 const handleCreateNew = () => {
   router.push(`/activities/local/${sheetId.value}/create`)
@@ -92,6 +107,7 @@ onMounted(() => {
           v-for="activity in activities" 
           :key="activity.id"
           :class="$style.activityCard"
+          @click="handleCardClick(activity)"
         >
    
 
@@ -126,7 +142,7 @@ onMounted(() => {
             <div v-if="activity.status === 'draft'" :class="$style.cardActions">
               <button 
                 :class="$style.actionBtn"
-                @click="handleEdit(activity.id)"
+                @click.stop="handleEdit(activity.id)"
                 title="تعديل"
               >
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -140,7 +156,7 @@ onMounted(() => {
               
               <button 
                 :class="$style.actionBtn"
-                @click="handleDelete(activity.id)"
+                @click.stop="handleDelete(activity.id)"
                 title="حذف"
               >
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -156,6 +172,91 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Side Panel -->
+    <SidePanel 
+      v-model:isOpen="isPanelOpen" 
+      :title="selectedActivity?.title || 'ورش عمل'"
+      @close="handleClosePanel"
+    >
+      <div v-if="selectedActivity" :class="$style.panelContent">
+        <!-- Header Buttons -->
+        <div :class="$style.headerButtons">
+          <button :class="$style.viewFullBtn">عرض التفاصيل الكاملة</button>
+          <button :class="$style.editBtn">تعديل النشاط</button>
+        </div>
+
+        <!-- Activity Details Sections -->
+        <div :class="$style.detailsContainer">
+          <!-- Section 1: منتدى النشاط -->
+          <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">منتدى النشاط</h3>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">القسم / الجهة المستودعة</span>
+              <span :class="$style.itemValue">قسم إدارة الأزمات والطوارئ</span>
+            </div>
+          </div>
+
+          <!-- Section 2: نطاق النشاط -->
+          <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">نطاق النشاط</h3>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemValue">محلي - على مستوى الإمارة</span>
+            </div>
+          </div>
+
+          <!-- Section 3: إدارة جوانب المواد الخطرة -->
+          <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">إدارة جوانب المواد الخطرة</h3>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">الجهات المشاركة</span>
+              <span :class="$style.itemValue">{{ selectedActivity.description }}</span>
+            </div>
+          </div>
+
+          <!-- Section 4: مبادرة داخلية - قسم التخطيط -->
+          <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">مبادرة داخلية - قسم التخطيط</h3>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">مصدر النشاط</span>
+              <span :class="$style.itemValue">مبادرة داخلية - قسم التخطيط</span>
+            </div>
+          </div>
+
+          <!-- Section 5: يوجد محضر اجتماع -->
+          <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">يوجد محضر اجتماع</h3>
+            <div :class="$style.detailItem">
+              <span :class="[$style.itemValue, $style.greenText]">نعم</span>
+            </div>
+          </div>
+
+          <!-- Section 6: معلومات النظام -->
+          <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">معلومات النظام</h3>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">أنشئ بواسطة</span>
+              <span :class="$style.itemValue">{{ selectedActivity.author }}</span>
+            </div>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">تاريخ الإنشاء</span>
+              <span :class="$style.itemValue">{{ selectedActivity.date }}</span>
+            </div>
+          </div>
+
+          <!-- Section 7: المخرجات الرئيسية -->
+          <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">المخرجات الرئيسية</h3>
+            <div :class="$style.detailItem">
+              <p :class="$style.itemValue">
+                مراجعة شاملة لخطط الطوارئ الحالية وتحديث الإجراءات التشغيلية بما يتماشى مع أحدث المعايير الدولية. تحديد نقاط الضعف في الخطط الموجودة واقتراح التحسينات اللازمة. إعداد تقرير مفصل بالتوصيات والإجراءات المطلوبة مع جدول زمني للتنفيذ.
+              </p>
+              <a href="#" :class="$style.viewMoreLink">عرض المزيد</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SidePanel>
   </div>
 </template>
 
@@ -262,6 +363,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 16px;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .activityCard:hover {
@@ -367,4 +469,122 @@ onMounted(() => {
   font-size: 12px;
   color: #A17D23;
 }
+
+/* ==================== SIDE PANEL CONTENT ==================== */
+.panelContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.headerButtons {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.viewFullBtn,
+.editBtn {
+  flex: 1;
+  padding: 12px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+  border: none;
+  font-family: "Cairo", "Segoe UI", Tahoma, sans-serif;
+}
+
+.viewFullBtn {
+  background: #A17D23;
+  color: white;
+}
+
+.viewFullBtn:hover {
+  background: #8a6b1e;
+}
+
+.editBtn {
+  background: white;
+  color: #A17D23;
+  border: 1px solid #A17D23;
+}
+
+.editBtn:hover {
+  background: #FFF8ED;
+}
+
+.detailsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.detailSection {
+  background: white;
+  border: 1px solid #E1E4EA;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.detailSection:last-child {
+  margin-bottom: 0;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0E121B;
+  margin: 0 0 16px 0;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.detailItem:last-child {
+  margin-bottom: 0;
+}
+
+.itemLabel {
+  font-size: 13px;
+  color: #717784;
+  font-weight: 500;
+}
+
+.itemValue {
+  font-size: 14px;
+  color: #0E121B;
+  line-height: 1.6;
+}
+
+.itemValue p {
+  margin: 0;
+}
+
+.greenText {
+  color: #2E7D32 !important;
+  font-weight: 600;
+}
+
+.viewMoreLink {
+  color: #A17D23;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  margin-top: 8px;
+  display: inline-block;
+}
+
+.viewMoreLink:hover {
+  text-decoration: underline;
+}
 </style>
+
