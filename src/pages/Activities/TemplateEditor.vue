@@ -2,7 +2,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Swal from 'sweetalert2'
 import { useActivitySheet } from '@/composables/useActivitySheet'
 import { templateService } from '@/services/activityService'
 import type { ColumnDefinition, Template } from '@/types/activity.types'
@@ -224,21 +223,9 @@ const saveTemplate = async (publish = false) => {
 }
 
 // Cancel and go back
-const handleCancel = async () => {
+const handleCancel = () => {
   if (form.value.name || selectedColumnIds.value.length > 0) {
-    const result = await Swal.fire({
-      title: 'تأكيد الإلغاء',
-      text: 'هل أنت متأكد من الإلغاء؟ سيتم فقدان التغييرات غير المحفوظة.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#A17D23',
-      confirmButtonText: 'نعم، ألغِ',
-      cancelButtonText: 'استمر',
-      reverseButtons: true
-    })
-    
-    if (!result.isConfirmed) {
+    if (!confirm('هل أنت متأكد من الإلغاء؟ سيتم فقدان التغييرات غير المحفوظة.')) {
       return
     }
   }

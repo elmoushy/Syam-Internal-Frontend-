@@ -2,7 +2,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import Swal from 'sweetalert2'
 import { useActivitySheet } from '@/composables/useActivitySheet'
 import type { TemplateListItem, TemplateStatus } from '@/types/activity.types'
 
@@ -85,40 +84,13 @@ const goToEditor = (templateId?: number) => {
 
 // Actions
 const handlePublish = async (template: TemplateListItem) => {
-  const result = await Swal.fire({
-    title: 'تأكيد النشر',
-    text: 'هل أنت متأكد من نشر هذا القالب؟ لن تتمكن من تعديل الأعمدة بعد النشر.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#A17D23',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، انشر',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) return
+  if (!confirm('هل أنت متأكد من نشر هذا القالب؟ لن تتمكن من تعديل الأعمدة بعد النشر.')) return
   
   actionError.value = ''
   try {
     await publishTemplate(template.id)
-    await Swal.fire({
-      title: 'تم النشر!',
-      text: 'تم نشر القالب بنجاح',
-      icon: 'success',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً',
-      timer: 2000,
-      timerProgressBar: true
-    })
   } catch (error: any) {
-    await Swal.fire({
-      title: 'خطأ',
-      text: error.response?.data?.detail || 'فشل نشر القالب',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    actionError.value = error.response?.data?.detail || 'فشل نشر القالب'
   }
 }
 
@@ -127,40 +99,13 @@ const handleArchive = async (template: TemplateListItem) => {
     ? `سيتم أرشفة هذا القالب. الأوراق الموجودة (${template.sheet_count}) ستبقى متاحة مع بياناتها.`
     : 'هل أنت متأكد من أرشفة هذا القالب؟'
   
-  const result = await Swal.fire({
-    title: 'تأكيد الأرشفة',
-    text: message,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#A17D23',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، أرشف',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) return
+  if (!confirm(message)) return
   
   actionError.value = ''
   try {
     await archiveTemplate(template.id)
-    await Swal.fire({
-      title: 'تم الأرشفة!',
-      text: 'تم أرشفة القالب بنجاح',
-      icon: 'success',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً',
-      timer: 2000,
-      timerProgressBar: true
-    })
   } catch (error: any) {
-    await Swal.fire({
-      title: 'خطأ',
-      text: error.response?.data?.detail || 'فشل أرشفة القالب',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    actionError.value = error.response?.data?.detail || 'فشل أرشفة القالب'
   }
 }
 

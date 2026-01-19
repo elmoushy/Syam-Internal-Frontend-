@@ -6,23 +6,23 @@ interface Props {
   disabled?: boolean
   error?: string
 }
-
+ 
 const props = withDefaults(defineProps<Props>(), {
   required: false,
   disabled: false
 })
-
+ 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
 }>()
-
+ 
 const handleChange = (value: boolean) => {
   if (!props.disabled) {
     emit('update:modelValue', value)
   }
 }
 </script>
-
+ 
 <template>
   <div :class="$style.formGroup">
     <label :class="$style.checkboxWrapper">
@@ -41,7 +41,7 @@ const handleChange = (value: boolean) => {
     <span v-if="error" :class="$style.errorMessage">{{ error }}</span>
   </div>
 </template>
-
+ 
 <style module>
 .formGroup {
   display: flex;
@@ -49,7 +49,7 @@ const handleChange = (value: boolean) => {
   gap: 8px;
   width: 100%;
 }
-
+ 
 .checkboxWrapper {
   display: flex;
   align-items: center;
@@ -60,9 +60,9 @@ const handleChange = (value: boolean) => {
   background: white;
   transition: all 0.2s ease;
 }
-
-
-
+ 
+ 
+ 
 .checkbox {
   width: 20px;
   height: 20px;
@@ -72,18 +72,18 @@ const handleChange = (value: boolean) => {
   flex-shrink: 0;
   order: 2;
 }
-
+ 
 .checkbox:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
-
+ 
 .checkboxWrapper:has(.checkbox:disabled) {
   background: #F5F7FA;
   cursor: not-allowed;
   opacity: 0.6;
 }
-
+ 
 .label {
   font-size: 14px;
   font-weight: 500;
@@ -93,15 +93,17 @@ const handleChange = (value: boolean) => {
   text-align: right;
   order: 1;
 }
-
+ 
 .required {
   color: #D44333;
   margin-right: 4px;
 }
-
+ 
 .errorMessage {
   font-size: 12px;
   color: #D44333;
   text-align: right;
 }
 </style>
+ 
+ 

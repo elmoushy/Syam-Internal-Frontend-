@@ -1,9 +1,5 @@
 // src/router/index.ts
-import {
-  createRouter,
-  createWebHistory,
-  type RouteRecordRaw,
-} from "vue-router";
+import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
 import { useSimpleAuth } from "../composables/useSimpleAuth";
 
 declare module "vue-router" {
@@ -23,7 +19,7 @@ declare module "vue-router" {
 // Auth & Public
 const JWTLogin = () => import("../pages/Auth/JWTLogin.vue");
 const HomePage = () => import("../pages/HomePage.vue");
-// const Register = () => import('../pages/Auth/Register.vue') 
+// const Register = () => import('../pages/Auth/Register.vue')
 
 // Core
 const Profile = () => import("../pages/Profile/Profile.vue");
@@ -34,19 +30,18 @@ const WebSocketTest = () => import("../components/WebSocketTest.vue");
 // Control
 const Control = () => import("../pages/Control/Control.vue");
 const SurveyControl = () => import("../pages/Control/SurveyControl.vue");
-const UserManagement = () =>
-  import("../pages/Control/UserManagement/UserManagement.vue");
+const UserManagement = () => import("../pages/Control/UserManagement/UserManagement.vue");
 const AuditLog = () => import("../pages/Control/AuditLog.vue");
-
+const ActivityDetails = () => import("../pages/Activities/ActivityDetails.vue");
 // Surveys
 const Surveys = () => import("../pages/Survey/Surveys.vue");
 const SurveyResponses = () => import("../pages/Survey/SurveyResponses.vue");
 const SurveyAnalytics = () => import("../pages/Survey/SurveyAnalytics.vue");
 const PublicSurveyView = () => import("../pages/Survey/PublicSurveyView.vue");
-const PasswordProtectedSurveyView = () =>
-  import("../pages/Survey/PasswordProtectedSurveyView.vue");
+const PasswordProtectedSurveyView = () => import("../pages/Survey/PasswordProtectedSurveyView.vue");
 const AuthSurveyView = () => import("../pages/Survey/AuthSurveyView.vue");
 const SurveyEditorPage = () => import("../pages/Control/SurveyEditorPage.vue");
+const CreateActivity = () => import("../pages/Activities/CreateActivity.vue");
 
 // Notifications
 const Notifications = () => import("../pages/Notifications");
@@ -60,21 +55,19 @@ const QuickLinksPage = () => import("../pages/QuickLinks/QuickLinksPage.vue");
 
 // Activities
 const ListingActivities = () => import("../pages/Activities/ListingActivities.vue");
-const LocalActivitiesDetail = () => import("../pages/Activities/LocalActivitiesDetail.vue");
-const CreateActivity = () => import("../pages/Activities/CreateActivity.vue");
-const ActivityDetails = () => import("../pages/Activities/ActivityDetails.vue");
 // const OrganizationChart = () => import("../pages/OrganizationChart/OrganizationChart.vue");
 // const OrganizationDetails = () => import("../pages/OrganizationChart/OrganizationDetails.vue");
-
+const LocalActivitiesDetail = () => import("../pages/Activities/LocalActivitiesDetail.vue");
 /* =========================
    Routes
    ========================= */
+
 const routes: RouteRecordRaw[] = [
-  { 
-    path: "/", 
+  {
+    path: "/",
     name: "Home",
     component: HomePage,
-    meta: { title: "Home - WPC | WeaponpowerCloud App", requiresAuth: true }
+    meta: { title: "Home - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
 
   {
@@ -83,14 +76,14 @@ const routes: RouteRecordRaw[] = [
     component: JWTLogin,
     meta: { title: "Login - WPC | WeaponpowerCloud App", requiresGuest: true },
   },
-  
+
   {
     path: "/quick-links",
     name: "QuickLinks",
     component: QuickLinksPage,
     meta: { title: "Quick Links - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
-  
+
   // Activities
   {
     path: "/activities",
@@ -102,24 +95,6 @@ const routes: RouteRecordRaw[] = [
     component: ListingActivities,
     meta: { title: "قائمة الأنشطة - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
-  {
-    path: "/activities/local/:id",
-    name: "LocalActivitiesDetail",
-    component: LocalActivitiesDetail,
-    meta: { title: "تفاصيل الأنشطة - WPC | WeaponpowerCloud App", requiresAuth: true },
-  },
-  {
-    path: "/activities/local/:id/activity/:activityId",
-    name: "ActivityDetails",
-    component: ActivityDetails,
-    meta: { title: "تفاصيل النشاط - WPC | WeaponpowerCloud App", requiresAuth: true },
-  },
-  {
-    path: "/activities/local/:id/create",
-    name: "CreateActivity",
-    component: CreateActivity,
-    meta: { title: "إنشاء نشاط جديد - WPC | WeaponpowerCloud App", requiresAuth: true },
-  },
   /*
   {
     path: '/register',
@@ -129,7 +104,13 @@ const routes: RouteRecordRaw[] = [
   },
   */
 
-  // ✅ Public survey routes 
+  // ✅ Public survey routes
+  {
+    path: "/activities/local/:id",
+    name: "LocalActivitiesDetail",
+    component: LocalActivitiesDetail,
+    meta: { title: "تفاصيل الأنشطة - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
   {
     path: "/survey/public/:token",
     name: "PublicSurvey",
@@ -149,6 +130,12 @@ const routes: RouteRecordRaw[] = [
     name: "Surveys",
     component: Surveys,
     meta: { title: "Surveys - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  {
+    path: "/activities/local/:id/activity/:activityId",
+    name: "ActivityDetails",
+    component: ActivityDetails,
+    meta: { title: "تفاصيل النشاط - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
   {
     path: "/surveys/take/:id",
@@ -296,17 +283,28 @@ const routes: RouteRecordRaw[] = [
       requiresAdmin: true,
     },
   },
-  // Activities Column Management (Admins only)
+  // Template Management (Admins only)
   {
-    path: "/control/activities/titles",
-    name: "TitleManagement",
-    component: () => import("../pages/Activities/admin/TitleManagement.vue"),
+    path: "/control/templates",
+    name: "TemplateManagement",
+    component: () => import("../pages/Control/TemplateManagement.vue"),
     meta: {
-      title: "إدارة العناوين - WPC | WeaponpowerCloud App",
+      title: "إدارة النماذج - WPC | WeaponpowerCloud App",
       requiresAuth: true,
       requiresAdmin: true,
     },
   },
+  {
+    path: "/control/templates/create",
+    name: "SurveyTemplateCreate",
+    component: () => import("../pages/Control/TemplateCreate.vue"),
+    meta: {
+      title: "إنشاء نموذج جديد - WPC | WeaponpowerCloud App",
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  
   {
     path: "/control/surveys/:surveyId/responses",
     name: "SurveyResponses",
@@ -343,7 +341,7 @@ const routes: RouteRecordRaw[] = [
     component: Profile,
     meta: { title: "Profile - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
-  
+
   // Activities User Pages (Authenticated users)
   {
     path: "/activities/templates",
@@ -363,6 +361,13 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
     },
   },
+  {
+    path: "/activities/local/:id/create",
+    name: "CreateActivity",
+    component: CreateActivity,
+    meta: { title: "إنشاء نشاط جديد - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+
   {
     path: "/activities/templates/:id/edit",
     name: "TemplateEdit",
@@ -390,7 +395,6 @@ const router = createRouter({
    ========================= */
 
 router.beforeEach(async (to, _from, next) => {
-  
   // ✅ CRITICAL: Public survey routes MUST bypass all authentication checks
   // This ensures survey links like /survey/public/:token are always accessible
   if (to.path.startsWith("/survey/")) {
@@ -448,7 +452,7 @@ router.beforeEach(async (to, _from, next) => {
 
     const currentUser = user.value;
     const ADMIN_ROLES = new Set(["admin", "super_admin"]);
-    
+
     // If user is authenticated but not an admin, redirect to home
     if (!currentUser || !ADMIN_ROLES.has(currentUser.role)) {
       return next("/");

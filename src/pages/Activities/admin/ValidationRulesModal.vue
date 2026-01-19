@@ -1,7 +1,6 @@
 <!-- src/pages/Activities/admin/ValidationRulesModal.vue -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import Swal from 'sweetalert2'
 import { columnService } from '@/services/activityService'
 import type { ColumnDefinition, ValidationRule, ValidationRuleType, ValidationRuleCreate } from '@/types/activity.types'
 
@@ -176,44 +175,17 @@ const saveValidation = async () => {
 
 // Delete validation
 const deleteValidation = async (validation: ValidationRule) => {
-  const result = await Swal.fire({
-    title: 'تأكيد الحذف',
-    text: `هل أنت متأكد من حذف قاعدة "${getRuleLabel(validation.rule_type)}"؟`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#dc3545',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، احذف',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) {
+  if (!confirm(`هل أنت متأكد من حذف قاعدة "${getRuleLabel(validation.rule_type)}"؟`)) {
     return
   }
   
   try {
     await columnService.deleteValidation(validation.id)
-    await Swal.fire({
-      title: 'تم الحذف!',
-      text: 'تم حذف قاعدة التحقق بنجاح',
-      icon: 'success',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً',
-      timer: 2000,
-      timerProgressBar: true
-    })
     await loadValidations()
     emit('updated')
   } catch (error: any) {
     console.error('Failed to delete validation:', error)
-    await Swal.fire({
-      title: 'خطأ',
-      text: error.response?.data?.error || 'فشل في حذف قاعدة التحقق',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    errorMessage.value = error.response?.data?.error || 'فشل في حذف قاعدة التحقق'
   }
 }
 

@@ -278,7 +278,7 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Row 5.5: Minutes Attachment (shown only when hasMinutes is true) -->
+             <!-- Row 5.5: Minutes Attachment (shown only when hasMinutes is true) -->
         <div v-if="formData.hasMinutes === true" :class="$style.formRow">
           <FormFileUpload
             label="المرفقات"
@@ -287,6 +287,7 @@ onMounted(() => {
             :error="errors.attachments"
           />
         </div>
+ 
 
         <!-- Row 6: Description (Textarea with custom rows) -->
         <div :class="$style.formRow">

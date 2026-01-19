@@ -4,7 +4,6 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import * as XLSX from 'xlsx'
-import Swal from 'sweetalert2'
 import { templateService, titleService } from '@/services/activityService'
 import type { 
   TemplateListItem, 
@@ -56,13 +55,6 @@ const showColumnsModal = ref(false)
 const showImportModal = ref(false)
 const editingTitle = ref<Template | null>(null)
 
-// Create modal tab state
-const createModalTab = ref<'details' | 'columns'>('details')
-
-// Drag and drop state
-const draggedColumnIndex = ref<number | null>(null)
-const dragOverColumnIndex = ref<number | null>(null)
-
 // Import from Excel state
 const importFileInput = ref<HTMLInputElement | null>(null)
 const isImporting = ref(false)
@@ -93,7 +85,6 @@ const dataTypeLabels: Record<string, string> = {
 // Filter state
 const searchQuery = ref('')
 const statusFilter = ref<string>('all')
-const viewMode = ref<'cards' | 'table'>('cards')
 
 // Filtered titles
 const filteredTitles = computed(() => {
@@ -156,70 +147,29 @@ const loadSubmittedSheets = async (page: number = 1) => {
 // Set title as active
 const setActiveTitle = async (title: TemplateListItem) => {
   if (title.status !== 'published') {
-    await Swal.fire({
-      title: 'غير مسموح',
-      text: 'يجب أن يكون العنوان منشوراً لتعيينه كنشط',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    errorMessage.value = 'يجب أن يكون العنوان منشوراً لتعيينه كنشط'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
     return
   }
   
-  const result = await Swal.fire({
-    title: 'تأكيد التفعيل',
-    text: `هل أنت متأكد من تعيين "${title.name}" كعنوان نشط؟ سيتم إلغاء تنشيط أي عنوان آخر.`,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonColor: '#A17D23',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، فعّل',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) {
+  if (!confirm(`هل أنت متأكد من تعيين "${title.name}" كعنوان نشط؟ سيتم إلغاء تنشيط أي عنوان آخر.`)) {
     return
   }
   
   try {
     await titleService.setActiveTitle(title.id)
-    await Swal.fire({
-      title: 'تم التفعيل!',
-      text: `تم تعيين "${title.name}" كعنوان نشط`,
-      icon: 'success',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً',
-      timer: 2000,
-      timerProgressBar: true
-    })
+    successMessage.value = `تم تعيين "${title.name}" كعنوان نشط`
     await loadTitles()
+    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
-    await Swal.fire({
-      title: 'خطأ',
-      text: error.response?.data?.error || 'فشل في تعيين العنوان كنشط',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    errorMessage.value = error.response?.data?.error || 'فشل في تعيين العنوان كنشط'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
   }
 }
 
 // Deactivate title
 const deactivateTitle = async (title: TemplateListItem) => {
-  const result = await Swal.fire({
-    title: 'تأكيد إلغاء التفعيل',
-    text: `هل أنت متأكد من إلغاء تنشيط "${title.name}"؟`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#dc3545',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، ألغِ التفعيل',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) {
+  if (!confirm(`هل أنت متأكد من إلغاء تنشيط "${title.name}"؟`)) {
     return
   }
   
@@ -291,67 +241,9 @@ const removeOption = (column: InlineColumn, index: number) => {
   column.options.splice(index, 1)
 }
 
-// Drag and drop handlers for columns
-const handleDragStart = (index: number) => {
-  draggedColumnIndex.value = index
-}
-
-const handleDragOver = (event: DragEvent, index: number) => {
-  event.preventDefault()
-  dragOverColumnIndex.value = index
-}
-
-const handleDragLeave = () => {
-  dragOverColumnIndex.value = null
-}
-
-const handleDrop = (index: number, target: 'form' | 'modal' = 'form') => {
-  if (draggedColumnIndex.value === null || draggedColumnIndex.value === index) {
-    draggedColumnIndex.value = null
-    dragOverColumnIndex.value = null
-    return
-  }
-  
-  const columns = target === 'form' ? titleForm.value.columns : columnsForm.value
-  const draggedItem = columns[draggedColumnIndex.value]
-  
-  // Remove from original position
-  columns.splice(draggedColumnIndex.value, 1)
-  
-  // Insert at new position
-  const newIndex = draggedColumnIndex.value < index ? index - 1 : index
-  columns.splice(newIndex, 0, draggedItem)
-  
-  draggedColumnIndex.value = null
-  dragOverColumnIndex.value = null
-}
-
-const handleDragEnd = () => {
-  draggedColumnIndex.value = null
-  dragOverColumnIndex.value = null
-}
-
-// Go to columns tab (only if name is filled)
-const goToColumnsTab = () => {
-  if (titleForm.value.name.trim()) {
-    createModalTab.value = 'columns'
-  }
-}
-
-// Go to next step (from details to columns)
-const goToNextStep = () => {
-  if (titleForm.value.name.trim()) {
-    createModalTab.value = 'columns'
-  } else {
-    errorMessage.value = 'يرجى إدخال اسم العنوان أولاً'
-    setTimeout(() => { errorMessage.value = '' }, 3000)
-  }
-}
-
 // Open create modal
 const openCreateModal = () => {
   titleForm.value = { name: '', description: '', columns: [] }
-  createModalTab.value = 'details'
   showCreateModal.value = true
 }
 
@@ -516,136 +408,60 @@ const saveColumns = async () => {
 // Publish title
 const publishTitle = async (title: TemplateListItem) => {
   if (title.column_count === 0) {
-    await Swal.fire({
-      title: 'غير مسموح',
-      text: 'لا يمكن نشر عنوان بدون أعمدة',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    errorMessage.value = 'لا يمكن نشر عنوان بدون أعمدة'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
     return
   }
   
-  const result = await Swal.fire({
-    title: 'تأكيد النشر',
-    text: `هل أنت متأكد من نشر "${title.name}"؟ لن تتمكن من تعديل الأعمدة بعد النشر.`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#A17D23',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، انشر',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) {
+  if (!confirm(`هل أنت متأكد من نشر "${title.name}"؟ لن تتمكن من تعديل الأعمدة بعد النشر.`)) {
     return
   }
   
   try {
     await templateService.publish(title.id)
-    await Swal.fire({
-      title: 'تم النشر!',
-      text: 'تم نشر العنوان بنجاح',
-      icon: 'success',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً',
-      timer: 2000,
-      timerProgressBar: true
-    })
+    successMessage.value = 'تم نشر العنوان بنجاح'
     await loadTitles()
+    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
-    await Swal.fire({
-      title: 'خطأ',
-      text: error.response?.data?.error || 'فشل في نشر العنوان',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    errorMessage.value = error.response?.data?.error || 'فشل في نشر العنوان'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
   }
 }
 
 // Archive title
 const archiveTitle = async (title: TemplateListItem) => {
-  const result = await Swal.fire({
-    title: 'تأكيد الأرشفة',
-    text: `هل أنت متأكد من أرشفة "${title.name}"؟`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#A17D23',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، أرشف',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) {
+  if (!confirm(`هل أنت متأكد من أرشفة "${title.name}"؟`)) {
     return
   }
   
   try {
     await templateService.archive(title.id)
-    await Swal.fire({
-      title: 'تم الأرشفة!',
-      text: 'تم أرشفة العنوان بنجاح',
-      icon: 'success',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً',
-      timer: 2000,
-      timerProgressBar: true
-    })
+    successMessage.value = 'تم أرشفة العنوان بنجاح'
     await loadTitles()
+    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
-    await Swal.fire({
-      title: 'خطأ',
-      text: error.response?.data?.error || 'فشل في أرشفة العنوان',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    errorMessage.value = error.response?.data?.error || 'فشل في أرشفة العنوان'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
   }
 }
 
 // Delete title
 const deleteTitle = async (title: TemplateListItem) => {
-  const result = await Swal.fire({
-    title: 'تأكيد الحذف',
-    text: `هل أنت متأكد من حذف "${title.name}"؟`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#dc3545',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، احذف',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) {
+  if (!confirm(`هل أنت متأكد من حذف "${title.name}"؟`)) {
     return
   }
   
   try {
     await templateService.delete(title.id)
-    await Swal.fire({
-      title: 'تم الحذف!',
-      text: 'تم حذف العنوان بنجاح',
-      icon: 'success',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً',
-      timer: 2000,
-      timerProgressBar: true
-    })
+    successMessage.value = 'تم حذف العنوان بنجاح'
     await loadTitles()
+    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
-    await Swal.fire({
-      title: 'خطأ',
-      text: error.response?.data?.error || 'فشل في حذف العنوان',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    errorMessage.value = error.response?.data?.error || 'فشل في حذف العنوان'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
   }
 }
+
 // Get status label
 const getStatusLabel = (status: string) => {
   switch (status) {
@@ -962,487 +778,294 @@ onMounted(() => {
   <div :class="$style.container">
     <!-- Header -->
     <div :class="$style.header">
-      <h1 :class="$style.pageTitle">إدارة جداول البيانات</h1>
+      <div :class="$style.titleSection">
+        <h1 :class="$style.title">
+          <i class="fas fa-layer-group"></i>
+          إدارة العناوين
+        </h1>
+        <p :class="$style.subtitle">
+          إنشاء وإدارة العناوين وأعمدتها للمستخدمين
+        </p>
+      </div>
       <div :class="$style.headerActions">
+        <button v-if="activeTab === 'titles'" :class="$style.secondaryBtn" @click="openImportModal">
+          <i class="fas fa-file-import"></i>
+          استيراد من Excel
+        </button>
         <button v-if="activeTab === 'titles'" :class="$style.addBtn" @click="openCreateModal">
           <i class="fas fa-plus"></i>
           إنشاء عنوان جديد
         </button>
-        <button v-if="activeTab === 'titles'" :class="$style.secondaryBtn" @click="openImportModal">
-          <i class="fas fa-file-import"></i>
-          استيراد
-        </button>
-       
       </div>
     </div>
 
     <!-- Tabs -->
-    <div :class="$style.tabsContainer">
+    <div :class="$style.tabs">
       <button 
         :class="[$style.tabBtn, activeTab === 'titles' && $style.activeTab]"
         @click="switchTab('titles')"
       >
-        ادارة العناوين
+        <i class="fas fa-layer-group"></i>
+        العناوين
       </button>
       <button 
         :class="[$style.tabBtn, activeTab === 'submitted' && $style.activeTab]"
         @click="switchTab('submitted')"
       >
+        <i class="fas fa-paper-plane"></i>
         الجداول المقدمة
       </button>
     </div>
 
-    <!-- Main Content Card -->
-    <div :class="$style.contentCard">
-      <!-- Messages -->
-      <div v-if="successMessage" :class="$style.successMsg">
-        <i class="fas fa-check-circle"></i>
-        {{ successMessage }}
+    <!-- Messages -->
+    <div v-if="successMessage" :class="$style.successMsg">
+      <i class="fas fa-check-circle"></i>
+      {{ successMessage }}
+    </div>
+    <div v-if="errorMessage && !showCreateModal && !showEditModal && !showColumnsModal" :class="$style.errorMsg">
+      <i class="fas fa-exclamation-circle"></i>
+      {{ errorMessage }}
+    </div>
+
+    <!-- ===== TITLES TAB ===== -->
+    <template v-if="activeTab === 'titles'">
+      <!-- Filters -->
+      <div :class="$style.filters">
+        <div :class="$style.searchBox">
+          <i class="fas fa-search"></i>
+          <input 
+            v-model="searchQuery"
+            type="text" 
+            placeholder="بحث في العناوين..."
+          />
+        </div>
+        <select v-model="statusFilter" :class="$style.statusSelect">
+          <option value="all">جميع الحالات</option>
+          <option value="draft">المسودات</option>
+          <option value="published">المنشورة</option>
+          <option value="archived">المؤرشفة</option>
+        </select>
       </div>
-      <div v-if="errorMessage && !showCreateModal && !showEditModal && !showColumnsModal" :class="$style.errorMsg">
-        <i class="fas fa-exclamation-circle"></i>
-        {{ errorMessage }}
+
+      <!-- Loading -->
+      <div v-if="isLoading" :class="$style.loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        جاري التحميل...
       </div>
 
-      <!-- ===== TITLES TAB ===== -->
-      <template v-if="activeTab === 'titles'">
-        <!-- Table Header with Search and Filters -->
-        <div :class="$style.tableHeader">
-           <div :class="$style.searchSection">
-            <div :class="$style.searchBox">
-              <input 
-                v-model="searchQuery"
-                type="text" 
-                placeholder="ابحث في العناوين..."
-                :class="$style.searchInput"
-              />
-              <i class="fas fa-search" :class="$style.searchIcon"></i>
+      <!-- Titles List -->
+      <div v-else :class="$style.titlesList">
+        <div v-if="filteredTitles.length === 0" :class="$style.emptyState">
+          <i class="fas fa-folder-open"></i>
+          <p>لا توجد عناوين</p>
+          <button :class="$style.addBtnEmpty" @click="openCreateModal">
+            <i class="fas fa-plus"></i>
+            إنشاء عنوان جديد
+          </button>
+        </div>
+        
+        <div
+          v-for="title in filteredTitles"
+          :key="title.id"
+          :class="[$style.titleCard, $style[getStatusClass(title.status)], (title as any).is_active_title && $style.activeTitle]"
+        >
+          <div :class="$style.titleInfo">
+            <div :class="$style.titleHeader">
+              <h3 :class="$style.titleName">{{ title.name }}</h3>
+              <span :class="[$style.statusBadge, $style[getStatusClass(title.status)]]">
+                {{ getStatusLabel(title.status) }}
+              </span>
+              <span v-if="(title as any).is_active_title" :class="$style.activeBadge">
+                <i class="fas fa-star"></i>
+                نشط
+              </span>
             </div>
-          </div>
-          <div :class="$style.filterSection">
-                   <div :class="$style.viewToggle">
-              <button 
-                :class="[$style.viewBtn, viewMode === 'table' && $style.viewBtnActive]"
-                @click="viewMode = 'table'"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M17.5 6.66667H2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  <path d="M17.5 10H2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  <path d="M17.5 13.3333H2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-              </button>
-              <button 
-                :class="[$style.viewBtn, viewMode === 'cards' && $style.viewBtnActive]"
-                @click="viewMode = 'cards'"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="2.5" y="2.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                  <rect x="11.5" y="2.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                  <rect x="2.5" y="11.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                  <rect x="11.5" y="11.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-              </button>
+            <p v-if="title.description" :class="$style.titleDesc">{{ title.description }}</p>
+            <div :class="$style.titleMeta">
+              <span :class="$style.metaItem">
+                <i class="fas fa-columns"></i>
+                {{ title.column_count }} عمود
+              </span>
+              <span v-if="title.sheet_count" :class="$style.metaItem">
+                <i class="fas fa-users"></i>
+                {{ title.sheet_count }} مستخدم
+              </span>
             </div>
-            <select v-model="statusFilter" :class="$style.filterSelect">
-              <option value="all">جميع الحالات</option>
-              <option value="draft">المسودات</option>
-              <option value="published">المنشورة</option>
-              <option value="archived">المؤرشفة</option>
-            </select>
-     
-          </div>
-         
-        </div>
-
-        <!-- Loading -->
-        <div v-if="isLoading" :class="$style.loading">
-          <i class="fas fa-spinner fa-spin"></i>
-          جاري التحميل...
-        </div>
-
-        <!-- Empty State -->
-        <div v-else-if="filteredTitles.length === 0" :class="$style.tableContainer">
-          <div :class="$style.emptyState">
-            <i class="fas fa-folder-open"></i>
-            <p>لا توجد عناوين</p>
-            <button :class="$style.addBtnEmpty" @click="openCreateModal">
-              <i class="fas fa-plus"></i>
-              إنشاء عنوان جديد
-            </button>
-          </div>
-        </div>
-
-        <!-- Cards View -->
-        <div v-else-if="viewMode === 'cards'" :class="$style.cardsContainer">
-          <div 
-            v-for="title in filteredTitles"
-            :key="title.id"
-            :class="$style.titleCard"
-          >
-            <!-- Top Row: Actions LEFT, Title + Badges RIGHT -->
-            <div :class="$style.cardTopRow">
-              <!-- Title + Badges on RIGHT -->
-              <div :class="$style.cardTopRight">
-                <div :class="$style.cardBadges">
-                  <!-- Active badge (if active) -->
-                  <span v-if="(title as any).is_active_title" :class="$style.activeBadge">نشط</span>
-                  
-                  <span :class="[$style.statusBadge, $style[getStatusClass(title.status)]]">
-                    {{ getStatusLabel(title.status) }}
-                  </span>
-                </div>
-                
-                <h3 :class="$style.cardTitle">
-                  {{ title.name.length > 20 ? title.name.substring(0, 20) + '...' : title.name }}
-                </h3>
-              </div>
-              <!-- Actions on LEFT -->
-              <div :class="$style.cardTopActions">
-                  <!-- Star button -->
-                  <button 
-                    v-if="(title as any).is_active_title"
-                    :class="[$style.cardIconBtn, $style.starBtnActive]"
-                    @click.stop="deactivateTitle(title)"
-                    title="نشط - اضغط لإلغاء التنشيط"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M10 1L12.39 6.26L18 7.27L14 11.14L14.94 17L10 14.26L5.06 17L6 11.14L2 7.27L7.61 6.26L10 1Z" fill="#A17D23" stroke="#A17D23" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button>
-                  <button 
-                    v-else-if="title.status === 'published'"
-                    :class="$style.cardIconBtn"
-                    @click.stop="setActiveTitle(title)"
-                    title="تعيين كنشط"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M10 1L12.39 6.26L18 7.27L14 11.14L14.94 17L10 14.26L5.06 17L6 11.14L2 7.27L7.61 6.26L10 1Z" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button>
-                  
-                  <!-- Archive button (published) -->
-                  <button 
-                    v-if="title.status === 'published'"
-                    :class="$style.cardIconBtn"
-                    @click.stop="archiveTitle(title)"
-                    title="أرشفة"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="9" cy="9" r="8" stroke="currentColor" stroke-width="1.5"/>
-                      <path d="M9 5V9L11.5 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                  </button>
-                  
-                  <!-- Edit button (draft only) -->
-                  <button 
-                    v-if="title.status === 'draft'"
-                    :class="$style.cardIconBtn"
-                    @click.stop="openEditModal(title)"
-                    title="تعديل"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9.03516 12.9834H13.333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                      <path fill-rule="evenodd" clip-rule="evenodd" d="M8.46353 3.11747C8.92317 2.56814 9.74944 2.48758 10.3102 2.93788C10.3412 2.96231 11.3373 3.73614 11.3373 3.73614C11.9533 4.10852 12.1447 4.90018 11.7639 5.50431C11.7437 5.53667 6.11209 12.581 6.11209 12.581C5.92472 12.8147 5.64031 12.9527 5.33636 12.956L3.17969 12.9831L2.69376 10.9264C2.62569 10.6372 2.69376 10.3335 2.88113 10.0997L8.46353 3.11747Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                      <path d="M7.42188 4.4248L10.6528 6.90606" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button>
-                  
-                  <!-- Delete button -->
-                  <button 
-                    :class="$style.cardIconBtn"
-                    @click.stop="deleteTitle(title)"
-                    title="حذف"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M2.25 4.5H15.75M14.25 4.5V14.25C14.25 15 13.5 15.75 12.75 15.75H5.25C4.5 15.75 3.75 15 3.75 14.25V4.5M6 4.5V3C6 2.25 6.75 1.5 7.5 1.5H10.5C11.25 1.5 12 2.25 12 3V4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button>
-                </div>
-                
-            
-            </div>
-            
-            <!-- Description -->
-            <p :class="$style.cardDescription">{{ title.description || 'نص تجريبي للوصف' }}</p>
-            
-            <!-- Divider + Stats -->
-            <div :class="$style.cardBottomRow">
-              <div :class="$style.cardStat">
-                <svg width="17" height="15" viewBox="0 0 17 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4.3125 3.1875C4.3125 2.1345 4.3125 1.60725 4.56525 1.22925C4.67472 1.0654 4.8154 0.924717 4.97925 0.81525C5.35725 0.5625 5.8845 0.5625 6.9375 0.5625H12.9375C13.9905 0.5625 14.5178 0.5625 14.8958 0.81525C15.0596 0.924717 15.2003 1.0654 15.3098 1.22925C15.5625 1.60725 15.5625 2.1345 15.5625 3.1875C15.5625 4.2405 15.5625 4.76775 15.3098 5.14575C15.2003 5.3096 15.0596 5.45028 14.8958 5.55975C14.5178 5.8125 13.9905 5.8125 12.9375 5.8125H6.9375C5.8845 5.8125 5.35725 5.8125 4.97925 5.55975C4.8154 5.45028 4.67472 5.3096 4.56525 5.14575C4.3125 4.76775 4.3125 4.2405 4.3125 3.1875ZM4.3125 11.4375C4.3125 10.3845 4.3125 9.85725 4.56525 9.47925C4.67472 9.3154 4.8154 9.17472 4.97925 9.06525C5.35725 8.8125 5.8845 8.8125 6.9375 8.8125H12.9375C13.9905 8.8125 14.5178 8.8125 14.8958 9.06525C15.0593 9.17475 15.2003 9.31575 15.3098 9.47925C15.5625 9.85725 15.5625 10.3845 15.5625 11.4375C15.5625 12.4905 15.5625 13.0178 15.3098 13.3958C15.2003 13.5596 15.0596 13.7003 14.8958 13.8098C14.5178 14.0625 13.9905 14.0625 12.9375 14.0625H6.9375C5.8845 14.0625 5.35725 14.0625 4.97925 13.8098C4.8154 13.7003 4.67472 13.5596 4.56525 13.3958C4.3125 13.0178 4.3125 12.4905 4.3125 11.4375Z" stroke="#717784" stroke-width="1.125"/>
-                  <path d="M0.5625 5.0625L1.71225 6.252C2.196 6.7515 2.4375 7.002 2.4375 7.3125C2.4375 7.623 2.196 7.8735 1.71225 8.373L0.5625 9.5625" stroke="#717784" stroke-width="1.125" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>{{ title.column_count }} عواميد</span>
-              </div>
-              <div :class="$style.cardStat">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M9 0.9375C7.03249 0.9375 5.4375 2.53249 5.4375 4.5C5.4375 6.46751 7.03249 8.0625 9 8.0625C10.9675 8.0625 12.5625 6.46751 12.5625 4.5C12.5625 2.53249 10.9675 0.9375 9 0.9375ZM6.5625 4.5C6.5625 3.15381 7.65381 2.0625 9 2.0625C10.3462 2.0625 11.4375 3.15381 11.4375 4.5C11.4375 5.84619 10.3462 6.9375 9 6.9375C7.65381 6.9375 6.5625 5.84619 6.5625 4.5Z" fill="#717784"/>
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M9 9.1875C7.4705 9.1875 6.05814 9.54056 5.00861 10.1403C3.975 10.7309 3.1875 11.6326 3.1875 12.75C3.1875 13.8674 3.975 14.7691 5.00861 15.3597C6.05814 15.9594 7.4705 16.3125 9 16.3125C10.5295 16.3125 11.9419 15.9594 12.9914 15.3597C14.025 14.7691 14.8125 13.8674 14.8125 12.75C14.8125 11.6326 14.025 10.7309 12.9914 10.1403C11.9419 9.54056 10.5295 9.1875 9 9.1875ZM4.3125 12.75C4.3125 12.2105 4.70025 11.6122 5.56677 11.1171C6.41737 10.631 7.63001 10.3125 9 10.3125C10.37 10.3125 11.5826 10.631 12.4332 11.1171C13.2997 11.6122 13.6875 12.2105 13.6875 12.75C13.6875 13.2895 13.2997 13.8878 12.4332 14.3829C11.5826 14.869 10.37 15.1875 9 15.1875C7.63001 15.1875 6.41737 14.869 5.56677 14.3829C4.70025 13.8878 4.3125 13.2895 4.3125 12.75Z" fill="#717784"/>
-                </svg>
-                <span>{{ title.sheet_count || 0 }} مستخدمين</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Table View -->
-        <div v-else :class="$style.tableContainer">
-          <table :class="$style.table">
-            <thead :class="$style.tableHead">
-              <tr>
-                <th>اسم</th>
-                <th>الوصف</th>
-                <th>عدد الاعمدة</th>
-                <th>عدد المستخدمين</th>
-                <th>الحالة</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody :class="$style.tableBody">
-              <tr 
-                v-for="title in filteredTitles"
-                :key="title.id"
-                :class="$style.tableRow"
-              >
-                <td>
-                  <span :class="$style.sheetNameCell">{{ title.name }}</span>
-                </td>
-                <td>
-                  <span :class="$style.sheetNameCell">{{ title.description || 'نص تجريبي' }}</span>
-                </td>
-                <td>{{ title.column_count }}</td>
-                <td>{{ title.sheet_count || 0 }}</td>
-                <td>
-                  <span :class="[$style.statusBadge, $style[getStatusClass(title.status)]]">
-                    {{ getStatusLabel(title.status) }}
-                  </span>
-                </td>
-                <td>
-                  <div :class="$style.actionButtons">
-                    <!-- Set Active button (published only) - not active star -->
-                    <button 
-                      v-if="title.status === 'published' && !(title as any).is_active_title"
-                      :class="[$style.actionBtn, $style.starBtn]"
-                      @click.stop="setActiveTitle(title)"
-                      title="تعيين كنشط"
-                    >
-                      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M14 0.5C21.4558 0.5 27.5 6.54416 27.5 14C27.5 21.4558 21.4558 27.5 14 27.5C6.54416 27.5 0.5 21.4558 0.5 14C0.5 6.54416 6.54416 0.5 14 0.5Z" fill="white"/>
-                        <path d="M14 0.5C21.4558 0.5 27.5 6.54416 27.5 14C27.5 21.4558 21.4558 27.5 14 27.5C6.54416 27.5 0.5 21.4558 0.5 14C0.5 6.54416 6.54416 0.5 14 0.5Z" stroke="#F2F5F8"/>
-                        <path d="M11.7225 8.7267C12.7359 6.9089 13.2425 6 14 6C14.7575 6 15.2641 6.9089 16.2775 8.7267L16.5396 9.19699C16.8276 9.71355 16.9716 9.97183 17.196 10.1422C17.4205 10.3127 17.7001 10.3759 18.2593 10.5024L18.7684 10.6176C20.7361 11.0628 21.72 11.2855 21.9541 12.0382C22.1881 12.7909 21.5174 13.5753 20.1759 15.1439L19.8289 15.5498C19.4477 15.9955 19.2571 16.2184 19.1713 16.4942C19.0856 16.7699 19.1144 17.0673 19.172 17.662L19.2245 18.2035C19.4273 20.2965 19.5287 21.343 18.9159 21.8082C18.3031 22.2734 17.3819 21.8492 15.5395 21.0009L15.0628 20.7815C14.5393 20.5404 14.2775 20.4199 14 20.4199C13.7225 20.4199 13.4607 20.5404 12.9372 20.7815L12.4605 21.0009C10.6181 21.8492 9.69694 22.2734 9.08412 21.8082C8.4713 21.343 8.5727 20.2965 8.77552 18.2035L8.82799 17.662C8.88562 17.0673 8.91444 16.7699 8.82869 16.4942C8.74294 16.2184 8.55234 15.9955 8.17113 15.5498L7.82408 15.1439C6.4826 13.5753 5.81186 12.7909 6.04594 12.0382C6.28001 11.2855 7.26389 11.0628 9.23163 10.6176L9.74071 10.5024C10.2999 10.3759 10.5795 10.3127 10.804 10.1422C11.0284 9.97183 11.1724 9.71355 11.4604 9.19699L11.7225 8.7267Z" stroke="#717784" stroke-width="1.5"/>
-                      </svg>
-                    </button>
-                    
-                    <!-- Active indicator - gold star -->
-                    <button 
-                      v-if="(title as any).is_active_title"
-                      :class="[$style.actionBtn, $style.starBtn]"
-                      @click.stop="deactivateTitle(title)"
-                      title="نشط - اضغط لإلغاء التنشيط"
-                    >
-                      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M0 14C0 6.26801 6.26801 0 14 0C21.732 0 28 6.26801 28 14C28 21.732 21.732 28 14 28C6.26801 28 0 21.732 0 14Z" fill="#A17D23"/>
-                        <path d="M11.7225 8.7267C12.7359 6.9089 13.2425 6 14 6C14.7575 6 15.2641 6.9089 16.2775 8.7267L16.5396 9.19699C16.8276 9.71355 16.9716 9.97183 17.196 10.1422C17.4205 10.3127 17.7001 10.3759 18.2593 10.5024L18.7684 10.6176C20.7361 11.0628 21.72 11.2855 21.9541 12.0382C22.1881 12.7909 21.5174 13.5753 20.1759 15.1439L19.8289 15.5498C19.4477 15.9955 19.2571 16.2184 19.1713 16.4942C19.0856 16.7699 19.1144 17.0673 19.172 17.662L19.2245 18.2035C19.4273 20.2965 19.5287 21.343 18.9159 21.8082C18.3031 22.2734 17.3819 21.8492 15.5395 21.0009L15.0628 20.7815C14.5393 20.5404 14.2775 20.4199 14 20.4199C13.7225 20.4199 13.4607 20.5404 12.9372 20.7815L12.4605 21.0009C10.6181 21.8492 9.69694 22.2734 9.08412 21.8082C8.4713 21.343 8.5727 20.2965 8.77552 18.2035L8.82799 17.662C8.88562 17.0673 8.91444 16.7699 8.82869 16.4942C8.74294 16.2184 8.55234 15.9955 8.17113 15.5498L7.82408 15.1439C6.4826 13.5753 5.81186 12.7909 6.04594 12.0382C6.28001 11.2855 7.26389 11.0628 9.23163 10.6176L9.74071 10.5024C10.2999 10.3759 10.5795 10.3127 10.804 10.1422C11.0284 9.97183 11.1724 9.71355 11.4604 9.19699L11.7225 8.7267Z" fill="white" stroke="white"/>
-                      </svg>
-                    </button>
-                    
-                    <!-- Edit button (draft only) -->
-                    <button 
-                      v-if="title.status === 'draft'"
-                      :class="$style.actionBtn"
-                      @click.stop="openEditModal(title)"
-                      title="تعديل"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9.03516 12.9834H13.333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M8.46353 3.11747C8.92317 2.56814 9.74944 2.48758 10.3102 2.93788C10.3412 2.96231 11.3373 3.73614 11.3373 3.73614C11.9533 4.10852 12.1447 4.90018 11.7639 5.50431C11.7437 5.53667 6.11209 12.581 6.11209 12.581C5.92472 12.8147 5.64031 12.9527 5.33636 12.956L3.17969 12.9831L2.69376 10.9264C2.62569 10.6372 2.69376 10.3335 2.88113 10.0997L8.46353 3.11747Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M7.42188 4.4248L10.6528 6.90606" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                    </button>
-                    
-                    <!-- Columns button (draft only) -->
-                    <button 
-                      v-if="title.status === 'draft'"
-                      :class="$style.actionBtn"
-                      @click.stop="openColumnsModal(title)"
-                      title="إدارة الأعمدة"
-                    >
-                      <i class="fas fa-th-list"></i>
-                    </button>
-                    
-                    <!-- Publish button (draft only) - globe icon -->
-                    <button 
-                      v-if="title.status === 'draft'"
-                      :class="$style.actionBtn"
-                      @click.stop="publishTitle(title)"
-                      title="نشر"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM1.6 8C1.6 7.512 1.664 7.032 1.768 6.576L5.592 10.4V11.2C5.592 12.08 6.312 12.8 7.192 12.8V14.344C4.048 13.944 1.6 11.256 1.6 8ZM12.712 12.32C12.504 11.672 11.912 11.2 11.192 11.2H10.392V8.8C10.392 8.36 10.032 8 9.592 8H4.792V6.4H6.392C6.832 6.4 7.192 6.04 7.192 5.6V4H8.792C9.672 4 10.392 3.28 10.392 2.4V2.072C12.736 3.016 14.4 5.32 14.4 8C14.4 9.664 13.752 11.184 12.712 12.32Z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    
-                    <!-- Archive/View button (published) -->
-                    <button 
-                      v-if="title.status === 'published'"
-                      :class="$style.actionBtn"
-                      @click.stop="archiveTitle(title)"
-                      title="أرشفة"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM1.6 8C1.6 7.512 1.664 7.032 1.768 6.576L5.592 10.4V11.2C5.592 12.08 6.312 12.8 7.192 12.8V14.344C4.048 13.944 1.6 11.256 1.6 8ZM12.712 12.32C12.504 11.672 11.912 11.2 11.192 11.2H10.392V8.8C10.392 8.36 10.032 8 9.592 8H4.792V6.4H6.392C6.832 6.4 7.192 6.04 7.192 5.6V4H8.792C9.672 4 10.392 3.28 10.392 2.4V2.072C12.736 3.016 14.4 5.32 14.4 8C14.4 9.664 13.752 11.184 12.712 12.32Z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    
-                    <!-- Delete button -->
-                    <button 
-                      :class="$style.actionBtn"
-                      @click.stop="deleteTitle(title)"
-                      title="حذف"
-                    >
-                      <i class="fas fa-trash-alt"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div v-if="filteredTitles.length > 0" :class="$style.paginationContainer">
-          <div :class="$style.paginationLeft">
-            <button :class="$style.paginationBtn">
-              <i class="fas fa-chevron-right"></i>
-            </button>
-            <button :class="[$style.paginationBtn, $style.paginationBtnActive]">1</button>
-            <button :class="$style.paginationBtn">2</button>
-            <span :class="$style.paginationDots">...</span>
-            <button :class="$style.paginationBtn">10</button>
-            <button :class="$style.paginationBtn">11</button>
-            <button :class="$style.paginationBtn">
-              <i class="fas fa-chevron-left"></i>
-            </button>
-          </div>
-          <div :class="$style.paginationRight">
-            <span>من {{ titles.length }}</span>
-            <select :class="$style.pageSizeSelect">
-              <option value="6">6</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-            </select>
-            <span>عرض</span>
-          </div>
-        </div>
-      </template>
-
-      <!-- ===== SUBMITTED SHEETS TAB ===== -->
-      <template v-if="activeTab === 'submitted'">
-        <!-- Table Header with Search and Filters -->
-        <div :class="$style.tableHeader">
-          <div :class="$style.filterSection">
-            <select v-model="submittedTitleFilter" :class="$style.filterSelect" @change="loadSubmittedSheets(1)">
-              <option :value="null">جميع العناوين</option>
-              <option v-for="t in publishedTitles" :key="t.id" :value="t.id">{{ t.name }}</option>
-            </select>
-          </div>
-          <div :class="$style.searchSection">
-            <div :class="$style.searchBox">
-              <input 
-                v-model="submittedSearch"
-                type="text" 
-                placeholder="ابحث..."
-                :class="$style.searchInput"
-                @keyup.enter="loadSubmittedSheets(1)"
-              />
-              <i class="fas fa-search" :class="$style.searchIcon"></i>
-            </div>
-          </div>
-        </div>
-
-        <!-- Loading -->
-        <div v-if="submittedLoading" :class="$style.loading">
-          <i class="fas fa-spinner fa-spin"></i>
-          جاري التحميل...
-        </div>
-
-        <!-- Submitted Sheets Table -->
-        <div v-else :class="$style.tableContainer">
-          <div v-if="submittedSheets.length === 0" :class="$style.emptyState">
-            <i class="fas fa-inbox"></i>
-            <p>لا توجد جداول مقدمة</p>
           </div>
           
-          <table v-else :class="$style.table">
-            <thead :class="$style.tableHead">
+          <div :class="$style.titleActions">
+            <!-- Set Active button (published only) -->
+            <button 
+              v-if="title.status === 'published' && !(title as any).is_active_title"
+              :class="[$style.actionBtn, $style.activeBtn]"
+              @click="setActiveTitle(title)"
+              title="تعيين كنشط"
+            >
+              <i class="fas fa-star"></i>
+            </button>
+            
+            <!-- Deactivate button (active only) -->
+            <button 
+              v-if="(title as any).is_active_title"
+              :class="[$style.actionBtn, $style.deactivateBtn]"
+              @click="deactivateTitle(title)"
+              title="إلغاء التنشيط"
+            >
+              <i class="far fa-star"></i>
+            </button>
+            
+            <!-- Edit button (draft only) -->
+            <button 
+              v-if="title.status === 'draft'"
+              :class="$style.actionBtn"
+              @click="openEditModal(title)"
+              title="تعديل"
+            >
+              <i class="fas fa-edit"></i>
+            </button>
+            
+            <!-- Columns button (draft only) -->
+            <button 
+              v-if="title.status === 'draft'"
+              :class="$style.actionBtn"
+              @click="openColumnsModal(title)"
+              title="إدارة الأعمدة"
+            >
+              <i class="fas fa-th-list"></i>
+            </button>
+            
+            <!-- Publish button (draft only) -->
+            <button 
+              v-if="title.status === 'draft'"
+              :class="[$style.actionBtn, $style.publishBtn]"
+              @click="publishTitle(title)"
+              title="نشر"
+            >
+              <i class="fas fa-globe"></i>
+            </button>
+            
+            <!-- Archive button (published only) -->
+            <button 
+              v-if="title.status === 'published'"
+              :class="[$style.actionBtn, $style.archiveBtn]"
+              @click="archiveTitle(title)"
+              title="أرشفة"
+            >
+              <i class="fas fa-archive"></i>
+            </button>
+            
+            <!-- Delete button -->
+            <button 
+              :class="[$style.actionBtn, $style.deleteBtn]"
+              @click="deleteTitle(title)"
+              title="حذف"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ===== SUBMITTED SHEETS TAB ===== -->
+    <template v-if="activeTab === 'submitted'">
+      <!-- Filters for Submitted -->
+      <div :class="$style.filters">
+        <div :class="$style.searchBox">
+          <i class="fas fa-search"></i>
+          <input 
+            v-model="submittedSearch"
+            type="text" 
+            placeholder="بحث بالاسم أو المستخدم..."
+            @keyup.enter="loadSubmittedSheets(1)"
+          />
+        </div>
+        <select v-model="submittedTitleFilter" :class="$style.statusSelect" @change="loadSubmittedSheets(1)">
+          <option :value="null">جميع العناوين</option>
+          <option v-for="t in publishedTitles" :key="t.id" :value="t.id">{{ t.name }}</option>
+        </select>
+        <button :class="$style.searchBtn" @click="loadSubmittedSheets(1)">
+          <i class="fas fa-search"></i>
+          بحث
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="submittedLoading" :class="$style.loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        جاري التحميل...
+      </div>
+
+      <!-- Submitted Sheets List -->
+      <div v-else :class="$style.submittedList">
+        <div v-if="submittedSheets.length === 0" :class="$style.emptyState">
+          <i class="fas fa-inbox"></i>
+          <p>لا توجد جداول مقدمة</p>
+        </div>
+        
+        <div :class="$style.submittedTable" v-else>
+          <table>
+            <thead>
               <tr>
                 <th>اسم الجدول</th>
                 <th>العنوان</th>
                 <th>المستخدم</th>
+                <th>عدد الصفوف</th>
                 <th>تاريخ التقديم</th>
               </tr>
             </thead>
-            <tbody :class="$style.tableBody">
+            <tbody>
               <tr 
                 v-for="sheet in submittedSheets" 
                 :key="sheet.id"
-                :class="$style.tableRow"
+                :class="$style.clickableRow"
                 @click="viewSubmittedSheet(sheet)"
               >
                 <td>
-                  <div :class="$style.sheetNameCell">
-                    <span :class="$style.excelIcon">
-                      <i class="fas fa-file-excel"></i>
-                    </span>
-                    <span :class="$style.sheetNameText">{{ sheet.name }}</span>
+                  <div :class="$style.sheetName">
+                    <i class="fas fa-file-excel"></i>
+                    {{ sheet.name }}
                   </div>
+                  <div v-if="sheet.description" :class="$style.sheetDesc">{{ sheet.description }}</div>
                 </td>
                 <td>{{ sheet.template_name }}</td>
-                <td>{{ sheet.owner_name }}</td>
-                <td>{{ formatDate(sheet.submitted_at) }}</td>
+                <td>
+                  <div :class="$style.userName">{{ sheet.owner_name }}</div>
+                  <div :class="$style.userUsername">@{{ sheet.owner_username }}</div>
+                </td>
+                <td>{{ sheet.row_count }}</td>
+                <td>
+                  <div :class="$style.viewSheetAction">
+                    {{ formatDate(sheet.submitted_at) }}
+                    <i class="fas fa-external-link-alt" :class="$style.viewIcon"></i>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Pagination -->
-        <div v-if="submittedPagination.total_pages > 1" :class="$style.paginationContainer">
-          <div :class="$style.paginationLeft">
-            <button 
-              :class="$style.paginationBtn"
-              :disabled="!submittedPagination.has_prev"
-              @click="loadSubmittedSheets(submittedPagination.page - 1)"
-            >
-              <i class="fas fa-chevron-right"></i>
-            </button>
-            <button 
-              v-for="page in submittedPagination.total_pages" 
-              :key="page" 
-              :class="[$style.paginationBtn, page === submittedPagination.page && $style.paginationBtnActive]"
-              @click="loadSubmittedSheets(page)"
-            >
-              {{ page }}
-            </button>
-            <button 
-              :class="$style.paginationBtn"
-              :disabled="!submittedPagination.has_next"
-              @click="loadSubmittedSheets(submittedPagination.page + 1)"
-            >
-              <i class="fas fa-chevron-left"></i>
-            </button>
-          </div>
-          <div :class="$style.paginationRight">
-            <span>من {{ submittedPagination.total_count }}</span>
-            <select :class="$style.pageSizeSelect">
-              <option value="6">6</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-            </select>
-            <span>عرض</span>
-          </div>
+        <div v-if="submittedPagination.total_pages > 1" :class="$style.pagination">
+          <button 
+            :disabled="!submittedPagination.has_prev"
+            @click="loadSubmittedSheets(submittedPagination.page - 1)"
+          >
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          <span :class="$style.pageInfo">
+            صفحة {{ submittedPagination.page }} من {{ submittedPagination.total_pages }}
+            ({{ submittedPagination.total_count }} جدول)
+          </span>
+          <button 
+            :disabled="!submittedPagination.has_next"
+            @click="loadSubmittedSheets(submittedPagination.page + 1)"
+          >
+            <i class="fas fa-chevron-left"></i>
+          </button>
         </div>
-      </template>
-    </div>
+      </div>
+    </template>
 
     <!-- Import from Excel Modal -->
     <Teleport to="body">
@@ -1551,185 +1174,127 @@ onMounted(() => {
     <!-- Create Modal -->
     <Teleport to="body">
       <div v-if="showCreateModal" :class="$style.modalOverlay" @click.self="closeModal">
-        <div :class="[$style.modal, $style.createModal]">
-          <div :class="$style.createModalHeader">
+        <div :class="[$style.modal, $style.wideModal]">
+          <div :class="$style.modalHeader">
             <h2>إنشاء عنوان جديد</h2>
-            <button :class="$style.createCloseBtn" @click="closeModal">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
+            <button :class="$style.closeBtn" @click="closeModal">
+              <i class="fas fa-times"></i>
             </button>
           </div>
-
-          <!-- Modal Tabs -->
-          <div :class="$style.createModalTabs">
-            <button 
-              :class="[$style.createModalTab, createModalTab === 'details' && $style.activeModalTab]"
-              @click="createModalTab = 'details'"
-            >
-              تفاصيل العنوان  
-            </button>
-            <button 
-              :class="[$style.createModalTab, createModalTab === 'columns' && $style.activeModalTab, !titleForm.name.trim() && $style.disabledTab]"
-              @click="goToColumnsTab"
-              :disabled="!titleForm.name.trim()"
-            >
-              الأعمدة
-            </button>
-          </div>
-
-          <div :class="$style.createModalBody">
+          <div :class="$style.modalBody">
             <div v-if="errorMessage" :class="$style.errorMsg">
               <i class="fas fa-exclamation-circle"></i>
               {{ errorMessage }}
             </div>
             
-            <!-- Details Tab -->
-            <div v-if="createModalTab === 'details'" :class="$style.detailsTab">
-              <div :class="$style.createFormGroup">
-                <label>اسم العنوان</label>
-                <input 
-                  v-model="titleForm.name" 
-                  type="text" 
-                  placeholder="ادخل اسم العنوان"
-                  :disabled="isSaving"
-                  :class="$style.createInput"
-                />
-              </div>
-              
-              <div :class="$style.createFormGroup">
-                <label>الوصف</label>
-                <textarea 
-                  v-model="titleForm.description" 
-                  placeholder="وصف اختياري للعنوان"
-                  :disabled="isSaving"
-                  rows="4"
-                  :class="$style.createTextarea"
-                ></textarea>
-              </div>
+            <div :class="$style.formGroup">
+              <label>اسم العنوان *</label>
+              <input 
+                v-model="titleForm.name" 
+                type="text" 
+                placeholder="أدخل اسم العنوان"
+                :disabled="isSaving"
+              />
             </div>
             
-            <!-- Columns Tab -->
-            <div v-if="createModalTab === 'columns'" :class="$style.columnsTab">
-              <button 
-                type="button" 
-                :class="$style.addColumnBtnNew" 
-                @click="addColumn('form')"
+            <div :class="$style.formGroup">
+              <label>الوصف</label>
+              <textarea 
+                v-model="titleForm.description" 
+                placeholder="وصف اختياري للعنوان"
                 :disabled="isSaving"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 1V13M1 7H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                اضافة عمود
-              </button>
-              
-              <div v-if="titleForm.columns.length === 0" :class="$style.noColumnsNew">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/>
-                  <path d="M10 6V10.5M10 14V13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                لم يتم اضافة اعمدة بعد. يمكنك إضافة الأعمدة الآن أو لاحقاً.
+                rows="2"
+              ></textarea>
+            </div>
+            
+            <!-- Columns Section -->
+            <div :class="$style.columnsSection">
+              <div :class="$style.columnsSectionHeader">
+                <h3><i class="fas fa-columns"></i> الأعمدة</h3>
+                <button 
+                  type="button" 
+                  :class="$style.addColumnBtn" 
+                  @click="addColumn('form')"
+                  :disabled="isSaving"
+                >
+                  <i class="fas fa-plus"></i>
+                  إضافة عمود
+                </button>
               </div>
               
-              <div v-else :class="$style.columnCards">
+              <div v-if="titleForm.columns.length === 0" :class="$style.noColumnsMsg">
+                <i class="fas fa-info-circle"></i>
+                لم يتم إضافة أعمدة بعد. يمكنك إضافة الأعمدة الآن أو لاحقاً.
+              </div>
+              
+              <div v-else :class="$style.columnFormList">
                 <div 
                   v-for="(column, index) in titleForm.columns" 
                   :key="index" 
-                  :class="[$style.columnCard, dragOverColumnIndex === index && $style.columnCardDragOver]"
-                  draggable="true"
-                  @dragstart="handleDragStart(index)"
-                  @dragover="handleDragOver($event, index)"
-                  @dragleave="handleDragLeave"
-                  @drop="handleDrop(index, 'form')"
-                  @dragend="handleDragEnd"
+                  :class="$style.columnFormItem"
                 >
-                  <div :class="$style.columnCardHeader">
-                         <div :class="$style.columnCardRight">
-                      <div :class="$style.columnDragHandle">
-                        <svg width="10" height="16" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="2" cy="2" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="8" cy="2" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="2" cy="8" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="8" cy="8" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="2" cy="14" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="8" cy="14" r="1.5" fill="#9CA3AF"/>
-                        </svg>
-                      </div>
-                          <span :class="$style.columnNumberBadge">{{ index + 1 }}</span>
-                    
-                    </div>
-                    <div :class="$style.columnCardLeft">
-                       <div :class="$style.columnOrderBtnsNew">
-                        <button 
-                          type="button"
-                          @click="moveColumnUp(index, 'form')" 
-                          :disabled="index === 0 || isSaving"
-                          title="تحريك لأعلى"
-                        >
-                          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 5L5 1L9 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                          </svg>
-                        </button>
-                        <button 
-                          type="button"
-                          @click="moveColumnDown(index, 'form')" 
-                          :disabled="index === titleForm.columns.length - 1 || isSaving"
-                          title="تحريك لأسفل"
-                        >
-                          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                          </svg>
-                        </button>
-                      </div>
+                  <div :class="$style.columnFormHeader">
+                    <span :class="$style.columnNumber">{{ index + 1 }}</span>
+                    <div :class="$style.columnOrderBtns">
                       <button 
                         type="button"
-                        :class="$style.columnDeleteBtn" 
-                        @click="removeColumn(index, 'form')"
-                        :disabled="isSaving"
-                        title="حذف العمود"
+                        @click="moveColumnUp(index, 'form')" 
+                        :disabled="index === 0 || isSaving"
+                        title="تحريك لأعلى"
                       >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="8" cy="8" r="7" fill="#DC2626"/>
-                          <path d="M5 5L11 11M5 11L11 5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
+                        <i class="fas fa-chevron-up"></i>
                       </button>
-                     
+                      <button 
+                        type="button"
+                        @click="moveColumnDown(index, 'form')" 
+                        :disabled="index === titleForm.columns.length - 1 || isSaving"
+                        title="تحريك لأسفل"
+                      >
+                        <i class="fas fa-chevron-down"></i>
+                      </button>
                     </div>
-               
+                    <button 
+                      type="button"
+                      :class="$style.removeColumnBtn" 
+                      @click="removeColumn(index, 'form')"
+                      :disabled="isSaving"
+                      title="حذف العمود"
+                    >
+                      <i class="fas fa-times"></i>
+                    </button>
                   </div>
                   
-                  <div :class="$style.columnCardBody">
-                    <div :class="$style.columnFieldLabel">اسم العمود</div>
-                    <div :class="$style.columnFieldsRow">
-                     <input 
-                        v-model="column.label" 
-                        type="text" 
-                        placeholder="ادخل اسم العمود"
-                        :disabled="isSaving"
-                        :class="$style.columnNameInput"
-                      />
-                      <select 
-                        v-model="column.data_type" 
-                        :disabled="isSaving"
-                        :class="$style.columnTypeSelect"
-                      >
-                        <option value="text">{{ dataTypeLabels.text }}</option>
-                        <option value="number">{{ dataTypeLabels.number }}</option>
-                        <option value="date">{{ dataTypeLabels.date }}</option>
-                        <option value="boolean">{{ dataTypeLabels.boolean }}</option>
-                        <option value="select">{{ dataTypeLabels.select }}</option>
-                      </select>
-                     
+                  <div :class="$style.columnFormBody">
+                    <div :class="$style.columnFormRow">
+                      <div :class="$style.columnFormField">
+                        <label>اسم العمود *</label>
+                        <input 
+                          v-model="column.label" 
+                          type="text" 
+                          placeholder="مثال: اسم الموظف"
+                          :disabled="isSaving"
+                        />
+                      </div>
+                      <div :class="$style.columnFormField">
+                        <label>نوع البيانات</label>
+                        <select v-model="column.data_type" :disabled="isSaving">
+                          <option value="text">{{ dataTypeLabels.text }}</option>
+                          <option value="number">{{ dataTypeLabels.number }}</option>
+                          <option value="date">{{ dataTypeLabels.date }}</option>
+                          <option value="boolean">{{ dataTypeLabels.boolean }}</option>
+                          <option value="select">{{ dataTypeLabels.select }}</option>
+                        </select>
+                      </div>
                     </div>
                     
                     <!-- Options for select type -->
-                    <div v-if="column.data_type === 'select'" :class="$style.optionsSectionNew">
+                    <div v-if="column.data_type === 'select'" :class="$style.optionsSection">
                       <label>الخيارات *</label>
-                      <div :class="$style.optionsListNew">
+                      <div :class="$style.optionsList">
                         <span 
                           v-for="(opt, optIndex) in column.options" 
                           :key="optIndex" 
-                          :class="$style.optionTagNew"
+                          :class="$style.optionTag"
                         >
                           {{ opt }}
                           <button 
@@ -1737,13 +1302,11 @@ onMounted(() => {
                             @click="removeOption(column, optIndex)"
                             :disabled="isSaving"
                           >
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M1 1L9 9M1 9L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
+                            <i class="fas fa-times"></i>
                           </button>
                         </span>
                       </div>
-                      <div :class="$style.addOptionRowNew">
+                      <div :class="$style.addOptionRow">
                         <input 
                           v-model="column.optionsInput" 
                           type="text" 
@@ -1756,9 +1319,7 @@ onMounted(() => {
                           @click="addOption(column)"
                           :disabled="isSaving || !column.optionsInput?.trim()"
                         >
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M6 1V11M1 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                          </svg>
+                          <i class="fas fa-plus"></i>
                         </button>
                       </div>
                     </div>
@@ -1767,29 +1328,13 @@ onMounted(() => {
               </div>
             </div>
           </div>
-
-          <div :class="$style.createModalFooter">
-            <button :class="$style.createCancelBtn" @click="closeModal" :disabled="isSaving">
-              الغاء
+          <div :class="$style.modalFooter">
+            <button :class="$style.cancelBtn" @click="closeModal" :disabled="isSaving">
+              إلغاء
             </button>
-            <!-- Show "التالي" button in details tab -->
-            <button 
-              v-if="createModalTab === 'details'"
-              :class="$style.nextStepBtn" 
-              @click="goToNextStep" 
-              :disabled="!titleForm.name.trim()"
-            >
-              التالي
-            </button>
-            <!-- Show "انشاء" button in columns tab -->
-            <button 
-              v-if="createModalTab === 'columns'"
-              :class="$style.createSubmitBtn" 
-              @click="createTitle" 
-              :disabled="isSaving"
-            >
-              <span v-if="isSaving"><i class="fas fa-spinner fa-spin"></i> جاري الحفظ...</span>
-              <span v-else>انشاء</span>
+            <button :class="$style.saveBtn" @click="createTitle" :disabled="isSaving">
+              <i v-if="isSaving" class="fas fa-spinner fa-spin"></i>
+              <span>{{ isSaving ? 'جاري الحفظ...' : 'إنشاء' }}</span>
             </button>
           </div>
         </div>
@@ -1799,54 +1344,45 @@ onMounted(() => {
     <!-- Edit Modal -->
     <Teleport to="body">
       <div v-if="showEditModal" :class="$style.modalOverlay" @click.self="closeModal">
-        <div :class="[$style.modal, $style.createModal]">
-          <div :class="$style.createModalHeader">
+        <div :class="$style.modal">
+          <div :class="$style.modalHeader">
             <h2>تعديل العنوان</h2>
-            <button :class="$style.createCloseBtn" @click="closeModal">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
+            <button :class="$style.closeBtn" @click="closeModal">
+              <i class="fas fa-times"></i>
             </button>
           </div>
-          <div :class="$style.createModalBody">
+          <div :class="$style.modalBody">
             <div v-if="errorMessage" :class="$style.errorMsg">
               <i class="fas fa-exclamation-circle"></i>
               {{ errorMessage }}
             </div>
             
-            <div :class="$style.detailsTab">
-              <div :class="$style.createFormGroup">
-                <label>اسم العنوان</label>
-                <input 
-                  v-model="titleForm.name" 
-                  type="text" 
-                  placeholder="ادخل اسم العنوان"
-                  :disabled="isSaving"
-                  :class="$style.createInput"
-                />
-              </div>
-              
-              <div :class="$style.createFormGroup">
-                <label>الوصف</label>
-                <textarea 
-                  v-model="titleForm.description" 
-                  placeholder="وصف اختياري للعنوان"
-                  :disabled="isSaving"
-                  rows="4"
-                  :class="$style.createTextarea"
-                ></textarea>
-              </div>
+            <div :class="$style.formGroup">
+              <label>اسم العنوان *</label>
+              <input 
+                v-model="titleForm.name" 
+                type="text" 
+                :disabled="isSaving"
+              />
+            </div>
+            
+            <div :class="$style.formGroup">
+              <label>الوصف</label>
+              <textarea 
+                v-model="titleForm.description" 
+                :disabled="isSaving"
+                rows="3"
+              ></textarea>
             </div>
           </div>
-          <div :class="$style.createModalFooter">
-              <button :class="$style.addColumnBtnNew" @click="updateTitle" :disabled="isSaving">
-              <span v-if="isSaving"><i class="fas fa-spinner fa-spin"></i> جاري الحفظ...</span>
-              <span v-else>حفظ</span>
+          <div :class="$style.modalFooter">
+            <button :class="$style.cancelBtn" @click="closeModal" :disabled="isSaving">
+              إلغاء
             </button>
-            <button :class="$style.createCancelBtn" @click="closeModal" :disabled="isSaving">
-              الغاء
+            <button :class="$style.saveBtn" @click="updateTitle" :disabled="isSaving">
+              <i v-if="isSaving" class="fas fa-spinner fa-spin"></i>
+              <span>{{ isSaving ? 'جاري الحفظ...' : 'حفظ' }}</span>
             </button>
-         
           </div>
         </div>
       </div>
@@ -1855,138 +1391,107 @@ onMounted(() => {
     <!-- Columns Modal -->
     <Teleport to="body">
       <div v-if="showColumnsModal" :class="$style.modalOverlay" @click.self="closeModal">
-        <div :class="[$style.modal, $style.createModal]">
-          <div :class="$style.createModalHeader">
+        <div :class="[$style.modal, $style.wideModal]">
+          <div :class="$style.modalHeader">
             <h2>إدارة أعمدة "{{ selectedTitleForColumns?.name }}"</h2>
-            <button :class="$style.createCloseBtn" @click="closeModal">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
+            <button :class="$style.closeBtn" @click="closeModal">
+              <i class="fas fa-times"></i>
             </button>
           </div>
-          <div :class="$style.createModalBody">
+          <div :class="$style.modalBody">
             <div v-if="errorMessage" :class="$style.errorMsg">
               <i class="fas fa-exclamation-circle"></i>
               {{ errorMessage }}
             </div>
             
-            <!-- Columns Section with new design -->
-            <div :class="$style.columnsTab">
-              <button 
-                type="button" 
-                :class="$style.addColumnBtnNew" 
-                @click="addColumn('modal')"
-                :disabled="isSaving"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 1V13M1 7H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                اضافة عمود
-              </button>
+            <!-- Inline Column Creation -->
+            <div :class="$style.columnsSection">
+              <div :class="$style.columnsSectionHeader">
+                <h3><i class="fas fa-columns"></i> الأعمدة</h3>
+                <button 
+                  type="button" 
+                  :class="$style.addColumnBtn" 
+                  @click="addColumn('modal')"
+                  :disabled="isSaving"
+                >
+                  <i class="fas fa-plus"></i>
+                  إضافة عمود
+                </button>
+              </div>
               
-              <div v-if="columnsForm.length === 0" :class="$style.noColumnsNew">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/>
-                  <path d="M10 6V10.5M10 14V13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
+              <div v-if="columnsForm.length === 0" :class="$style.noColumnsMsg">
+                <i class="fas fa-info-circle"></i>
                 لم يتم إضافة أعمدة بعد.
               </div>
               
-              <div v-else :class="$style.columnCards">
+              <div v-else :class="$style.columnFormList">
                 <div 
                   v-for="(column, index) in columnsForm" 
                   :key="index" 
-                  :class="[$style.columnCard, dragOverColumnIndex === index && $style.columnCardDragOver]"
-                  draggable="true"
-                  @dragstart="handleDragStart(index)"
-                  @dragover="handleDragOver($event, index)"
-                  @dragleave="handleDragLeave"
-                  @drop="handleDrop(index, 'modal')"
-                  @dragend="handleDragEnd"
+                  :class="$style.columnFormItem"
                 >
-                  <div :class="$style.columnCardHeader">
-                    <div :class="$style.columnCardRight">
-                      <div :class="$style.columnDragHandle">
-                        <svg width="10" height="16" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="2" cy="2" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="8" cy="2" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="2" cy="8" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="8" cy="8" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="2" cy="14" r="1.5" fill="#9CA3AF"/>
-                          <circle cx="8" cy="14" r="1.5" fill="#9CA3AF"/>
-                        </svg>
-                      </div>
-                      <span :class="$style.columnNumberBadge">{{ index + 1 }}</span>
-                    </div>
-                    <div :class="$style.columnCardLeft">
-                      <div :class="$style.columnOrderBtnsNew">
-                        <button 
-                          type="button"
-                          @click="moveColumnUp(index, 'modal')" 
-                          :disabled="index === 0 || isSaving"
-                          title="تحريك لأعلى"
-                        >
-                          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 5L5 1L9 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                          </svg>
-                        </button>
-                        <button 
-                          type="button"
-                          @click="moveColumnDown(index, 'modal')" 
-                          :disabled="index === columnsForm.length - 1 || isSaving"
-                          title="تحريك لأسفل"
-                        >
-                          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                          </svg>
-                        </button>
-                      </div>
+                  <div :class="$style.columnFormHeader">
+                    <span :class="$style.columnNumber">{{ index + 1 }}</span>
+                    <div :class="$style.columnOrderBtns">
                       <button 
                         type="button"
-                        :class="$style.columnDeleteBtn" 
-                        @click="removeColumn(index, 'modal')"
-                        :disabled="isSaving"
-                        title="حذف العمود"
+                        @click="moveColumnUp(index, 'modal')" 
+                        :disabled="index === 0 || isSaving"
+                        title="تحريك لأعلى"
                       >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="8" cy="8" r="7" fill="#DC2626"/>
-                          <path d="M5 5L11 11M5 11L11 5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
+                        <i class="fas fa-chevron-up"></i>
+                      </button>
+                      <button 
+                        type="button"
+                        @click="moveColumnDown(index, 'modal')" 
+                        :disabled="index === columnsForm.length - 1 || isSaving"
+                        title="تحريك لأسفل"
+                      >
+                        <i class="fas fa-chevron-down"></i>
                       </button>
                     </div>
+                    <button 
+                      type="button"
+                      :class="$style.removeColumnBtn" 
+                      @click="removeColumn(index, 'modal')"
+                      :disabled="isSaving"
+                      title="حذف العمود"
+                    >
+                      <i class="fas fa-times"></i>
+                    </button>
                   </div>
                   
-                  <div :class="$style.columnCardBody">
-                    <div :class="$style.columnFieldLabel">اسم العمود</div>
-                    <div :class="$style.columnFieldsRow">
-                      <input 
-                        v-model="column.label" 
-                        type="text" 
-                        placeholder="ادخل اسم العمود"
-                        :disabled="isSaving"
-                        :class="$style.columnNameInput"
-                      />
-                      <select 
-                        v-model="column.data_type" 
-                        :disabled="isSaving"
-                        :class="$style.columnTypeSelect"
-                      >
-                        <option value="text">{{ dataTypeLabels.text }}</option>
-                        <option value="number">{{ dataTypeLabels.number }}</option>
-                        <option value="date">{{ dataTypeLabels.date }}</option>
-                        <option value="boolean">{{ dataTypeLabels.boolean }}</option>
-                        <option value="select">{{ dataTypeLabels.select }}</option>
-                      </select>
+                  <div :class="$style.columnFormBody">
+                    <div :class="$style.columnFormRow">
+                      <div :class="$style.columnFormField">
+                        <label>اسم العمود *</label>
+                        <input 
+                          v-model="column.label" 
+                          type="text" 
+                          placeholder="مثال: اسم الموظف"
+                          :disabled="isSaving"
+                        />
+                      </div>
+                      <div :class="$style.columnFormField">
+                        <label>نوع البيانات</label>
+                        <select v-model="column.data_type" :disabled="isSaving">
+                          <option value="text">{{ dataTypeLabels.text }}</option>
+                          <option value="number">{{ dataTypeLabels.number }}</option>
+                          <option value="date">{{ dataTypeLabels.date }}</option>
+                          <option value="boolean">{{ dataTypeLabels.boolean }}</option>
+                          <option value="select">{{ dataTypeLabels.select }}</option>
+                        </select>
+                      </div>
                     </div>
                     
                     <!-- Options for select type -->
-                    <div v-if="column.data_type === 'select'" :class="$style.optionsSectionNew">
+                    <div v-if="column.data_type === 'select'" :class="$style.optionsSection">
                       <label>الخيارات *</label>
-                      <div :class="$style.optionsListNew">
+                      <div :class="$style.optionsList">
                         <span 
                           v-for="(opt, optIndex) in column.options" 
                           :key="optIndex" 
-                          :class="$style.optionTagNew"
+                          :class="$style.optionTag"
                         >
                           {{ opt }}
                           <button 
@@ -1994,13 +1499,11 @@ onMounted(() => {
                             @click="removeOption(column, optIndex)"
                             :disabled="isSaving"
                           >
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M1 1L9 9M1 9L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
+                            <i class="fas fa-times"></i>
                           </button>
                         </span>
                       </div>
-                      <div :class="$style.addOptionRowNew">
+                      <div :class="$style.addOptionRow">
                         <input 
                           v-model="column.optionsInput" 
                           type="text" 
@@ -2013,9 +1516,7 @@ onMounted(() => {
                           @click="addOption(column)"
                           :disabled="isSaving || !column.optionsInput?.trim()"
                         >
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M6 1V11M1 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                          </svg>
+                          <i class="fas fa-plus"></i>
                         </button>
                       </div>
                     </div>
@@ -2024,15 +1525,14 @@ onMounted(() => {
               </div>
             </div>
           </div>
-          <div :class="$style.createModalFooter">
-            <button :class="$style.addColumnBtnNew" @click="saveColumns" :disabled="isSaving">
-              <span v-if="isSaving"><i class="fas fa-spinner fa-spin"></i> جاري الحفظ...</span>
-              <span v-else>حفظ الأعمدة</span>
+          <div :class="$style.modalFooter">
+            <button :class="$style.cancelBtn" @click="closeModal" :disabled="isSaving">
+              إلغاء
             </button>
-            <button :class="$style.createCancelBtn" @click="closeModal" :disabled="isSaving">
-              الغاء
+            <button :class="$style.saveBtn" @click="saveColumns" :disabled="isSaving">
+              <i v-if="isSaving" class="fas fa-spinner fa-spin"></i>
+              <span>{{ isSaving ? 'جاري الحفظ...' : 'حفظ الأعمدة' }}</span>
             </button>
-           
           </div>
         </div>
       </div>
@@ -2051,15 +1551,34 @@ onMounted(() => {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
-.pageTitle {
-  margin: 0;
-  font-size: 28px;
+.titleSection {
+  flex: 1;
+}
+
+.title {
+  margin: 0 0 8px 0;
+  font-size: 1.75rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text-primary, #1e293b);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title i {
+  color: var(--primary-color, #4361ee);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.95rem;
 }
 
 .headerActions {
@@ -2073,702 +1592,72 @@ onMounted(() => {
   gap: 8px;
   padding: 12px 20px;
   background: white;
-  border: 1.5px solid #A17D23;
-  border-radius: 8px;
-  color: #A17D23;
-  font-size: 14px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  color: var(--text-primary, #1e293b);
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
   transition: all 0.2s;
 }
 
 .secondaryBtn:hover {
-  background: #fef9ec;
+  border-color: var(--primary-color, #4361ee);
+  color: var(--primary-color, #4361ee);
 }
 
 .addBtn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 24px;
-  background: #A17D23;
+  padding: 12px 20px;
+  background: var(--primary-color, #4361ee);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   color: white;
-  font-size: 14px;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .addBtn:hover {
-  background: #8a6b1e;
+  background: var(--primary-dark, #3651d4);
 }
 
-/* Tabs Container */
-.tabsContainer {
+/* Tabs */
+.tabs {
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
+  border-bottom: 2px solid var(--border-color, #e2e8f0);
+  padding-bottom: 0;
 }
 
 .tabBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 12px 24px;
-  background:white;
+  background: transparent;
   border: none;
-  border-radius: 8px;
-  color: #525866;
-  font-size: 14px;
+  border-bottom: 3px solid transparent;
+  color: var(--text-secondary, #64748b);
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  margin-bottom: -2px;
 }
 
 .tabBtn:hover {
-  background: #f5f5f5;
+  color: var(--primary-color, #4361ee);
 }
 
 .tabBtn.activeTab {
-  background: #A17D23;
-  color: white;
-}
-
-/* Content Card */
-.contentCard {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-/* Table Header */
-.tableHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 16px;
-}
-
-.filterSection {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.filterSelect {
-  padding: 10px 16px;
-  padding-left: 36px;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  background: white;
-  color: #525866;
-  font-size: 14px;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%2364748B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: left 12px center;
-  background-size: 14px;
-}
-
-.viewToggle {
-  display: flex;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.viewBtn {
-  padding: 8px 12px;
-  background: white;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.viewBtn:hover {
-  background: #f8fafc;
-  color: #525866;
-}
-
-.viewBtnActive {
-  background: #f8fafc;
-  color: #A17D23;
-}
-
-.searchSection {
-  flex: 1;
-  max-width: 400px;
-}
-
-.searchBox {
-  position: relative;
-  width: 100%;
-}
-
-.searchInput {
-  width: 100%;
-  padding: 10px 16px;
-  padding-left: 40px;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  background: white;
-  font-size: 14px;
-  color: #1a1a1a;
-  transition: all 0.2s;
-}
-
-.searchInput:focus {
-  outline: none;
-  border-color: #A17D23;
-  box-shadow: 0 0 0 3px rgba(161, 125, 35, 0.1);
-}
-
-.searchInput::placeholder {
-  color: #94a3b8;
-}
-
-.searchIcon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
-  font-size: 14px;
-}
-
-/* Cards Container */
-.cardsContainer {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  padding: 0;
-}
-
-@media (max-width: 1200px) {
-  .cardsContainer {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .cardsContainer {
-    grid-template-columns: 1fr;
-  }
-}
-
-.titleCard {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  overflow: hidden;
-  transition: all 0.2s ease;
-  display: flex;
-  flex-direction: column;
-  padding: 16px 0px;
-  gap: 12px;
-}
-
-.titleCard:hover {
-  border-color: #A17D23;
-  box-shadow: 0 4px 12px rgba(161, 125, 35, 0.1);
-}
-
-.cardTopRow {
-  display: flex;
-  justify-content: space-between; /* Full space between */
-  align-items: flex-start;
-  gap: 16px;
-  width: 100%;
-}
-
-.cardTitle {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0;
-  font-family: 'Cairo', sans-serif;
-  text-align: right;
-  direction: rtl;
-}
-
-.cardTopRight {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-right: 0; /* Stick to right */
-  flex-direction: row-reverse; /* Badges then Title */
-}
-
-.cardTopActions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  margin-left: 0; /* Stick to left */
-}
-
-.cardIconBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #f8fafc;
-  color: #717784;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.cardIconBtn:hover {
-  background: #f1f5f9;
-  color: #525866;
-}
-
-.starBtnActive {
-  background: transparent;
-}
-
-.cardBadges {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.activeBadge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  background: #A17D23;
-  color: white;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: 20px;
-  font-family: 'Cairo', sans-serif;
-}
-
-.cardDescription {
-  font-size: 14px;
-  color: #717784;
-  margin: 0;
-  line-height: 1.5;
-  font-family: 'Cairo', sans-serif;
-  text-align: right;
-  width:100%;
-  direction: rtl;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.cardBottomRow {
-  display: flex;
-  justify-content: space-between; /* One right, one left */
-  align-items: center;
-  width: 100%;
-  padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.cardStat {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #717784;
-  font-size: 13px;
-  font-family: 'Cairo', sans-serif;
-}
-
-.cardStat:first-child {
-  margin-right: 0; /* Stick to right */
-}
-
-.cardStat:last-child {
-  margin-left: 0; /* Stick to left */
-}
-
-.cardStat svg {
-  flex-shrink: 0;
-}
-
-/* Legacy card styles - keep for compatibility */
-.cardMainContent {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 40px;
-  min-width: 0;
-}
-
-.cardTitleSection {
-  flex: 1;
-  min-width: 200px;
-}
-
-.cardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.cardActions {
-  display: flex;
-  gap: 8px;
-}
-
-.cardBody {
-  padding: 16px;
-}
-
-.cardTitle {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0 0 4px 0;
-  font-family: 'Cairo', sans-serif;
-}
-
-.cardDescription {
-  font-size: 13px;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.4;
-  font-family: 'Cairo', sans-serif;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px;
-}
-
-.cardStatsRow {
-  display: flex;
-  gap: 32px;
-}
-
-.cardStats {
-  display: flex;
-  gap: 24px;
-}
-
-.cardStat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.statLabel {
-  font-size: 11px;
-  color: #94a3b8;
-  font-family: 'Cairo', sans-serif;
-}
-
-.statValue {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.cardStatusSection {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 20px;
-  border-right: 1px solid #e2e8f0;
-  border-left: 1px solid #e2e8f0;
-}
-
-.cardActionsSection {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cardFooter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 16px;
-  border-top: 1px solid #f1f5f9;
-  background: #fafafa;
-}
-
-.cardActionBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: white;
-  color: #525866;
-  font-size: 13px;
-  font-family: 'Cairo', sans-serif;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.cardActionBtn:hover {
-  border-color: #A17D23;
-  color: #A17D23;
-}
-
-.cardActionBtnPrimary {
-  background: #A17D23;
-  border-color: #A17D23;
-  color: white;
-}
-
-.cardActionBtnPrimary:hover {
-  background: #8a6a1e;
-  border-color: #8a6a1e;
-  color: white;
-}
-
-.cardActionBtnDanger {
-  color: #ef4444;
-  border-color: #fecaca;
-}
-
-.cardActionBtnDanger:hover {
-  background: #fef2f2;
-  border-color: #ef4444;
-  color: #dc2626;
-}
-
-/* Table Container */
-.tableContainer {
-  overflow-x: auto;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.tableHead {
-  background: #f8fafc;
-}
-
-.tableHead th {
-  padding: 14px 16px;
-  text-align: right;
-  font-weight: 600;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.tableBody {
-  background: white;
-}
-
-.tableRow {
-  transition: background 0.2s;
-  cursor: pointer;
-}
-
-.tableRow:hover {
-  background: #fafafa;
-}
-
-.tableRow td {
-  padding: 16px;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
-  color: #1a1a1a;
-}
-
-.tableRow:last-child td {
-  border-bottom: none;
-}
-
-.titleName {
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.titleDesc {
-  color: #64748b;
-}
-
-/* Status Badge */
-.statusBadge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.statusBadge.draft {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.statusBadge.published {
-  background: #22c55e;
-  color: white;
-}
-
-.statusBadge.archived {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-/* Action Buttons */
-.actionButtons {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.actionBtn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.actionBtn:hover {
-  background: #f1f5f9;
-  color: #1a1a1a;
-}
-
-.starBtn {
-  width: auto;
-  height: auto;
-  padding: 0;
-  background: transparent;
-}
-
-.starBtn:hover {
-  background: transparent;
-  transform: scale(1.1);
-}
-
-/* Pagination */
-.paginationContainer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 0 0;
-  border-top: 1px solid #f1f5f9;
-  margin-top: 16px;
-}
-
-.paginationLeft {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.paginationBtn {
-  min-width: 36px;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  color: #525866;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.paginationBtn:hover:not(:disabled) {
-  border-color: #A17D23;
-  color: #A17D23;
-}
-
-.paginationBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.paginationBtnActive {
-  background: #A17D23;
-  border-color: #A17D23;
-  color: white;
-}
-
-.paginationBtnActive:hover {
-  background: #8a6b1e;
-}
-
-.paginationDots {
-  padding: 0 8px;
-  color: #94a3b8;
-}
-
-.paginationRight {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.pageSizeSelect {
-  padding: 8px 12px;
-  padding-left: 28px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  color: #525866;
-  font-size: 14px;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%2364748B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: left 8px center;
-  background-size: 12px;
-}
-
-/* Submitted Sheets Tab Styles */
-.sheetNameCell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.excelIcon {
-  width: 32px;
-  height: 32px;
-  background: #22c55e;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 14px;
-}
-
-.sheetNameText {
-  font-weight: 600;
-  color: #1a1a1a;
+  color: var(--primary-color, #4361ee);
+  border-bottom-color: var(--primary-color, #4361ee);
 }
 
 /* Active Title Badge */
@@ -3541,540 +2430,6 @@ onMounted(() => {
   max-width: 800px;
 }
 
-/* ==================== CREATE MODAL NEW DESIGN ==================== */
-.createModal {
-  max-width: 700px;
-  width: 100%;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.createModalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 28px;
-  border-bottom: none;
-}
-
-.createModalHeader h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a1a1a;
-}
-
-.createCloseBtn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.createCloseBtn:hover {
-  background: #f1f5f9;
-  color: #1a1a1a;
-}
-
-.createModalTabs {
-  display: flex;
-  padding: 0;
-  gap: 0;
-  align-items: center;
-  justify-content: center;
-  background: #f8fafc;
-  border-radius: 12px;
-  margin: 0 28px 24px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-}
-
-.createModalTab {
-  flex: 1;
-  padding: 14px 24px;
-  border: none;
-  background: transparent;
-  font-size: 15px;
-  font-weight: 600;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 0;
-  text-align: center;
-}
-
-.createModalTab:first-child {
-  border-radius: 0 12px 12px 0;
-}
-
-.createModalTab:last-child {
-  border-radius: 12px 0 0 12px;
-}
-
-.createModalTab:hover {
-  color: #1a1a1a;
-}
-
-.activeModalTab {
-  background: #A17D23;
-  color: white !important;
-}
-
-.createModalBody {
-  padding: 0 28px 24px;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-/* Details Tab */
-.detailsTab {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.createFormGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.createFormGroup label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a1a;
-  text-align: right;
-}
-
-.createInput,
-.createTextarea {
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  font-size: 14px;
-  font-family: 'Cairo', sans-serif;
-  color: #1a1a1a;
-  background: white;
-  transition: all 0.2s;
-  text-align: right;
-}
-
-.createInput::placeholder,
-.createTextarea::placeholder {
-  color: #94a3b8;
-}
-
-.createInput:focus,
-.createTextarea:focus {
-  outline: none;
-  border-color: #A17D23;
-  box-shadow: 0 0 0 3px rgba(161, 125, 35, 0.1);
-}
-
-.createTextarea {
-  resize: vertical;
-  min-height: 120px;
-}
-
-/* Columns Tab */
-.columnsTab {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.addColumnBtnNew {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: #A17D23;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: 'Cairo', sans-serif;
-  cursor: pointer;
-  transition: all 0.2s;
-  width: fit-content;
-}
-
-.addColumnBtnNew:hover:not(:disabled) {
-  background: #8a6a1e;
-}
-
-.addColumnBtnNew:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.noColumnsNew {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px;
-  background: #f8fafc;
-  border-radius: 12px;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.columnCards {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 100%;
-}
-
-.columnCard {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  overflow: hidden;
-  transition: all 0.2s;
-  cursor: grab;
-}
-
-.columnCard:active {
-  cursor: grabbing;
-}
-
-.columnCardDragOver {
-  border-color: #A17D23;
-  background: #fef9ec;
-  transform: scale(1.01);
-  box-shadow: 0 4px 12px rgba(161, 125, 35, 0.2);
-}
-
-.columnCardHeader {
-  display: flex;
-  
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-}
-
-.columnCardLeft {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.columnDeleteBtn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s;
-}
-
-.columnDeleteBtn:hover {
-  transform: scale(1.1);
-}
-
-.columnOrderBtnsNew {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.columnOrderBtnsNew button {
-  width: 24px;
-  height: 18px;
-  border: none;
-  background: transparent;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.columnOrderBtnsNew button:hover:not(:disabled) {
-  color: #1a1a1a;
-}
-
-.columnOrderBtnsNew button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.columnCardRight {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.columnNumberBadge {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #A17D23;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.columnDragHandle {
-  color: #9CA3AF;
-  cursor: grab;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-}
-
-.columnDragHandle:active {
-  cursor: grabbing;
-}
-
-.columnCardBody {
-  padding: 0 20px 20px;
-}
-
-.columnFieldLabel {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 10px;
-  text-align: right;
-}
-
-.columnFieldsRow {
-  display: flex;
-  gap: 12px;
-}
-
-.columnTypeSelect {
-  width: 160px;
-  padding: 12px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 14px;
-  font-family: 'Cairo', sans-serif;
-  color: #64748b;
-  background: white;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2394A3B8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: 16px center;
-  padding-left: 40px;
-}
-
-.columnTypeSelect:focus {
-  outline: none;
-  border-color: #A17D23;
-}
-
-.columnNameInput {
-  flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 14px;
-  font-family: 'Cairo', sans-serif;
-  color: #1a1a1a;
-  background: white;
-  text-align: right;
-}
-
-.columnNameInput::placeholder {
-  color: #94a3b8;
-}
-
-.columnNameInput:focus {
-  outline: none;
-  border-color: #A17D23;
-}
-
-/* Options Section New */
-.optionsSectionNew {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.optionsSectionNew label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #64748b;
-  display: block;
-  margin-bottom: 8px;
-  text-align: right;
-}
-
-.optionsListNew {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.optionTagNew {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #fef9ec;
-  border: 1px solid #A17D23;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #A17D23;
-}
-
-.optionTagNew button {
-  background: none;
-  border: none;
-  color: #A17D23;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-}
-
-.optionTagNew button:hover {
-  color: #8a6a1e;
-}
-
-.addOptionRowNew {
-  display: flex;
-  gap: 8px;
-}
-
-.addOptionRowNew input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 13px;
-  font-family: 'Cairo', sans-serif;
-  text-align: right;
-}
-
-.addOptionRowNew input:focus {
-  outline: none;
-  border-color: #A17D23;
-}
-
-.addOptionRowNew button {
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: #A17D23;
-  color: white;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.addOptionRowNew button:hover:not(:disabled) {
-  background: #8a6a1e;
-}
-
-.addOptionRowNew button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Modal Footer New */
-.createModalFooter {
-  display: flex;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 20px 28px;
-  border-top: 1px solid #f1f5f9;
-  background: white;
-}
-
-.createCancelBtn {
-  padding: 12px 32px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: white;
-  color: #64748b;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: 'Cairo', sans-serif;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.createCancelBtn:hover {
-  background: #f1f5f9;
-  color: #1a1a1a;
-}
-
-.createSubmitBtn {
-  padding: 12px 32px;
-  border: none;
-  border-radius: 10px;
-  background: #475569;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: 'Cairo', sans-serif;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.nextStepBtn {
-  padding: 12px 32px;
-  border: none;
-  border-radius: 10px;
-  background: #A17D23;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: 'Cairo', sans-serif;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.nextStepBtn:hover:not(:disabled) {
-  background: #8a6a1e;
-}
-
-.nextStepBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.disabledTab {
-  opacity: 0.5;
-  cursor: not-allowed !important;
-}
-
-.createSubmitBtn:hover:not(:disabled) {
-  background: #334155;
-}
-
-.createSubmitBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 /* Columns Section (Inline creation) */
 .columnsSection {
   margin-top: 20px;
@@ -4627,378 +2982,5 @@ onMounted(() => {
 
 :global(.night) .importSuccessIcon {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2));
-}
-
-/* ==================== DARK MODE FOR NEW TABLE DESIGN ==================== */
-:global(.night) .container {
-  background: #0f172a;
-}
-
-:global(.night) .pageTitle {
-  color: #f1f5f9;
-}
-
-:global(.night) .secondaryBtn {
-  background: #1e293b;
-  border-color: #A17D23;
-  color: #A17D23;
-}
-
-:global(.night) .secondaryBtn:hover {
-  background: #2d3a4f;
-}
-
-:global(.night) .tabBtn {
-  color: #94a3b8;
-}
-
-:global(.night) .tabBtn:hover {
-  background: #1e293b;
-}
-
-:global(.night) .tabBtn.activeTab {
-  background: #A17D23;
-  color: white;
-}
-
-:global(.night) .contentCard {
-  background: #1e293b;
-}
-
-:global(.night) .filterSelect,
-:global(.night) .searchInput,
-:global(.night) .pageSizeSelect {
-  background: #0f172a;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-:global(.night) .filterSelect:focus,
-:global(.night) .searchInput:focus {
-  border-color: #A17D23;
-}
-
-:global(.night) .searchInput::placeholder {
-  color: #64748b;
-}
-
-:global(.night) .viewBtn {
-  background: #0f172a;
-  border-color: #334155;
-  color: #64748b;
-}
-
-:global(.night) .viewBtnActive {
-  color: #A17D23;
-}
-
-/* Cards Dark Mode */
-:global(.night) .cardsContainer {
-  background: transparent;
-}
-
-:global(.night) .titleCard {
-  background: #1e293b;
-  border-color: #334155;
-}
-
-:global(.night) .titleCard:hover {
-  border-color: #A17D23;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-:global(.night) .cardHeader {
-  border-color: #334155;
-}
-
-:global(.night) .cardStatusSection {
-  border-color: #334155;
-}
-
-:global(.night) .cardTitle {
-  color: #f1f5f9;
-}
-
-:global(.night) .cardDescription {
-  color: #94a3b8;
-}
-
-:global(.night) .cardIconBtn {
-  background: #334155;
-  color: #94a3b8;
-}
-
-:global(.night) .cardIconBtn:hover {
-  background: #475569;
-  color: #e2e8f0;
-}
-
-:global(.night) .starBtnActive {
-  background: transparent;
-}
-
-:global(.night) .cardBottomRow {
-  border-color: #334155;
-}
-
-:global(.night) .cardStat {
-  color: #94a3b8;
-}
-
-:global(.night) .statLabel {
-  color: #64748b;
-}
-
-:global(.night) .statValue {
-  color: #f1f5f9;
-}
-
-:global(.night) .cardFooter {
-  background: #0f172a;
-  border-color: #334155;
-}
-
-:global(.night) .cardActionBtn {
-  background: #1e293b;
-  border-color: #334155;
-  color: #94a3b8;
-}
-
-:global(.night) .cardActionBtn:hover {
-  border-color: #A17D23;
-  color: #A17D23;
-}
-
-:global(.night) .cardActionBtnPrimary {
-  background: #A17D23;
-  border-color: #A17D23;
-  color: white;
-}
-
-:global(.night) .cardActionBtnDanger {
-  color: #f87171;
-  border-color: #7f1d1d;
-}
-
-:global(.night) .cardActionBtnDanger:hover {
-  background: #450a0a;
-  border-color: #f87171;
-}
-
-:global(.night) .tableHead {
-  background: #0f172a;
-}
-
-:global(.night) .tableHead th {
-  color: #94a3b8;
-  border-color: #334155;
-}
-
-:global(.night) .tableRow:hover {
-  background: #0f172a;
-}
-
-:global(.night) .tableRow td {
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-:global(.night) .titleName {
-  color: #f1f5f9;
-}
-
-:global(.night) .titleDesc {
-  color: #94a3b8;
-}
-
-:global(.night) .statusBadge.draft {
-  background: #334155;
-  color: #94a3b8;
-}
-
-:global(.night) .actionBtn {
-  color: #94a3b8;
-}
-
-:global(.night) .actionBtn:hover {
-  background: #334155;
-  color: #f1f5f9;
-}
-
-:global(.night) .paginationContainer {
-  border-color: #334155;
-}
-
-:global(.night) .paginationBtn {
-  background: #0f172a;
-  border-color: #334155;
-  color: #94a3b8;
-}
-
-:global(.night) .paginationBtn:hover:not(:disabled) {
-  border-color: #A17D23;
-  color: #A17D23;
-}
-
-:global(.night) .paginationBtnActive {
-  background: #A17D23;
-  border-color: #A17D23;
-  color: white;
-}
-
-:global(.night) .paginationRight {
-  color: #94a3b8;
-}
-
-:global(.night) .excelIcon {
-  background: #16a34a;
-}
-
-:global(.night) .sheetNameText {
-  color: #f1f5f9;
-}
-
-/* ==================== DARK MODE FOR CREATE MODAL ==================== */
-:global(.night) .createModal {
-  background: #1e293b;
-}
-
-:global(.night) .createModalHeader h2 {
-  color: #f1f5f9;
-}
-
-:global(.night) .createCloseBtn {
-  background: #0f172a;
-  border-color: #334155;
-  color: #94a3b8;
-}
-
-:global(.night) .createCloseBtn:hover {
-  background: #334155;
-  color: #f1f5f9;
-}
-
-:global(.night) .createModalTabs {
-  background: #0f172a;
-}
-
-:global(.night) .createModalTab {
-  color: #94a3b8;
-}
-
-:global(.night) .createModalTab:hover {
-  color: #f1f5f9;
-}
-
-:global(.night) .activeModalTab {
-  background: #A17D23;
-  color: white !important;
-}
-
-:global(.night) .createFormGroup label {
-  color: #e2e8f0;
-}
-
-:global(.night) .createInput,
-:global(.night) .createTextarea {
-  background: #0f172a;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-:global(.night) .createInput::placeholder,
-:global(.night) .createTextarea::placeholder {
-  color: #64748b;
-}
-
-:global(.night) .createInput:focus,
-:global(.night) .createTextarea:focus {
-  border-color: #A17D23;
-}
-
-:global(.night) .addColumnBtnNew {
-  background: #A17D23;
-}
-
-:global(.night) .noColumnsNew {
-  background: #0f172a;
-  color: #94a3b8;
-}
-
-:global(.night) .columnCard {
-  background: #0f172a;
-  border-color: #334155;
-}
-
-:global(.night) .columnOrderBtnsNew button {
-  color: #64748b;
-}
-
-:global(.night) .columnOrderBtnsNew button:hover:not(:disabled) {
-  color: #f1f5f9;
-}
-
-:global(.night) .columnFieldLabel {
-  color: #e2e8f0;
-}
-
-:global(.night) .columnTypeSelect {
-  background: #1e293b;
-  border-color: #334155;
-  color: #94a3b8;
-}
-
-:global(.night) .columnNameInput {
-  background: #1e293b;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-:global(.night) .columnNameInput::placeholder {
-  color: #64748b;
-}
-
-:global(.night) .optionsSectionNew {
-  border-color: #334155;
-}
-
-:global(.night) .optionsSectionNew label {
-  color: #94a3b8;
-}
-
-:global(.night) .optionTagNew {
-  background: rgba(161, 125, 35, 0.2);
-  border-color: #A17D23;
-  color: #A17D23;
-}
-
-:global(.night) .addOptionRowNew input {
-  background: #1e293b;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-:global(.night) .createModalFooter {
-  background: #1e293b;
-  border-color: #334155;
-}
-
-:global(.night) .createCancelBtn {
-  background: #0f172a;
-  border-color: #334155;
-  color: #94a3b8;
-}
-
-:global(.night) .createCancelBtn:hover {
-  background: #334155;
-  color: #f1f5f9;
-}
-
-:global(.night) .createSubmitBtn {
-  background: #475569;
-}
-
-:global(.night) .createSubmitBtn:hover:not(:disabled) {
-  background: #64748b;
 }
 </style>

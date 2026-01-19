@@ -1,7 +1,6 @@
 <!-- src/pages/Activities/admin/ColumnManagement.vue -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import Swal from 'sweetalert2'
 import { columnService } from '@/services/activityService'
 import type { ColumnDefinition, ColumnDefinitionCreate, DataType } from '@/types/activity.types'
 import ValidationRulesModal from './ValidationRulesModal.vue'
@@ -162,44 +161,20 @@ const deleteColumn = async (column: ColumnDefinition) => {
   }
   
   if (!column.can_delete) {
-    await Swal.fire({
-      title: 'غير مسموح',
-      text: 'لا يمكن حذف العمود لأنه مستخدم في قوالب',
-      icon: 'error',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً'
-    })
+    errorMessage.value = 'لا يمكن حذف العمود لأنه مستخدم في قوالب'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
     return
   }
   
-  const result = await Swal.fire({
-    title: 'تأكيد الحذف',
-    text: `هل أنت متأكد من حذف العمود "${column.label}"؟`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#dc3545',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'نعم، احذف',
-    cancelButtonText: 'إلغاء',
-    reverseButtons: true
-  })
-  
-  if (!result.isConfirmed) {
+  if (!confirm(`هل أنت متأكد من حذف العمود "${column.label}"؟`)) {
     return
   }
   
   try {
     await columnService.delete(column.id)
-    await Swal.fire({
-      title: 'تم الحذف!',
-      text: 'تم حذف العمود بنجاح',
-      icon: 'success',
-      confirmButtonColor: '#A17D23',
-      confirmButtonText: 'حسناً',
-      timer: 2000,
-      timerProgressBar: true
-    })
+    successMessage.value = 'تم حذف العمود بنجاح'
     await loadColumns()
+    setTimeout(() => { successMessage.value = '' }, 3000)
   } catch (error: any) {
     console.error('Failed to delete column:', error)
     errorMessage.value = error.response?.data?.error || 'فشل في حذف العمود'
