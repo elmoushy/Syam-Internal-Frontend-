@@ -488,10 +488,11 @@ const handlePositionManagerSuccess = () => {
 }
 
 .container {
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 0 40px;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ==================== PAGE HEADER ==================== */
@@ -789,6 +790,10 @@ const handlePositionManagerSuccess = () => {
     padding: 24px 16px;
   }
 
+  .container {
+    padding: 0 16px;
+  }
+
   .headerContent {
     flex-direction: column;
     align-items: flex-start;
@@ -851,6 +856,10 @@ const handlePositionManagerSuccess = () => {
 @media (max-width: 480px) {
   .page {
     padding: 16px 12px;
+  }
+
+  .container {
+    padding: 0 12px;
   }
 
   .pageTitle {

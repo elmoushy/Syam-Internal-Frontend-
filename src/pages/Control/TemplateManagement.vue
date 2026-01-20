@@ -118,6 +118,7 @@ import { useRouter } from "vue-router";
 import { useAppStore } from "@/stores/useAppStore";
 import { templateService } from "@/services/activityService";
 import type { TemplateListItem } from "@/types/activity.types";
+import Swal from "sweetalert2";
 
 const router = useRouter();
 const store = useAppStore();
@@ -153,8 +154,18 @@ const handleToggleActiveTitle = async (template: TemplateListItem) => {
   const newActiveState = !template.is_active_title;
   
   // Confirm activation (since it will deactivate other templates)
-  if (newActiveState && !confirm(`هل تريد تعيين "${template.name}" كالقالب النشط؟ \nسيتم إلغاء تفعيل القوالب الأخرى.`)) {
-    return;
+  if (newActiveState) {
+    const result = await Swal.fire({
+      title: 'تأكيد التفعيل',
+      html: `هل تريد تعيين "${template.name}" كالقالب النشط؟<br/>سيتم إلغاء تفعيل القوالب الأخرى.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'نعم، تفعيل',
+      cancelButtonText: 'إلغاء',
+      confirmButtonColor: '#a17d23',
+      cancelButtonColor: '#64748b',
+    });
+    if (!result.isConfirmed) return;
   }
   
   isTogglingActive.value = template.id;
@@ -166,7 +177,13 @@ const handleToggleActiveTitle = async (template: TemplateListItem) => {
   } catch (error: any) {
     console.error("Failed to toggle active title:", error);
     const message = error.response?.data?.error || error.response?.data?.is_active_title?.[0] || error.message || "فشل في تغيير حالة القالب";
-    alert(message);
+    await Swal.fire({
+      title: 'خطأ',
+      text: message,
+      icon: 'error',
+      confirmButtonText: 'حسناً',
+      confirmButtonColor: '#a17d23',
+    });
   } finally {
     isTogglingActive.value = null;
   }
@@ -195,9 +212,17 @@ const handleViewActivities = (template: TemplateListItem) => {
 
 // Handle delete template
 const handleDeleteTemplate = async (template: TemplateListItem) => {
-  if (!confirm(`هل أنت متأكد من حذف القالب "${template.name}"؟`)) {
-    return;
-  }
+  const result = await Swal.fire({
+    title: 'تأكيد الحذف',
+    text: `هل أنت متأكد من حذف القالب "${template.name}"؟`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'نعم، احذف',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+  });
+  if (!result.isConfirmed) return;
 
   try {
     await templateService.delete(template.id);
@@ -206,15 +231,29 @@ const handleDeleteTemplate = async (template: TemplateListItem) => {
   } catch (error: any) {
     console.error("Failed to delete template:", error);
     const message = error.response?.data?.error || error.message || "فشل في حذف القالب";
-    alert(message);
+    await Swal.fire({
+      title: 'خطأ',
+      text: message,
+      icon: 'error',
+      confirmButtonText: 'حسناً',
+      confirmButtonColor: '#a17d23',
+    });
   }
 };
 
 // Handle publish template (change status from draft to published)
 const handlePublishTemplate = async (template: TemplateListItem) => {
-  if (!confirm(`هل أنت متأكد من نشر القالب "${template.name}"؟`)) {
-    return;
-  }
+  const result = await Swal.fire({
+    title: 'تأكيد النشر',
+    text: `هل أنت متأكد من نشر القالب "${template.name}"؟`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'نعم، انشر',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#64748b',
+  });
+  if (!result.isConfirmed) return;
 
   isPublishing.value = template.id;
   
@@ -225,7 +264,13 @@ const handlePublishTemplate = async (template: TemplateListItem) => {
   } catch (error: any) {
     console.error("Failed to publish template:", error);
     const message = error.response?.data?.error || error.message || "فشل في نشر القالب";
-    alert(message);
+    await Swal.fire({
+      title: 'خطأ',
+      text: message,
+      icon: 'error',
+      confirmButtonText: 'حسناً',
+      confirmButtonColor: '#a17d23',
+    });
   } finally {
     isPublishing.value = null;
   }

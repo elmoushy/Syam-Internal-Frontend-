@@ -2973,37 +2973,43 @@ onUnmounted(() => {
           <span>جاري التحميل...</span>
         </div>
 
-        <!-- No Active Templates -->
-        <div v-else-if="!activityPageData?.has_active_templates" :class="$style.emptyState">
+        <!-- No Published Templates -->
+        <div v-else-if="!activityPageData?.templates || activityPageData.templates.length === 0" :class="$style.emptyState">
           <div :class="$style.emptyStateIcon"><i class="fas fa-table"></i></div>
-          <p :class="$style.emptyStateText">لا يوجد نموذج نشط حالياً</p>
-          <p :class="$style.emptyStateDesc">{{ activityPageData?.message || 'اطلب من المسؤول إنشاء عنوان' }}</p>
+          <p :class="$style.emptyStateText">لا يوجد نموذج منشور حالياً</p>
+          <p :class="$style.emptyStateDesc">{{ activityPageData?.message || 'اطلب من المسؤول نشر نموذج' }}</p>
         </div>
 
-        <!-- Active Templates Grid - Current Tab -->
+        <!-- Templates Grid - Current Tab (shows all published templates) -->
         <template v-else-if="activeView === 'current'">
-          <div v-if="!activityPageData?.active_templates || activityPageData.active_templates.length === 0" :class="$style.emptyState">
+          <div v-if="!activityPageData?.templates || activityPageData.templates.length === 0" :class="$style.emptyState">
             <div :class="$style.emptyStateIcon"><i class="fas fa-folder-open"></i></div>
             <p :class="$style.emptyStateText">لا يوجد اي نماذج حالية</p>
           </div>
           
           <div v-else :class="$style.sheetsGrid">
             <div 
-              v-for="template in activityPageData.active_templates"
+              v-for="template in activityPageData.templates"
               :key="template.id"
-              :class="$style.sheetCard"
+              :class="[$style.sheetCard, !template.is_active_title ? $style.inactiveCard : '']"
               @click="router.push(`/activities/local/${template.id}`)"
               style="cursor: pointer;"
             >
+              <!-- Inactive Badge -->
+              <div v-if="!template.is_active_title" :class="$style.inactiveBadge">
+                <i class="fas fa-lock"></i>
+                <span>غير نشط</span>
+              </div>
               <!-- Card Content -->
                 <div :class="$style.cardIcon"><svg width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M5.59375 18.6357C5.59375 11.6074 5.59375 8.09333 7.77714 5.90995C9.96052 3.72656 13.4746 3.72656 20.5028 3.72656H24.2301C31.2583 3.72656 34.7724 3.72656 36.9558 5.90995C39.1392 8.09333 39.1392 11.6074 39.1392 18.6357V26.0902C39.1392 33.1184 39.1392 36.6325 36.9558 38.8159C34.7724 40.9993 31.2583 40.9993 24.2301 40.9993H20.5028C13.4746 40.9993 9.96052 40.9993 7.77714 38.8159C5.59375 36.6325 5.59375 33.1184 5.59375 26.0902V18.6357Z" stroke="#A17D23" stroke-width="2.79545"/>
-<path d="M14.9062 18.6367H29.8153" stroke="#A17D23" stroke-width="2.79545" stroke-linecap="round"/>
-<path d="M14.9062 26.0918H24.2244" stroke="#A17D23" stroke-width="2.79545" stroke-linecap="round"/>
+<path d="M5.59375 18.6357C5.59375 11.6074 5.59375 8.09333 7.77714 5.90995C9.96052 3.72656 13.4746 3.72656 20.5028 3.72656H24.2301C31.2583 3.72656 34.7724 3.72656 36.9558 5.90995C39.1392 8.09333 39.1392 11.6074 39.1392 18.6357V26.0902C39.1392 33.1184 39.1392 36.6325 36.9558 38.8159C34.7724 40.9993 31.2583 40.9993 24.2301 40.9993H20.5028C13.4746 40.9993 9.96052 40.9993 7.77714 38.8159C5.59375 36.6325 5.59375 33.1184 5.59375 26.0902V18.6357Z" :stroke="template.is_active_title ? '#A17D23' : '#888'" stroke-width="2.79545"/>
+<path d="M14.9062 18.6367H29.8153" :stroke="template.is_active_title ? '#A17D23' : '#888'" stroke-width="2.79545" stroke-linecap="round"/>
+<path d="M14.9062 26.0918H24.2244" :stroke="template.is_active_title ? '#A17D23' : '#888'" stroke-width="2.79545" stroke-linecap="round"/>
 </svg>
 </div>
                 <h3 :class="$style.cardTitle">{{ template.name }}</h3>
                 <p :class="$style.cardDesc">{{ template.description || 'نص تجريبي للوصف' }}</p>
+                <p v-if="!template.is_active_title" :class="$style.inactiveNote">للقراءة فقط - لا يمكن إضافة أو تقديم أنشطة</p>
             </div>
           </div>
         </template>

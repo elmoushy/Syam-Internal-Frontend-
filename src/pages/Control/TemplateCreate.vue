@@ -508,6 +508,7 @@ import SidePanel from "@/components/shared/SidePanel.vue";
 import { templateService } from "@/services/activityService";
 import type { TemplateListItem, TemplateColumn, DataType } from "@/types/activity.types";
 import * as XLSX from 'xlsx';
+import Swal from "sweetalert2";
 
 const router = useRouter();
 const route = useRoute();
@@ -613,12 +614,18 @@ const openManualPanel = () => {
   showManualPanel.value = true;
 };
 
-const createManualColumn = () => {
+const createManualColumn = async () => {
   if (!newColumn.value.name || !newColumn.value.type) return;
   
   // Validate options for select type
   if (newColumn.value.type === 'select' && newColumn.value.options.length === 0) {
-    alert('يجب إضافة خيار واحد على الأقل للقائمة المنسدلة');
+    await Swal.fire({
+      title: 'تنبيه',
+      text: 'يجب إضافة خيار واحد على الأقل للقائمة المنسدلة',
+      icon: 'warning',
+      confirmButtonText: 'حسناً',
+      confirmButtonColor: '#a17d23',
+    });
     return;
   }
 
@@ -968,10 +975,16 @@ const openEditPanel = (column: Column) => {
   showEditPanel.value = true;
 };
 
-const saveEditColumn = () => {
+const saveEditColumn = async () => {
   // Validate options for select type
   if (editingColumn.value.type === 'select' && editingColumn.value.options.length === 0) {
-    alert('يجب إضافة خيار واحد على الأقل للقائمة المنسدلة');
+    await Swal.fire({
+      title: 'تنبيه',
+      text: 'يجب إضافة خيار واحد على الأقل للقائمة المنسدلة',
+      icon: 'warning',
+      confirmButtonText: 'حسناً',
+      confirmButtonColor: '#a17d23',
+    });
     return;
   }
   

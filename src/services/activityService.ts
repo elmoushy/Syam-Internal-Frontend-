@@ -701,17 +701,20 @@ export interface SubmittedSheetItem {
 // ============================================================================
 // USER ACTIVITY PAGE - Response type for /activities/local
 // ============================================================================
+export interface ActivityTemplateItem {
+  id: number
+  name: string
+  description: string
+  notes: string
+  header_image: string | null
+  column_count: number
+  is_active_title: boolean
+}
+
 export interface UserActivityPageResponse {
   has_active_templates: boolean
-  active_templates: Array<{
-    id: number
-    name: string
-    description: string
-    notes: string
-    header_image: string | null
-    column_count: number
-    is_active_title: boolean
-  }>
+  templates: ActivityTemplateItem[]  // All published templates (both active and inactive)
+  active_templates: ActivityTemplateItem[]  // For backward compatibility - only active ones
   count: number
   user_sheets?: TitleSheetItem[]
   columns?: TitleColumn[]
@@ -1210,6 +1213,7 @@ export interface UserActivitiesListResponse {
     id: number
     name: string
     description: string
+    is_active_title: boolean
   }
   sheet?: {
     id: number

@@ -244,6 +244,65 @@
   transition: all 0.2s ease;
 }
 
+/* ==================== INACTIVE TEMPLATE CARD ==================== */
+.inactiveCard {
+  opacity: 0.7;
+  border: 1px dashed #ccc;
+  background: #fafafa;
+}
+
+.inactiveCard:hover {
+  background: linear-gradient(135deg, #888 10%, #666 80%, #666 100%);
+  border-color: #666;
+}
+
+.inactiveCard .cardIcon {
+  background-color: #eee;
+}
+
+.inactiveBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #ff9800;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.inactiveBadge i {
+  font-size: 10px;
+}
+
+.inactiveNote {
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+  margin-top: 4px;
+  transition: all 0.2s ease;
+}
+
+.inactiveCard:hover .inactiveNote {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+:global(.night) .inactiveCard {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+:global(.night) .inactiveCard:hover {
+  background: linear-gradient(135deg, #555 10%, #444 80%, #444 100%);
+}
+
+:global(.night) .inactiveBadge {
+  background: #e65100;
+}
 
 /* ==================== LIST PAGINATION ==================== */
 .listPagination {
@@ -4219,4 +4278,21 @@
 :global(.night) :global(.swal2-confirm),
 :global(.night) :global(.swal2-cancel) {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.inactiveCard {
+  opacity: 0.8;
+  border: 1px dashed #D1D5DB !important;
+}
+
+.inactiveBadge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: #F3F4F6;
+  color: #6B7280;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
 }

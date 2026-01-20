@@ -266,6 +266,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAppStore } from '../../stores/useAppStore'
+import Swal from 'sweetalert2'
 
 // Store and router
 const store = useAppStore()
@@ -276,10 +277,16 @@ const isRTL = computed(() => store.currentLanguage === 'ar')
 const t = computed(() => store.t)
 
 // Methods
-const navigateToNews = () => {
+const navigateToNews = async () => {
   // For now, we'll create a simple alert since the news route isn't set up yet
   // In a real implementation, this would navigate to '/control/news'
-  alert('News Management will be implemented in the next phase. This is the new Control Panel landing page!')
+  await Swal.fire({
+    title: 'قريباً',
+    text: 'News Management will be implemented in the next phase. This is the new Control Panel landing page!',
+    icon: 'info',
+    confirmButtonText: 'حسناً',
+    confirmButtonColor: '#a17d23',
+  })
 }
 
 const refreshAllData = () => {

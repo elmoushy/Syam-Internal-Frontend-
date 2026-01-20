@@ -17,10 +17,13 @@ const isDeleting = ref(false)
 const error = ref<string | null>(null)
 
 // Data from API
-const templateInfo = ref<{ id: number; name: string; description: string } | null>(null)
+const templateInfo = ref<{ id: number; name: string; description: string; is_active_title: boolean } | null>(null)
 const sheetInfo = ref<{ id: number; name: string; is_submitted: boolean; submitted_at: string | null } | null>(null)
 const activities = ref<UserActivity[]>([])
 const columns = ref<TitleColumn[]>([])
+
+// Computed: Check if template is active (allows adding/submitting)
+const isTemplateActive = computed(() => templateInfo.value?.is_active_title ?? false)
 
 // Pagination
 const pagination = ref({
@@ -92,6 +95,15 @@ const handleViewFullDetails = () => {
 }
 
 const handleEditActivity = () => {
+  if (!isTemplateActive.value) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'النموذج غير نشط',
+      text: 'لا يمكن تعديل الأنشطة في نموذج غير نشط',
+      confirmButtonText: 'حسناً'
+    })
+    return
+  }
   if (selectedActivity.value && !selectedActivity.value.is_submitted) {
     router.push(`/activities/local/${templateId.value}/edit/${selectedActivity.value.id}`)
   }
@@ -102,11 +114,31 @@ const handleCreateNew = () => {
   console.log('Template ID:', templateId.value)
   console.log('Template info:', templateInfo.value)
   
+  // Check if template is active
+  if (!isTemplateActive.value) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'النموذج غير نشط',
+      text: 'لا يمكن إضافة أنشطة إلى نموذج غير نشط',
+      confirmButtonText: 'حسناً'
+    })
+    return
+  }
+  
   // Backend will validate if template is active/inactive
   router.push(`/activities/local/${templateId.value}/create`)
 }
 
 const handleEdit = (activityId: number) => {
+  if (!isTemplateActive.value) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'النموذج غير نشط',
+      text: 'لا يمكن تعديل الأنشطة في نموذج غير نشط',
+      confirmButtonText: 'حسناً'
+    })
+    return
+  }
   router.push(`/activities/local/${templateId.value}/edit/${activityId}`)
 }
 
@@ -171,15 +203,27 @@ onMounted(() => {
 
 <template>
   <div :class="$style.container">
+    <!-- Inactive Template Banner -->
+    <div v-if="templateInfo && !isTemplateActive" :class="$style.inactiveBanner">
+      <i class="fas fa-lock"></i>
+      <span>هذا النموذج غير نشط - للقراءة فقط، لا يمكن إضافة أو تقديم أنشطة</span>
+    </div>
+
     <!-- Page Header -->
     <div :class="$style.pageHeader">
       <div :class="$style.breadcrumb">
         <span :class="$style.breadcrumbLink" @click="goBack">حصر الأنشطة</span>
         <span :class="$style.breadcrumbSeparator">/</span>
         <span :class="$style.breadcrumbCurrent">{{ templateInfo?.name || 'جاري التحميل...' }}</span>
+        <span v-if="templateInfo && !isTemplateActive" :class="$style.inactiveTag">
+          <i class="fas fa-lock"></i>
+          غير نشط
+        </span>
       </div>
       
+      <!-- Only show create button if template is active -->
       <button 
+        v-if="isTemplateActive"
         :class="$style.createNewBtn" 
         @click="handleCreateNew"
       >
@@ -206,8 +250,10 @@ onMounted(() => {
       <div v-if="activities.length === 0" :class="$style.emptyState">
         <div :class="$style.emptyIcon"><i class="fas fa-folder-open"></i></div>
         <p :class="$style.emptyText">لا توجد أنشطة حالياً</p>
-        <p :class="$style.emptyDesc">ابدأ بإنشاء نشاط جديد</p>
+        <p v-if="isTemplateActive" :class="$style.emptyDesc">ابدأ بإنشاء نشاط جديد</p>
+        <p v-else :class="$style.emptyDesc">هذا النموذج غير نشط - لا يمكن إضافة أنشطة</p>
         <button 
+          v-if="isTemplateActive"
           :class="$style.createNewBtn" 
           @click="handleCreateNew"
         >
@@ -250,7 +296,8 @@ onMounted(() => {
               {{ activity.author }}
             </div>
         
-            <div v-if="activity.status === 'draft'" :class="$style.cardActions">
+            <!-- Only show edit/delete actions for draft activities AND when template is active -->
+            <div v-if="activity.status === 'draft' && isTemplateActive" :class="$style.cardActions">
               <button 
                 :class="$style.actionBtn"
                 @click.stop="handleEdit(activity.id)"
@@ -315,11 +362,18 @@ onMounted(() => {
       @close="handleClosePanel"
     >
       <div v-if="selectedActivity" :class="$style.panelContent">
+        <!-- Inactive Template Notice in Panel -->
+        <div v-if="!isTemplateActive" :class="$style.panelInactiveNotice">
+          <i class="fas fa-lock"></i>
+          <span>النموذج غير نشط - للقراءة فقط</span>
+        </div>
+
         <!-- Header Buttons -->
         <div :class="$style.headerButtons">
           <button :class="$style.viewFullBtn" @click="handleViewFullDetails">عرض التفاصيل الكاملة</button>
+          <!-- Only show edit button if template is active AND activity not submitted -->
           <button 
-            v-if="!selectedActivity.is_submitted"
+            v-if="!selectedActivity.is_submitted && isTemplateActive"
             :class="$style.editBtn" 
             @click="handleEditActivity"
           >
@@ -375,6 +429,42 @@ onMounted(() => {
   direction: rtl;
   font-family: "Cairo", "Segoe UI", Tahoma, sans-serif;
   padding: 24px 40px;
+}
+
+/* ==================== INACTIVE TEMPLATE BANNER ==================== */
+.inactiveBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #FFF3E0;
+  border: 1px solid #FFB74D;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  color: #E65100;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.inactiveBanner i {
+  font-size: 18px;
+}
+
+.inactiveTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #ff9800;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 20px;
+  margin-right: 12px;
+}
+
+.inactiveTag i {
+  font-size: 12px;
 }
 
 /* ==================== PAGE HEADER ==================== */
@@ -582,6 +672,24 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+.panelInactiveNotice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #FFF3E0;
+  border: 1px solid #FFB74D;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  color: #E65100;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.panelInactiveNotice i {
+  font-size: 14px;
 }
 
 .headerButtons {

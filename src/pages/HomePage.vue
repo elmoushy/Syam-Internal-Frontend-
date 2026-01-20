@@ -314,7 +314,7 @@ onMounted(() => {
 .homePage {
   min-height: 100vh;
   background: #F5F7FA;
-  padding: 32px 16px 24px 16px;
+  padding: 32px 20px;
   direction: rtl;
 }
 
@@ -326,9 +326,10 @@ onMounted(() => {
 }
 
 .container {
-  max-width: 1400px;
   width: 100%;
-  margin: 0 auto;
+  padding: 0 40px;
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -809,7 +810,6 @@ onMounted(() => {
   }
   
   .container {
-    max-width: 1600px;
     gap: 40px;
   }
   

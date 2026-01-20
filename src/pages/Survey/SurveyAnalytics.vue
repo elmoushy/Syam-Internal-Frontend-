@@ -468,6 +468,7 @@ import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '../../stores/useAppStore'
 import { apiClient } from '../../services/jwtAuthService'
+import Swal from 'sweetalert2'
 
 // Props
 interface Props {
@@ -650,7 +651,13 @@ const performExport = async () => {
     showExportModal.value = false
   } catch (err: any) {
     console.error('Export error:', err)
-    alert(t.value('survey.analytics.exportError'))
+    await Swal.fire({
+      title: 'خطأ',
+      text: t.value('survey.analytics.exportError'),
+      icon: 'error',
+      confirmButtonText: 'حسناً',
+      confirmButtonColor: '#a17d23',
+    })
   } finally {
     isExporting.value = false
   }

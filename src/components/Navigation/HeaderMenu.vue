@@ -127,8 +127,8 @@ const managementNavItems = computed<NavItem[]>(() => {
       name: "manage-templates",
       path: "/control/templates",
       icon: "fas fa-file-alt",
-      label: "إدارة النماذج",
-      permissionName: "manage-surveys",
+      label: " إدارة نماذج الأنشطة",
+      permissionName: "manage-templates",
       isManagement: true,
     },
     {
