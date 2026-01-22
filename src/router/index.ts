@@ -43,6 +43,8 @@ const AuthSurveyView = () => import("../pages/Survey/AuthSurveyView.vue");
 const SurveyEditorPage = () => import("../pages/Control/SurveyEditorPage.vue");
 const CreateActivity = () => import("../pages/Activities/CreateActivity.vue");
 
+const Dashboard = () => import("../pages/Dashboard/Dashboard.vue")
+
 // Notifications
 const Notifications = () => import("../pages/Notifications");
 
@@ -58,6 +60,8 @@ const ListingActivities = () => import("../pages/Activities/ListingActivities.vu
 // const OrganizationChart = () => import("../pages/OrganizationChart/OrganizationChart.vue");
 // const OrganizationDetails = () => import("../pages/OrganizationChart/OrganizationDetails.vue");
 const LocalActivitiesDetail = () => import("../pages/Activities/LocalActivitiesDetail.vue");
+const ProgramDetails = () => import("../pages/Programs/ProgramDetails.vue");
+const DepartmentActivities = () => import("../pages/Departments/DepartmentActivities.vue");
 /* =========================
    Routes
    ========================= */
@@ -132,10 +136,28 @@ const routes: RouteRecordRaw[] = [
     meta: { title: "Surveys - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
   {
+    path: "/dashboard",
+    name: "Dashboard",
+    component: Dashboard,
+    meta: { title: "Dashboard - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  {
     path: "/activities/local/:id/activity/:activityId",
     name: "ActivityDetails",
     component: ActivityDetails,
     meta: { title: "تفاصيل النشاط - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  {
+    path: "/programs/details/:id",
+    name: "ProgramDetails",
+    component: ProgramDetails,
+    meta: { title: "تفاصيل النموذج - WPC | WeaponpowerCloud App", requiresAuth: true },
+  },
+  {
+    path: "/departments/:id/activities",
+    name: "DepartmentActivities",
+    component: DepartmentActivities,
+    meta: { title: "أنشطة القسم - WPC | WeaponpowerCloud App", requiresAuth: true },
   },
   {
     path: "/surveys/take/:id",

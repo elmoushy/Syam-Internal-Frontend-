@@ -104,6 +104,9 @@ const hasPermission = (item: NavItem): boolean => {
 const mainNavItems = computed<NavItem[]>(() => {
   const items: NavItem[] = [
     { name: "home", path: "/", icon: "fas fa-home", label: "الرئيسية" },
+    {
+      name: "dashboard", path: "/dashboard", icon: "fas fa-tachometer-alt", label: "لوحة التحكم"
+    },
     { name: "news", path: "/news", icon: "fas fa-newspaper", label: "الأخبار" },
     { name: "quick-links", path: "/quick-links", icon: "fas fa-link", label: "الروابط السريعة" },
     { name: "activities", path: "/activities/local", icon: "fas fa-table-list", label: "قائمة الأنشطة" },
@@ -562,20 +565,15 @@ const toggleTheme = () => emit("toggleTheme");
 
       <!-- Main Navigation Items -->
       <div :class="$style.mainNav">
-        <button
-          v-for="item in mainNavItems"
-          :key="item.name"
-          type="button"
-          :class="[$style.navItem, { [$style.active]: isActive(item.path) }]"
-          @click="handleNav(item)">
+        <button v-for="item in mainNavItems" :key="item.name" type="button"
+          :class="[$style.navItem, { [$style.active]: isActive(item.path) }]" @click="handleNav(item)">
           <i :class="item.icon"></i>
           <span>{{ item.label }}</span>
         </button>
 
         <!-- Management Dropdown (Admin Only) -->
         <div v-if="managementNavItems.length > 0" :class="$style.managementDropdownContainer" data-management-dropdown>
-          <button
-            type="button"
+          <button type="button"
             :class="[$style.navItem, $style.managementTrigger, { [$style.active]: isManagementActive }]"
             @click.stop="toggleManagementDropdown">
             <i class="fas fa-cog"></i>
@@ -585,12 +583,8 @@ const toggleTheme = () => emit("toggleTheme");
 
           <Transition name="dropdown">
             <div v-if="showManagementDropdown" :class="$style.managementDropdown">
-              <button
-                v-for="item in managementNavItems"
-                :key="item.name"
-                type="button"
-                :class="[$style.dropdownItem, { [$style.active]: isActive(item.path) }]"
-                @click="handleNav(item)">
+              <button v-for="item in managementNavItems" :key="item.name" type="button"
+                :class="[$style.dropdownItem, { [$style.active]: isActive(item.path) }]" @click="handleNav(item)">
                 <i :class="item.icon"></i>
                 <span>{{ item.label }}</span>
               </button>
@@ -604,8 +598,7 @@ const toggleTheme = () => emit("toggleTheme");
         <!-- Notifications Button -->
         <div :class="$style.iconButtonWrap" data-notification-dropdown>
           <button type="button" :class="$style.iconButton" @click.stop="toggleNotifications">
-            <i
-              class="fas fa-bell"
+            <i class="fas fa-bell"
               :class="{ [$style.wsConnected]: wsConnected, [$style.wsDisconnected]: !wsConnected }"></i>
             <span v-if="notificationCount > 0" :class="$style.badge">{{ notificationCount }}</span>
           </button>
@@ -623,16 +616,11 @@ const toggleTheme = () => emit("toggleTheme");
               <div :class="$style.dropdownHeader">
                 <h3>{{ t("notifications.title") }}</h3>
                 <div :class="$style.headerActions">
-                  <button
-                    @click="retryLoadNotifications"
-                    :class="$style.refreshBtn"
-                    :disabled="isLoadingNotifications"
+                  <button @click="retryLoadNotifications" :class="$style.refreshBtn" :disabled="isLoadingNotifications"
                     :title="currentLanguage === 'ar' ? 'تحديث' : 'Refresh'">
                     <i :class="isLoadingNotifications ? 'fas fa-spinner fa-spin' : 'fas fa-sync-alt'"></i>
                   </button>
-                  <button
-                    @click="markAllAsRead"
-                    :class="$style.markAllRead"
+                  <button @click="markAllAsRead" :class="$style.markAllRead"
                     :disabled="isMarkingAllRead || notifications.length === 0">
                     <i v-if="isMarkingAllRead" class="fas fa-spinner fa-spin"></i>
                     {{ t("notifications.markAllRead") }}
@@ -641,9 +629,7 @@ const toggleTheme = () => emit("toggleTheme");
               </div>
               <div :class="$style.notificationsList">
                 <!-- Error state -->
-                <div
-                  v-if="loadNotificationError && !isLoadingNotifications"
-                  :class="$style.errorNotifications"
+                <div v-if="loadNotificationError && !isLoadingNotifications" :class="$style.errorNotifications"
                   @click="retryLoadNotifications">
                   <i class="fas fa-exclamation-circle"></i>
                   <p>{{ loadNotificationError }}</p>
@@ -653,15 +639,13 @@ const toggleTheme = () => emit("toggleTheme");
                   </button>
                 </div>
                 <!-- Initial state -->
-                <div
-                  v-else-if="!hasLoadedNotifications && !isLoadingNotifications && !loadNotificationError"
+                <div v-else-if="!hasLoadedNotifications && !isLoadingNotifications && !loadNotificationError"
                   :class="$style.noNotifications">
                   <i class="fas fa-bell"></i>
                   <p>{{ currentLanguage === "ar" ? "انقر لتحميل الإشعارات" : "Click to load notifications" }}</p>
                 </div>
                 <!-- Empty state -->
-                <div
-                  v-else-if="notifications.length === 0 && !isLoadingNotifications && hasLoadedNotifications"
+                <div v-else-if="notifications.length === 0 && !isLoadingNotifications && hasLoadedNotifications"
                   :class="$style.noNotifications">
                   <i class="fas fa-bell-slash"></i>
                   <p>{{ t("notifications.noNotifications") }}</p>
@@ -672,13 +656,10 @@ const toggleTheme = () => emit("toggleTheme");
                   <p>{{ currentLanguage === "ar" ? "جاري التحميل..." : "Loading..." }}</p>
                 </div>
                 <!-- Notification items -->
-                <div
-                  v-for="notification in notifications"
-                  :key="notification.id"
+                <div v-for="notification in notifications" :key="notification.id"
                   :class="[$style.notificationItem, { [$style.unread]: !notification.is_read }]"
                   @click="handleNotificationClick(notification)">
-                  <i
-                    :class="getNotificationIcon(notification.notification_type)"
+                  <i :class="getNotificationIcon(notification.notification_type)"
                     :style="{ color: getPriorityColor(notification.priority) }"></i>
                   <div :class="$style.notificationContent">
                     <p :class="$style.notificationTitle">{{ notification.title_localized }}</p>
@@ -698,24 +679,15 @@ const toggleTheme = () => emit("toggleTheme");
         </div>
 
         <!-- Theme Toggle -->
-        <button
-          type="button"
-          :class="[$style.themeBtn, { [$style.active]: currentTheme === 'night' }]"
-          @click="toggleTheme"
-          :title="currentTheme === 'night' ? 'الوضع النهاري' : 'الوضع الليلي'">
+        <button type="button" :class="[$style.themeBtn, { [$style.active]: currentTheme === 'night' }]"
+          @click="toggleTheme" :title="currentTheme === 'night' ? 'الوضع النهاري' : 'الوضع الليلي'">
           <i :class="currentTheme === 'night' ? 'fas fa-sun' : 'fas fa-moon'"></i>
         </button>
 
         <!-- Profile Card - Compact & Expandable -->
         <div :class="$style.profileWrapper" data-user-dropdown>
-          <div
-            :class="$style.profileCard"
-            @click.stop="toggleUserMenu"
-            role="button"
-            tabindex="0"
-            @keydown.enter.prevent="toggleUserMenu"
-            @keydown.space.prevent="toggleUserMenu"
-            :title="userEmail">
+          <div :class="$style.profileCard" @click.stop="toggleUserMenu" role="button" tabindex="0"
+            @keydown.enter.prevent="toggleUserMenu" @keydown.space.prevent="toggleUserMenu" :title="userEmail">
             <span :class="$style.profileAvatar">
               <img v-if="userDisplayName" :src="generateAvatarUrl(userEmail)" :alt="userDisplayName" />
               <i v-else class="fas fa-user"></i>
@@ -808,15 +780,10 @@ const toggleTheme = () => emit("toggleTheme");
         <div :class="$style.mobileNavDivider"></div>
 
         <div :class="$style.mobileNavItems">
-          <button
-            v-for="item in allNavItems"
-            :key="item.name"
-            type="button"
-            :class="[
-              $style.mobileNavItem,
-              { [$style.active]: isActive(item.path), [$style.management]: item.isManagement },
-            ]"
-            @click="handleNav(item)">
+          <button v-for="item in allNavItems" :key="item.name" type="button" :class="[
+            $style.mobileNavItem,
+            { [$style.active]: isActive(item.path), [$style.management]: item.isManagement },
+          ]" @click="handleNav(item)">
             <i :class="item.icon"></i>
             <span>{{ item.label }}</span>
           </button>
@@ -837,9 +804,7 @@ const toggleTheme = () => emit("toggleTheme");
     </Transition>
 
     <!-- Overlay -->
-    <div
-      v-if="showUserMenu || showNotifications || isMobileMenuOpen"
-      :class="$style.overlay"
+    <div v-if="showUserMenu || showNotifications || isMobileMenuOpen" :class="$style.overlay"
       @click="closeAllDropdowns"></div>
   </div>
 </template>
