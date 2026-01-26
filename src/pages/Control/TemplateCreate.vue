@@ -157,6 +157,11 @@
                   <div :class="$style.structureCardTopRight">
                     <span :class="$style.structureNumber">{{ index + 1 }}</span>
                     <span :class="$style.structureColumnName">{{ column.name }}</span>
+                    <!-- Mandatory column badge -->
+                    <span v-if="isColumnMandatory(column)" :class="$style.mandatoryBadge">
+                      <i class="fas fa-lock"></i>
+                      إلزامي
+                    </span>
                   </div>
                   <div :class="$style.dragHandle">
                     <i class="fas fa-grip-vertical"></i>
@@ -174,13 +179,20 @@
                   <span :class="$style.excelBadgeGreen">Excel</span>
                 </div>
                 <div :class="$style.structureCardBottom">
-                  <button :class="$style.deleteBtn" @click.stop="removeColumn(column)">
-                    <i class="fas fa-trash-alt"></i>
-                  </button>
-                  <button :class="$style.editLink" @click.stop="openEditPanel(column)">
-                    <i class="fas fa-external-link-alt"></i>
-                    تعديل
-                  </button>
+                  <!-- Hide delete and edit buttons for mandatory columns -->
+                  <template v-if="!isColumnMandatory(column)">
+                    <button :class="$style.deleteBtn" @click.stop="removeColumn(column)">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                    <button :class="$style.editLink" @click.stop="openEditPanel(column)">
+                      <i class="fas fa-external-link-alt"></i>
+                      تعديل
+                    </button>
+                  </template>
+                  <span v-else :class="$style.lockedText">
+                    <i class="fas fa-lock"></i>
+                    عمود إلزامي
+                  </span>
                 </div>
               </div>
 
@@ -540,11 +552,13 @@ interface Column {
   id: number;
   name: string;
   type: string;
+  key?: string; // Column key for backend reference
   options?: string[]; // For select type columns
   isFromBackend?: boolean; // Track if column exists in backend
   backendId?: number; // Store the backend column ID if exists
   allowsAttachment?: boolean; // Allow file attachments for this column
   attachmentRequired?: boolean; // Is attachment required (only when allowsAttachment=true)
+  isMandatory?: boolean; // Cannot be removed from template
 }
 
 // Template interface for local state
@@ -598,6 +612,50 @@ const availableColumns = ref<Column[]>([]);
 
 // Selected columns - these will be the template structure
 const selectedColumns = ref<Column[]>([]);
+
+// ============== MANDATORY COLUMNS ==============
+// These columns MUST be present in every template and cannot be removed
+const MANDATORY_COLUMNS: Column[] = [
+  {
+    id: -1, // Will be assigned proper ID on save
+    name: 'نسبة الإنجاز المطلوبة',
+    type: 'number',
+    key: 'required_achievement_percentage',
+    isMandatory: true,
+  },
+  {
+    id: -2, // Will be assigned proper ID on save
+    name: 'نسبة الإنجاز الفعلية',
+    type: 'number',
+    key: 'actual_achievement_percentage',
+    isMandatory: true,
+  },
+];
+
+// Keys of mandatory columns for quick lookup
+const MANDATORY_COLUMN_KEYS = MANDATORY_COLUMNS.map(col => col.key);
+
+// Ensure mandatory columns are in selectedColumns
+const ensureMandatoryColumns = () => {
+  for (const mandatory of MANDATORY_COLUMNS) {
+    const exists = selectedColumns.value.some(
+      col => col.key === mandatory.key || col.name === mandatory.name
+    );
+    if (!exists) {
+      // Add mandatory column with unique ID
+      selectedColumns.value.push({
+        ...mandatory,
+        id: Date.now() + Math.random(), // Unique ID for frontend
+      });
+    }
+  }
+};
+
+// Check if a column is mandatory
+const isColumnMandatory = (column: Column): boolean => {
+  return column.isMandatory === true || 
+         (column.key !== undefined && MANDATORY_COLUMN_KEYS.includes(column.key));
+};
 
 // ============== MANUAL PANEL ==============
 const showManualPanel = ref(false);
@@ -945,7 +1003,19 @@ const addColumn = (column: Column) => {
 };
 
 // Remove column from structure
-const removeColumn = (column: Column) => {
+const removeColumn = async (column: Column) => {
+  // Prevent removal of mandatory columns
+  if (isColumnMandatory(column)) {
+    await Swal.fire({
+      title: 'غير مسموح',
+      text: 'لا يمكن إزالة هذا العمود لأنه إلزامي في جميع النماذج',
+      icon: 'warning',
+      confirmButtonText: 'حسناً',
+      confirmButtonColor: '#a17d23',
+    });
+    return;
+  }
+  
   const index = selectedColumns.value.findIndex((c) => c.id === column.id);
   if (index > -1) {
     selectedColumns.value.splice(index, 1);
@@ -1085,6 +1155,18 @@ const handleDropOnItem = (event: DragEvent, targetColumn: Column, targetList: "a
         selectedColumns.value.splice(targetIndex, 0, { ...draggedColumn.value });
       }
     } else if (targetList === "available" && dragSource.value === "structure") {
+      // Prevent removing mandatory columns via drag
+      if (isColumnMandatory(draggedColumn.value)) {
+        Swal.fire({
+          title: 'غير مسموح',
+          text: 'لا يمكن إزالة هذا العمود لأنه إلزامي في جميع النماذج',
+          icon: 'warning',
+          confirmButtonText: 'حسناً',
+          confirmButtonColor: '#a17d23',
+        });
+        handleDragEnd();
+        return;
+      }
       // Remove from structure
       const index = selectedColumns.value.findIndex((c) => c.id === draggedColumn.value!.id);
       if (index > -1) {
@@ -1109,6 +1191,18 @@ const handleDropOnAvailable = () => {
   isDraggingOverAvailable.value = false;
 
   if (draggedColumn.value && dragSource.value === "structure") {
+    // Prevent removing mandatory columns via drag
+    if (isColumnMandatory(draggedColumn.value)) {
+      Swal.fire({
+        title: 'غير مسموح',
+        text: 'لا يمكن إزالة هذا العمود لأنه إلزامي في جميع النماذج',
+        icon: 'warning',
+        confirmButtonText: 'حسناً',
+        confirmButtonColor: '#a17d23',
+      });
+      handleDragEnd();
+      return;
+    }
     // Remove from structure
     const index = selectedColumns.value.findIndex((c) => c.id === draggedColumn.value!.id);
     if (index > -1) {
@@ -1196,14 +1290,19 @@ const loadTemplateForEdit = async (templateId: number) => {
         return {
           id: col.id,
           name: col.name,
+          key: col.key, // Include key for mandatory column detection
           type: col.data_type,
           options: col.options || [],
           isFromBackend: true,
           backendId: col.id,
           allowsAttachment: col.allows_attachment || false,
-          attachmentRequired: col.attachment_required || false
+          attachmentRequired: col.attachment_required || false,
+          isMandatory: col.is_mandatory || MANDATORY_COLUMN_KEYS.includes(col.key) // Set mandatory flag
         };
       });
+      
+      // Ensure mandatory columns are present (in case they were somehow missing)
+      ensureMandatoryColumns();
       
       console.log('✅ Loaded', selectedColumns.value.length, 'columns into Template Structure');
       console.log('📦 Selected columns:', selectedColumns.value);
@@ -1211,6 +1310,9 @@ const loadTemplateForEdit = async (templateId: number) => {
       console.warn('⚠️ No columns found in template.columns');
       console.warn('   Template has template_columns?', !!template.template_columns);
       console.warn('   Template_columns length:', template.template_columns?.length);
+      
+      // Even if no columns, ensure mandatory columns are present
+      ensureMandatoryColumns();
     }
     
     // Force UI update
@@ -1249,7 +1351,7 @@ const handleSave = async () => {
       notes: form.value.notes,
       // Include inline column definitions
       columns: selectedColumns.value.map((col, index) => {
-        const columnData = {
+        const columnData: any = {
           label: col.name,
           data_type: col.type as DataType,
           order: index + 1,
@@ -1257,6 +1359,13 @@ const handleSave = async () => {
           allows_attachment: col.allowsAttachment || false,
           attachment_required: col.attachmentRequired || false
         };
+        // Include key for mandatory columns so backend can identify them
+        if (col.key) {
+          columnData.key = col.key;
+        }
+        if (col.isMandatory) {
+          columnData.is_mandatory = true;
+        }
         console.log(`  📌 Column ${index + 1}:`, columnData);
         return columnData;
       })
@@ -1314,6 +1423,10 @@ onMounted(async () => {
     editMode.value = true;
     editTemplateId.value = parseInt(templateId, 10);
     await loadTemplateForEdit(editTemplateId.value);
+  } else {
+    // New template - ensure mandatory columns are added
+    ensureMandatoryColumns();
+    console.log('✅ Mandatory columns added for new template:', selectedColumns.value);
   }
 });
 </script>
@@ -2441,6 +2554,46 @@ onMounted(async () => {
 
 .container[data-theme="night"] .deleteBtn:hover {
   background-color: #7f1d1d;
+}
+
+/* Mandatory column badge */
+.mandatoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  background-color: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #b45309;
+  margin-right: 0.5rem;
+}
+
+.container[data-theme="night"] .mandatoryBadge {
+  background-color: #451a03;
+  border-color: #92400e;
+  color: #fcd34d;
+}
+
+.mandatoryBadge i {
+  font-size: 0.6rem;
+}
+
+/* Locked text for mandatory columns */
+.lockedText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+.container[data-theme="night"] .lockedText {
+  color: #6b7280;
 }
 
 .editInputWrapper {
