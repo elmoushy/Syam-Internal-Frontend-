@@ -145,7 +145,7 @@
             <div :class="$style.panelHeader">
               <div :class="$style.panelTitleRow">
                 <h3>هيكل النموذج</h3>
-                <span :class="$style.count">{{ selectedColumns.length }}</span>
+                <span :class="$style.count">{{ visibleColumnCount }}</span>
               </div>
               <p :class="$style.panelDescription">ترتيب الحقول كما سيراها المستخدم</p>
             </div>
@@ -205,7 +205,7 @@
                 </div>
               </div>
 
-              <div v-if="selectedColumns.length === 0" :class="$style.emptyState">
+              <div v-if="visibleColumnCount === 0" :class="$style.emptyState">
                 <i class="fas fa-th-large"></i>
                 <p :class="$style.emptyTitle">اسحب الأعمدة هنا</p>
                 <p :class="$style.emptyHint">ابدأ بإضافة الحقول من القائمة المتاحة</p>
@@ -622,12 +622,14 @@ const availableColumns = ref<Column[]>([]);
 // Selected columns - these will be the template structure
 const selectedColumns = ref<Column[]>([]);
 
-// Computed property to sort columns with mandatory ones at the end
+// Computed property to filter out mandatory columns from display
+// (Mandatory columns are still in selectedColumns and will be sent to backend)
 const sortedSelectedColumns = computed(() => {
-  const mandatory = selectedColumns.value.filter(col => isColumnMandatory(col));
-  const nonMandatory = selectedColumns.value.filter(col => !isColumnMandatory(col));
-  return [...nonMandatory, ...mandatory];
+  return selectedColumns.value.filter(col => !isColumnMandatory(col));
 });
+
+// Computed property for visible column count (excluding mandatory)
+const visibleColumnCount = computed(() => sortedSelectedColumns.value.length);
 
 // ============== MANDATORY COLUMNS ==============
 // These columns MUST be present in every template and cannot be removed
