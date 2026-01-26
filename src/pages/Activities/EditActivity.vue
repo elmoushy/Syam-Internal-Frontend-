@@ -847,13 +847,13 @@ onMounted(() => {
 }
 
 .form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
 .formRow {
-  width: 100%;
+  display: contents;
 }
 
 /* ==================== CHECKBOX FIELD (BOOLEAN) ==================== */
@@ -862,6 +862,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 8px;
   padding: 12px 0;
+  grid-column: 1 / -1;
 }
 
 .checkboxLabel {
@@ -903,7 +904,8 @@ onMounted(() => {
 
 /* ==================== ATTACHMENT STYLES ==================== */
 .attachmentSection {
-  margin-top: 12px;
+  grid-column: 1 / -1;
+  margin-top: 0;
   padding-top: 16px;
   border-top: 1px dashed #E1E4EA;
 }
@@ -1080,6 +1082,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .percentageLabel {
@@ -1159,5 +1162,11 @@ onMounted(() => {
   background: linear-gradient(90deg, #A17D23 0%, #C9A84C 100%);
   border-radius: 4px;
   transition: width 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

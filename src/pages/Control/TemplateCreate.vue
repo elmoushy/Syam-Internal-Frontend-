@@ -74,6 +74,15 @@
                 <span :class="$style.count">{{ availableColumns.length }}</span>
               </div>
               <p :class="$style.panelDescription">اسحب الأعمدة الى منطقة التصميم</p>
+              <button 
+                v-if="availableColumns.length > 0" 
+                :class="$style.moveAllBtn" 
+                @click="moveAllToStructure"
+                title="نقل جميع الأعمدة إلى الهيكل">
+                <i class="fas fa-arrow-left"></i>
+                <span>نقل الكل</span>
+                <i class="fas fa-layer-group"></i>
+              </button>
             </div>
 
             <!-- Action Buttons Row -->
@@ -144,7 +153,7 @@
             <div :class="$style.structureList">
               <!-- Structure Column Card -->
               <div
-                v-for="(column, index) in selectedColumns"
+                v-for="(column, index) in sortedSelectedColumns"
                 :key="column.id"
                 :class="[$style.structureColumnCard, { [$style.dragOverItem]: dragOverItemId === column.id }]"
                 draggable="true"
@@ -613,6 +622,13 @@ const availableColumns = ref<Column[]>([]);
 // Selected columns - these will be the template structure
 const selectedColumns = ref<Column[]>([]);
 
+// Computed property to sort columns with mandatory ones at the end
+const sortedSelectedColumns = computed(() => {
+  const mandatory = selectedColumns.value.filter(col => isColumnMandatory(col));
+  const nonMandatory = selectedColumns.value.filter(col => !isColumnMandatory(col));
+  return [...nonMandatory, ...mandatory];
+});
+
 // ============== MANDATORY COLUMNS ==============
 // These columns MUST be present in every template and cannot be removed
 const MANDATORY_COLUMNS: Column[] = [
@@ -1000,6 +1016,32 @@ const addColumn = (column: Column) => {
   if (!selectedColumns.value.find((c) => c.id === column.id)) {
     selectedColumns.value.push(column);
   }
+};
+
+// Move all available columns to structure
+const moveAllToStructure = () => {
+  if (availableColumns.value.length === 0) return;
+  
+  const movedCount = availableColumns.value.length;
+  
+  // Add all available columns to structure
+  availableColumns.value.forEach(column => {
+    addColumn(column);
+  });
+  
+  // Clear available columns
+  availableColumns.value = [];
+  
+  // Show success message
+  Swal.fire({
+    icon: 'success',
+    title: 'تم النقل بنجاح',
+    text: `تم نقل ${movedCount} عمود إلى هيكل النموذج`,
+    timer: 2000,
+    showConfirmButton: false,
+    toast: true,
+    position: 'top-end'
+  });
 };
 
 // Remove column from structure
@@ -1729,6 +1771,63 @@ onMounted(async () => {
 
 .container[data-theme="night"] .panelDescription {
   color: #94a3b8;
+}
+
+/* Move All Button */
+.moveAllBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  width: 100%;
+  justify-content: center;
+}
+
+.moveAllBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.moveAllBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.moveAllBtn i:first-child {
+  animation: slideLeft 1.5s ease-in-out infinite;
+}
+
+.moveAllBtn i:last-child {
+  opacity: 0.8;
+}
+
+@keyframes slideLeft {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-4px);
+  }
+}
+
+.container[data-theme="night"] .moveAllBtn {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  box-shadow: 0 2px 8px rgba(90, 103, 216, 0.4);
+}
+
+.container[data-theme="night"] .moveAllBtn:hover {
+  box-shadow: 0 4px 12px rgba(90, 103, 216, 0.5);
 }
 
 .count {

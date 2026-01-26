@@ -608,22 +608,20 @@ onMounted(() => {
 }
 
 .form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.formRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
-  border: 1px solid #E1E4EA;
-  padding: 20px;
-  border-radius: 10px;
 }
 
-.formRow:has(> :only-child) {
-  grid-template-columns: 1fr;
+.formRow {
+  display: contents;
+}
+
+/* Full width for textarea fields */
+.formRow:has(.checkboxField),
+.formRow:has(> div[class*="textarea"]),
+.formRow:has(.attachmentSection) {
+  grid-column: 1 / -1;
 }
 
 /* ==================== CHECKBOX FIELD (BOOLEAN) ==================== */
@@ -632,6 +630,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 8px;
   padding: 12px 0;
+  grid-column: 1 / -1;
 }
 
 .checkboxLabel {
@@ -703,7 +702,7 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .formRow {
+  .form {
     grid-template-columns: 1fr;
   }
 }
@@ -711,7 +710,7 @@ onMounted(() => {
 /* ==================== ATTACHMENT STYLES ==================== */
 .attachmentSection {
   grid-column: 1 / -1;
-  margin-top: 12px;
+  margin-top: 0;
   padding-top: 16px;
   border-top: 1px dashed #E1E4EA;
 }
@@ -859,6 +858,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .percentageLabel {
