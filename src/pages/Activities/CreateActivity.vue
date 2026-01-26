@@ -84,6 +84,14 @@ const isBooleanColumn = (column: TitleColumn): boolean => {
   return column.data_type === 'boolean'
 }
 
+// Percentage column keys
+const PERCENTAGE_COLUMN_KEYS = ['required_achievement_percentage', 'actual_achievement_percentage']
+
+// Check if column is a percentage column
+const isPercentageColumn = (column: TitleColumn): boolean => {
+  return PERCENTAGE_COLUMN_KEYS.includes(column.key)
+}
+
 // Get select options for a column
 const getSelectOptions = (column: TitleColumn) => {
   if (!column.options) return []
@@ -142,9 +150,27 @@ const validateForm = (): boolean => {
   formErrors.value = {}
   
   for (const column of columns.value) {
-    if (column.is_required && !formData.value[column.key]?.trim()) {
-      formErrors.value[column.key] = `${column.label} مطلوب`
-      isValid = false
+    const value = formData.value[column.key]
+    
+    if (column.is_required) {
+      // Check if value is empty based on its type
+      const isEmpty = value === undefined || value === null || value === '' || 
+        (typeof value === 'string' && value.trim() === '')
+      
+      if (isEmpty) {
+        formErrors.value[column.key] = `${column.label} مطلوب`
+        isValid = false
+        continue
+      }
+    }
+    
+    // Percentage validation (0-100)
+    if (isPercentageColumn(column) && value !== undefined && value !== null && value !== '') {
+      const numValue = Number(value)
+      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+        formErrors.value[column.key] = 'النسبة يجب أن تكون بين 0 و 100'
+        isValid = false
+      }
     }
     
     // Check attachment required
@@ -152,6 +178,15 @@ const validateForm = (): boolean => {
       formErrors.value[column.key] = `المرفق مطلوب لـ ${column.label}`
       isValid = false
     }
+  }
+  
+  // Special validation: actual achievement cannot exceed required achievement
+  const requiredAchievement = Number(formData.value['required_achievement_percentage'])
+  const actualAchievement = Number(formData.value['actual_achievement_percentage'])
+  
+  if (!isNaN(requiredAchievement) && !isNaN(actualAchievement) && actualAchievement > requiredAchievement) {
+    formErrors.value['actual_achievement_percentage'] = 'نسبة الإنجاز الفعلية لا يمكن أن تتجاوز نسبة الإنجاز المطلوبة'
+    isValid = false
   }
   
   return isValid
@@ -320,6 +355,35 @@ onMounted(() => {
             :required="column.is_required"
             :error="formErrors[column.key]"
           />
+          
+          <!-- Percentage Field -->
+          <div v-else-if="isPercentageColumn(column)" :class="$style.percentageField">
+            <label :class="$style.percentageLabel">
+              {{ column.label }}
+              <span v-if="column.is_required" :class="$style.required">*</span>
+            </label>
+            <div :class="$style.percentageInputWrapper">
+              <input
+                v-model="formData[column.key]"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                :placeholder="`ادخل ${column.label}`"
+                :class="[$style.percentageInput, formErrors[column.key] ? $style.hasError : '']"
+              />
+              <span :class="$style.percentageSymbol">%</span>
+              <div :class="$style.percentageBar">
+                <div 
+                  :class="$style.percentageFill" 
+                  :style="{ width: `${Math.min(100, Math.max(0, Number(formData[column.key]) || 0))}%` }"
+                ></div>
+              </div>
+            </div>
+            <div v-if="formErrors[column.key]" :class="$style.fieldError">
+              {{ formErrors[column.key] }}
+            </div>
+          </div>
           
           <!-- Input Field -->
           <FormInput
@@ -788,5 +852,85 @@ onMounted(() => {
   border-radius: 8px;
   object-fit: cover;
   border: 1px solid #E1E4EA;
+}
+
+/* ==================== PERCENTAGE FIELD STYLES ==================== */
+.percentageField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.percentageLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0E121B;
+}
+
+.percentageInputWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.percentageInput {
+  width: 100%;
+  padding: 12px 40px 12px 16px;
+  border: 1px solid #E1E4EA;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0E121B;
+  background: #FAFAFA;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.percentageInput:focus {
+  outline: none;
+  border-color: #A17D23;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(161, 125, 35, 0.1);
+}
+
+.percentageInput.hasError {
+  border-color: #D44333;
+  background: #FFF5F5;
+}
+
+.percentageInput::-webkit-inner-spin-button,
+.percentageInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.percentageInput[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.percentageSymbol {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #A17D23;
+}
+
+.percentageBar {
+  width: 100%;
+  height: 8px;
+  background: #E1E4EA;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.percentageFill {
+  height: 100%;
+  background: linear-gradient(90deg, #A17D23 0%, #C9A84C 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
 }
 </style>
