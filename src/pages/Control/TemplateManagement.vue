@@ -36,7 +36,11 @@
         <!-- Card Actions (Top Left) -->
         <div :class="$style.cardRow">
           <div :class="$style.menuCardLogo">
-            <img :class="$style.menuCardLogoImg" src="/icons/Document.svg" alt="Document" />
+<svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M3.80469 12.6938C3.80469 7.90683 3.80469 5.51333 5.29182 4.0262C6.77895 2.53906 9.17246 2.53906 13.9595 2.53906H16.4982C21.2852 2.53906 23.6787 2.53906 25.1658 4.0262C26.6529 5.51333 26.6529 7.90683 26.6529 12.6938V17.7712C26.6529 22.5582 26.6529 24.9517 25.1658 26.4389C23.6787 27.926 21.2852 27.926 16.4982 27.926H13.9595C9.17246 27.926 6.77895 27.926 5.29182 26.4389C3.80469 24.9517 3.80469 22.5582 3.80469 17.7712V12.6938Z" stroke="#A17D23" stroke-width="1.90402"/>
+<path d="M10.1562 12.6934H20.311" stroke="#A17D23" stroke-width="1.90402" stroke-linecap="round"/>
+<path d="M10.1562 17.7705H16.503" stroke="#A17D23" stroke-width="1.90402" stroke-linecap="round"/>
+</svg>
           </div>
 
           <div :class="$style.cardActions">
@@ -59,28 +63,44 @@
             </button>
             
             <!-- Delete Button -->
-            <button :class="$style.actionBtn" @click.stop="handleDeleteTemplate(template)" :title="'حذف'">
-              <img :class="$style.actionIcon" src="/icons/Delete.svg" alt="Delete" />
+            <button :class="[$style.actionBtn, $style.deleteBtn]" @click.stop="handleDeleteTemplate(template)" :title="'حذف'">
+<svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M5.54961 3C5.75514 2.53796 6.21344 2.24023 6.71914 2.24023H8.95703C9.46276 2.24023 9.921 2.53796 10.1266 3L10.3975 3.60915C10.5003 3.84017 10.7294 3.98903 10.9823 3.98903H12.1836C12.7361 3.98903 13.184 4.43693 13.184 4.98942C13.184 5.54193 12.7361 5.98982 12.1836 5.98982H3.49258C2.94008 5.98982 2.49219 5.54193 2.49219 4.98942C2.49219 4.43693 2.94008 3.98903 3.49258 3.98903H4.69389C4.94674 3.98903 5.17588 3.84017 5.27865 3.60915L5.54961 3Z" stroke="#D44333" stroke-width="1.44" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M9.34773 8.47461H6.33594" stroke="#D44333" stroke-width="1.44" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12.042 5.99023L11.5472 11.9983C11.4651 12.9942 10.6329 13.7607 9.63365 13.7607H6.04118C5.04189 13.7607 4.20968 12.9942 4.12765 11.9983L3.63281 5.99023" stroke="#D44333" stroke-width="1.44" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
             </button>
             
             <!-- Edit Button (only for drafts) -->
             <button 
               v-if="template.status === 'draft'"
-              :class="$style.actionBtn" 
+              :class="[$style.actionBtn, $style.editBtn]" 
               @click.stop="handleEditTemplate(template)" 
               :title="'تعديل'">
-              <img :class="$style.actionIcon" src="/icons/Edit.svg" alt="Edit" />
+<svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M9.03125 12.9834H13.3291" stroke="#A17D23" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M8.45962 3.11747C8.91926 2.56814 9.74554 2.48758 10.3063 2.93788C10.3373 2.96231 11.3334 3.73614 11.3334 3.73614C11.9494 4.10852 12.1408 4.90018 11.76 5.50431C11.7398 5.53667 6.10818 12.581 6.10818 12.581C5.92082 12.8147 5.63641 12.9527 5.33245 12.956L3.17578 12.9831L2.68986 10.9264C2.62179 10.6372 2.68986 10.3335 2.87722 10.0997L8.45962 3.11747Z" stroke="#A17D23" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M7.41406 4.4248L10.645 6.90606" stroke="#A17D23" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
             </button>
             
             <!-- Toggle Active Title (only for published templates) -->
             <button
               v-if="template.status === 'published'"
-              :class="[$style.actionBtn, { [$style.starred]: template.is_active_title }]"
+              :class="[$style.actionBtn2, { [$style.starred]: template.is_active_title }]"
               @click.stop="handleToggleActiveTitle(template)"
               :disabled="isTogglingActive === template.id"
               :title="template.is_active_title ? 'إلغاء التفعيل' : 'تعيين كنشط'">
               <i v-if="isTogglingActive === template.id" class="fas fa-spinner fa-spin" :style="{ fontSize: '14px' }"></i>
-              <img v-else :class="$style.actionIcon" src="/icons/star.svg" alt="Star" />
+              <svg v-else-if="template.is_active_title" width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 14C0 6.26801 6.26801 0 14 0C21.732 0 28 6.26801 28 14C28 21.732 21.732 28 14 28C6.26801 28 0 21.732 0 14Z" fill="#A17D23"/>
+                <path d="M11.7225 8.7267C12.7359 6.9089 13.2425 6 14 6C14.7575 6 15.2641 6.9089 16.2775 8.7267L16.5396 9.19699C16.8276 9.71355 16.9716 9.97183 17.196 10.1422C17.4205 10.3127 17.7001 10.3759 18.2593 10.5024L18.7684 10.6176C20.7361 11.0628 21.72 11.2855 21.9541 12.0382C22.1881 12.7909 21.5174 13.5753 20.1759 15.1439L19.8289 15.5498C19.4477 15.9955 19.2571 16.2184 19.1713 16.4942C19.0856 16.7699 19.1144 17.0673 19.172 17.662L19.2245 18.2035C19.4273 20.2965 19.5287 21.343 18.9159 21.8082C18.3031 22.2734 17.3819 21.8492 15.5395 21.0009L15.0628 20.7815C14.5393 20.5404 14.2775 20.4199 14 20.4199C13.7225 20.4199 13.4607 20.5404 12.9372 20.7815L12.4605 21.0009C10.6181 21.8492 9.69694 22.2734 9.08412 21.8082C8.4713 21.343 8.5727 20.2965 8.77552 18.2035L8.82799 17.662C8.88562 17.0673 8.91444 16.7699 8.82869 16.4942C8.74294 16.2184 8.55234 15.9955 8.17113 15.5498L7.82408 15.1439C6.4826 13.5753 5.81186 12.7909 6.04594 12.0382C6.28001 11.2855 7.26389 11.0628 9.23163 10.6176L9.74071 10.5024C10.2999 10.3759 10.5795 10.3127 10.804 10.1422C11.0284 9.97183 11.1724 9.71355 11.4604 9.19699L11.7225 8.7267Z" fill="white" stroke="white"/>
+              </svg>
+              <svg v-else width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 0.5C21.4558 0.5 27.5 6.54416 27.5 14C27.5 21.4558 21.4558 27.5 14 27.5C6.54416 27.5 0.5 21.4558 0.5 14C0.5 6.54416 6.54416 0.5 14 0.5Z" fill="white"/>
+                <path d="M14 0.5C21.4558 0.5 27.5 6.54416 27.5 14C27.5 21.4558 21.4558 27.5 14 27.5C6.54416 27.5 0.5 21.4558 0.5 14C0.5 6.54416 6.54416 0.5 14 0.5Z" stroke="#E1E4EA"/>
+                <path d="M11.7225 8.7267C12.7359 6.9089 13.2425 6 14 6C14.7575 6 15.2641 6.9089 16.2775 8.7267L16.5396 9.19699C16.8276 9.71355 16.9716 9.97183 17.196 10.1422C17.4205 10.3127 17.7001 10.3759 18.2593 10.5024L18.7684 10.6176C20.7361 11.0628 21.72 11.2855 21.9541 12.0382C22.1881 12.7909 21.5174 13.5753 20.1759 15.1439L19.8289 15.5498C19.4477 15.9955 19.2571 16.2184 19.1713 16.4942C19.0856 16.7699 19.1144 17.0673 19.172 17.662L19.2245 18.2035C19.4273 20.2965 19.5287 21.343 18.9159 21.8082C18.3031 22.2734 17.3819 21.8492 15.5395 21.0009L15.0628 20.7815C14.5393 20.5404 14.2775 20.4199 14 20.4199C13.7225 20.4199 13.4607 20.5404 12.9372 20.7815L12.4605 21.0009C10.6181 21.8492 9.69694 22.2734 9.08412 21.8082C8.4713 21.343 8.5727 20.2965 8.77552 18.2035L8.82799 17.662C8.88562 17.0673 8.91444 16.7699 8.82869 16.4942C8.74294 16.2184 8.55234 15.9955 8.17113 15.5498L7.82408 15.1439C6.4826 13.5753 5.81186 12.7909 6.04594 12.0382C6.28001 11.2855 7.26389 11.0628 9.23163 10.6176L9.74071 10.5024C10.2999 10.3759 10.5795 10.3127 10.804 10.1422C11.0284 9.97183 11.1724 9.71355 11.4604 9.19699L11.7225 8.7267Z" stroke="#717784" stroke-width="1.5"/>
+              </svg>
             </button>
           </div>
         </div>
@@ -296,8 +316,10 @@ onMounted(() => {
 <style module>
 .container {
   padding: 2rem;
-  min-height: calc(100vh - 124px);
+  height: calc(100vh - 124px);
   background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
 }
 
 .container[data-theme="night"] {
@@ -311,6 +333,7 @@ onMounted(() => {
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+  flex-shrink: 0;
 }
 
 .title {
@@ -357,6 +380,7 @@ onMounted(() => {
   justify-content: center;
   padding: 4rem 2rem;
   gap: 1rem;
+  flex: 1;
 }
 
 .loadingContainer i {
@@ -381,6 +405,7 @@ onMounted(() => {
   justify-content: center;
   padding: 4rem 2rem;
   gap: 1rem;
+  flex: 1;
 }
 
 .errorContainer i {
@@ -421,6 +446,12 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 20px;
+  background-color: white;
+  padding: 25px;
+  border-radius: 10px;
+  flex: 1;
+  overflow-y: auto;
+  align-content: start;
 }
 
 @media (max-width: 768px) {
@@ -466,8 +497,8 @@ onMounted(() => {
 }
 
 .actionBtn {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -477,6 +508,26 @@ onMounted(() => {
   color: #64748b;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.actionBtn2 {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.deleteBtn {
+  border-color: #FADBD7 !important;
+}
+
+.editBtn {
+  border-color: #F3D6A7 !important;
 }
 
 .container[data-theme="night"] .actionBtn {
@@ -500,6 +551,8 @@ onMounted(() => {
   border-color: #fbbf24;
   background-color: #fff7ed;
 }
+
+
 
 .container[data-theme="night"] .actionBtn.starred {
   background-color: #451a03;
@@ -525,8 +578,8 @@ onMounted(() => {
 
 .draftBadge {
   padding: 0.25rem 0.75rem;
-  background-color: #f59e0b;
-  color: white;
+  background-color: #F2F5F8;
+  color: #2B303B;
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 400;
@@ -630,19 +683,13 @@ onMounted(() => {
   align-items: center;
 }
 
-.actionIcon {
-  width: 18px;
-  height: 18px;
-  display: block;
-}
-
 .menuCardLogo {
   width: 50px;
   height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
+  background: #F5F7FA;
   border-radius: 50%;
   z-index: 2;
 }
@@ -665,6 +712,13 @@ menuCardLogoImg {
   justify-content: center;
   padding: 4rem 2rem;
   gap: 1.5rem;
+  flex: 1;
+  background-color: white;
+  border-radius: 10px;
+}
+
+.container[data-theme="night"] .emptyState {
+  background-color: #1e293b;
 }
 
 .emptyState i {

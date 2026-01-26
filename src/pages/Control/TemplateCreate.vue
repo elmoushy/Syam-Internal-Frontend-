@@ -129,7 +129,13 @@
               </div>
 
               <div v-if="availableColumns.length === 0" :class="$style.emptyState">
-                <i class="fas fa-th-large"></i>
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 5H6.66667C5.74619 5 5 5.74619 5 6.66667V15C5 15.9205 5.74619 16.6667 6.66667 16.6667H15C15.9205 16.6667 16.6667 15.9205 16.6667 15V6.66667C16.6667 5.74619 15.9205 5 15 5Z" stroke="#9CA3AF" stroke-width="3.33333" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M33.3359 5H25.0026C24.0821 5 23.3359 5.74619 23.3359 6.66667V15C23.3359 15.9205 24.0821 16.6667 25.0026 16.6667H33.3359C34.2564 16.6667 35.0026 15.9205 35.0026 15V6.66667C35.0026 5.74619 34.2564 5 33.3359 5Z" stroke="#9CA3AF" stroke-width="3.33333" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M33.3359 23.333H25.0026C24.0821 23.333 23.3359 24.0792 23.3359 24.9997V33.333C23.3359 34.2535 24.0821 34.9997 25.0026 34.9997H33.3359C34.2564 34.9997 35.0026 34.2535 35.0026 33.333V24.9997C35.0026 24.0792 34.2564 23.333 33.3359 23.333Z" stroke="#9CA3AF" stroke-width="3.33333" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M15 23.333H6.66667C5.74619 23.333 5 24.0792 5 24.9997V33.333C5 34.2535 5.74619 34.9997 6.66667 34.9997H15C15.9205 34.9997 16.6667 34.2535 16.6667 33.333V24.9997C16.6667 24.0792 15.9205 23.333 15 23.333Z" stroke="#9CA3AF" stroke-width="3.33333" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
                 <p :class="$style.emptyTitle">لا توجد أعمدة متاحة</p>
                 <p :class="$style.emptyHint">استخدم الأزرار أعلاه لإضافة أعمدة</p>
               </div>
@@ -206,8 +212,14 @@
               </div>
 
               <div v-if="visibleColumnCount === 0" :class="$style.emptyState">
-                <i class="fas fa-th-large"></i>
-                <p :class="$style.emptyTitle">اسحب الأعمدة هنا</p>
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 5H6.66667C5.74619 5 5 5.74619 5 6.66667V15C5 15.9205 5.74619 16.6667 6.66667 16.6667H15C15.9205 16.6667 16.6667 15.9205 16.6667 15V6.66667C16.6667 5.74619 15.9205 5 15 5Z" stroke="#A17D23" stroke-width="3.33333" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M33.3359 5H25.0026C24.0821 5 23.3359 5.74619 23.3359 6.66667V15C23.3359 15.9205 24.0821 16.6667 25.0026 16.6667H33.3359C34.2564 16.6667 35.0026 15.9205 35.0026 15V6.66667C35.0026 5.74619 34.2564 5 33.3359 5Z" stroke="#A17D23" stroke-width="3.33333" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M33.3359 23.333H25.0026C24.0821 23.333 23.3359 24.0792 23.3359 24.9997V33.333C23.3359 34.2535 24.0821 34.9997 25.0026 34.9997H33.3359C34.2564 34.9997 35.0026 34.2535 35.0026 33.333V24.9997C35.0026 24.0792 34.2564 23.333 33.3359 23.333Z" stroke="#A17D23" stroke-width="3.33333" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M15 23.333H6.66667C5.74619 23.333 5 24.0792 5 24.9997V33.333C5 34.2535 5.74619 34.9997 6.66667 34.9997H15C15.9205 34.9997 16.6667 34.2535 16.6667 33.333V24.9997C16.6667 24.0792 15.9205 23.333 15 23.333Z" stroke="#A17D23" stroke-width="3.33333" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+                <p :class="$style.emptyTitle2">اسحب الأعمدة هنا</p>
                 <p :class="$style.emptyHint">ابدأ بإضافة الحقول من القائمة المتاحة</p>
               </div>
             </div>
@@ -2086,7 +2098,7 @@ onMounted(async () => {
 
 .emptyState i {
   font-size: 2.5rem;
-  color: #a17d23;
+  color: #717784;
   margin-bottom: 0.5rem;
 }
 
@@ -2097,7 +2109,13 @@ onMounted(async () => {
 .emptyTitle {
   font-size: 1rem;
   font-weight: 600;
-  color: #a17d23;
+  color: #717784;
+  margin: 0;
+}
+.emptyTitle2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #A17D23;
   margin: 0;
 }
 
