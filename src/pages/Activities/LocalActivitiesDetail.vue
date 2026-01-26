@@ -383,14 +383,56 @@ onMounted(() => {
 
         <!-- Activity Details Sections - Dynamic from columns -->
         <div :class="$style.detailsContainer">
-          <template v-for="column in columns" :key="column.key">
+          <!-- <template v-for="column in columns" :key="column.key">
             <div v-if="getColumnValue(selectedActivity, column.key)" :class="$style.detailSection">
               <h3 :class="$style.sectionTitle">{{ column.label }}</h3>
               <div :class="$style.detailItem">
                 <span :class="$style.itemValue">{{ getColumnValue(selectedActivity, column.key) }}</span>
               </div>
             </div>
-          </template>
+          </template> -->
+          
+
+               <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">ملخص النشاط</h3>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">القسم / الجهة المستهدفة</span>
+              <span :class="$style.itemValue">{{ selectedActivity.author }}</span>
+            </div>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">نطاق النشاط</span>
+              <span :class="$style.itemValue">{{ formatDate(selectedActivity.created_at) }}</span>
+            </div>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">الجهات المشاركة</span>
+              <span :class="$style.itemValue">{{ formatDate(selectedActivity.updated_at) }}</span>
+            </div>
+            <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">مصدر النشاط</span>
+              <span :class="[$style.itemValue, selectedActivity.is_submitted ? $style.greenText : '']">
+                {{ selectedActivity.is_submitted ? 'تم التقديم' : 'مسودة' }}
+              </span>
+              
+            </div>
+               <div :class="$style.detailItem">
+              <span :class="$style.itemLabel">يوجد محضر اجتماع</span>
+              <span :class="[$style.itemValue, selectedActivity.is_submitted ? $style.greenText : $style.redText]">
+                {{ selectedActivity.is_submitted ? 'نعم' : 'لا' }}
+              </span>
+              
+            </div>
+          </div>
+
+          <!-- Main Outputs Section -->
+          <div :class="$style.detailSection">
+            <h3 :class="$style.sectionTitle">المخرجات الرئيسية</h3>
+            <div :class="$style.outputContent">
+              <p :class="$style.outputText">
+                مراجعة شاملة لخطط الطوارئ الحالية وتحديث الإجراءات التشغيلية بها بتماشي مع أحدث المعايير الدولية. تحديد نقاط الضعف في الخطط الموجودة واقتراح التحسينات اللازمة. إعداد تقرير مفصل بالتوصيات والإجراءات المطلوبة مع جدول زمني للتنفيذ.
+              </p>
+              <a :class="$style.viewMoreLink">عرض المزيد</a>
+            </div>
+          </div>
 
           <!-- System Info Section -->
           <div :class="$style.detailSection">
@@ -585,15 +627,15 @@ onMounted(() => {
 }
 
 .statusDraft {
-  background: #FFF8ED;
-  color: #A17D23;
-  border: 1px solid #F3D6A7;
+  background: #F2F5F8;
+  color: #2B303B;
+  border: none;
 }
 
 .statusSubmitted {
-  background: #E8F5E9;
-  color: #2E7D32;
-  border: 1px solid #A5D6A7;
+  background: #00A350;
+  color: #FFFFFF;
+  border: none;
 }
 
 .cardActions {
@@ -758,13 +800,18 @@ onMounted(() => {
 
 .detailItem {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
+  border-bottom: 1px solid #F2F5F8;
   gap: 8px;
-  margin-bottom: 12px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
 }
 
 .detailItem:last-child {
   margin-bottom: 0;
+  border-bottom: 0px;
+  padding-bottom: 0;
 }
 
 .itemLabel {
@@ -784,7 +831,12 @@ onMounted(() => {
 }
 
 .greenText {
-  color: #2E7D32 !important;
+  color: #00A350 !important;
+  font-weight: 600;
+}
+
+.redText {
+  color: #D44333 !important;
   font-weight: 600;
 }
 
@@ -794,12 +846,25 @@ onMounted(() => {
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
-  margin-top: 8px;
   display: inline-block;
 }
 
 .viewMoreLink:hover {
   text-decoration: underline;
+}
+
+.outputContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.outputText {
+  font-size: 14px;
+  color: #717784;
+  line-height: 1.8;
+  margin: 0;
+  text-align: right;
 }
 
 /* ==================== LOADING & ERROR STATES ==================== */

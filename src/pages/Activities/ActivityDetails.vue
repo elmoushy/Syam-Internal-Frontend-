@@ -123,15 +123,14 @@ const getColumnValue = (columnKey: string): string => {
   return activity.value.data[columnKey] || '-'
 }
 
-// Get attachments for a specific column
-const getColumnAttachments = (columnKey: string): ActivityAttachment[] => {
-  return attachments.value.filter(att => att.column_key === columnKey)
-}
+// Removed unused functions - attachments now shown in sidebar only
+// const getColumnAttachments = (columnKey: string): ActivityAttachment[] => {
+//   return attachments.value.filter(att => att.column_key === columnKey)
+// }
 
-// Check if column has attachments
-const columnHasAttachments = (columnKey: string): boolean => {
-  return attachments.value.some(att => att.column_key === columnKey)
-}
+// const columnHasAttachments = (columnKey: string): boolean => {
+//   return attachments.value.some(att => att.column_key === columnKey)
+// }
 
 const goBack = () => {
   router.push(`/activities/local/${templateId.value}`)
@@ -218,7 +217,7 @@ onMounted(() => {
       <div :class="$style.pageHeader">
         <div :class="$style.headerRight">
           <button :class="$style.backBtn" @click="goBack">
-            <i class="fas fa-arrow-right"></i>
+            <i class="fas fa-arrow-left"></i>
             رجوع
           </button>
           
@@ -234,10 +233,12 @@ onMounted(() => {
           </span>
         </div>
         
-        <button v-if="!isSubmitted" :class="$style.editBtn" @click="handleEdit">
-          <i class="fas fa-edit"></i>
-          تعديل النشاط
-        </button>
+        <div :class="$style.headerLeft">
+          <button v-if="!isSubmitted" :class="$style.editBtn" @click="handleEdit">
+            <i class="fas fa-edit"></i>
+            تعديل النشاط
+          </button>
+        </div>
       </div>
 
       <!-- Main Content -->
@@ -248,66 +249,69 @@ onMounted(() => {
           <div :class="$style.rightColumn">
             <!-- Details Cards -->
             <div :class="$style.detailsContainer">
-              <!-- بيانات النشاط -->
+              <!-- المعلومات الأساسية -->
               <div :class="$style.detailCard">
                 <div :class="$style.cardHeader">
-                  <i class="fas fa-file-alt" :class="$style.cardIcon"></i>
-                  <h2 :class="$style.cardTitle">بيانات النشاط</h2>
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12.5026 1.66602H5.0026C4.56058 1.66602 4.13665 1.84161 3.82409 2.15417C3.51153 2.46673 3.33594 2.89065 3.33594 3.33268V16.666C3.33594 17.108 3.51153 17.532 3.82409 17.8445C4.13665 18.1571 4.56058 18.3327 5.0026 18.3327H15.0026C15.4446 18.3327 15.8686 18.1571 16.1811 17.8445C16.4937 17.532 16.6693 17.108 16.6693 16.666V5.83268L12.5026 1.66602Z" stroke="#A17D23" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M11.6641 1.66602V4.99935C11.6641 5.44138 11.8397 5.8653 12.1522 6.17786C12.4648 6.49042 12.8887 6.66602 13.3307 6.66602H16.6641" stroke="#A17D23" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M8.33073 7.5H6.66406" stroke="#A17D23" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M13.3307 10.834H6.66406" stroke="#A17D23" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M13.3307 14.166H6.66406" stroke="#A17D23" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <h2 :class="$style.cardTitle">المعلومات الأساسية</h2>
                 </div>
                 
                 <div :class="$style.cardBody">
-                  <div v-for="column in columns" :key="column.key" :class="$style.detailRow">
-                    <span :class="$style.label">{{ column.label }}</span>
-                    <span :class="$style.value">{{ getColumnValue(column.key) }}</span>
+                  <div :class="$style.infoGrid">
+                    <div :class="$style.infoItem">
+                      <span :class="$style.infoLabel">نوع النشاط</span>
+                      <span :class="$style.infoValue">{{ getColumnValue('activity_type') || 'اجتماع تنسيقي' }}</span>
+                    </div>
                     
-                    <!-- Show attachment indicator if column has attachments -->
-                    <div v-if="columnHasAttachments(column.key)" :class="$style.columnAttachments">
-                      <div 
-                        v-for="att in getColumnAttachments(column.key)" 
-                        :key="att.id"
-                        :class="$style.miniAttachment"
-                        @click="handleDownload(att)"
-                      >
-                        <i :class="['fas', getFileIcon(att.mime_type)]" :style="{ color: getFileIconColor(att.mime_type) }"></i>
-                        <span>{{ att.original_filename }}</span>
-                      </div>
+                    <div :class="$style.infoItem">
+                      <span :class="$style.infoLabel">القسم المستهدف</span>
+                      <span :class="$style.infoValue">{{ getColumnValue('department') || 'قسم إدارة الأزمات والطوارئ' }}</span>
+                    </div>
+                    
+                    <div :class="$style.infoItem">
+                      <span :class="$style.infoLabel">نطاق النشاط</span>
+                      <span :class="$style.infoValue">{{ getColumnValue('activity_scope') || 'محلي - على مستوى الإمارة' }}</span>
+                    </div>
+                    
+                    <div :class="$style.infoItem">
+                      <span :class="$style.infoLabel">نوع التمويل</span>
+                      <span :class="$style.infoValue">{{ getColumnValue('funding_type') || 'تمويل حكومي' }}</span>
+                    </div>
+                    
+                    <div :class="$style.infoItem">
+                      <span :class="$style.infoLabel">مصدر النشاط</span>
+                      <span :class="$style.infoValue">{{ getColumnValue('activity_source') || 'مبادرة داخلية - قسم التخطيط' }}</span>
+                    </div>
+                    
+                    <div :class="$style.infoItem">
+                      <span :class="$style.infoLabel">يوجد محضر اجتماع</span>
+                      <span :class="[$style.infoValue, $style.greenText]">{{ getColumnValue('has_meeting_minutes') === 'true' ? 'نعم' : 'لا' }}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- معلومات النظام -->
+              <!-- المخرجات الرئيسية -->
               <div :class="$style.detailCard">
                 <div :class="$style.cardHeader">
-                  <i class="fas fa-cog" :class="$style.cardIcon"></i>
-                  <h2 :class="$style.cardTitle">معلومات النظام</h2>
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M18.1708 8.33357C18.5513 10.2013 18.2801 12.1431 17.4023 13.8351C16.5245 15.527 15.0932 16.8669 13.347 17.6313C11.6009 18.3957 9.64545 18.5384 7.80684 18.0355C5.96823 17.5327 4.35758 16.4147 3.24349 14.8681C2.12939 13.3214 1.57919 11.4396 1.68464 9.53639C1.79009 7.63318 2.54482 5.82364 3.82297 4.40954C5.10111 2.99545 6.82541 2.06226 8.70831 1.76561C10.5912 1.46897 12.5189 1.82679 14.1699 2.7794" stroke="#A17D23" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M7.5 9.16732L10 11.6673L18.3333 3.33398" stroke="#A17D23" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+                  <h2 :class="$style.cardTitle">المخرجات الرئيسية</h2>
                 </div>
                 
                 <div :class="$style.cardBody">
-                  <div :class="$style.detailRow">
-                    <span :class="$style.label">أنشئ بواسطة</span>
-                    <span :class="$style.value">{{ activity.author }}</span>
-                  </div>
-                  
-                  <div :class="$style.detailRow">
-                    <span :class="$style.label">تاريخ الإنشاء</span>
-                    <span :class="$style.value">{{ formatDate(activity.created_at) }}</span>
-                  </div>
-                  
-                  <div :class="$style.detailRow">
-                    <span :class="$style.label">آخر تحديث</span>
-                    <span :class="$style.value">{{ formatDate(activity.updated_at) }}</span>
-                  </div>
-
-                  <div v-if="activity.submitted_at" :class="$style.detailRow">
-                    <span :class="$style.label">تاريخ التقديم</span>
-                    <span :class="$style.value">{{ formatDate(activity.submitted_at) }}</span>
-                  </div>
-
-                  <div v-if="activity.template" :class="$style.detailRow">
-                    <span :class="$style.label">النموذج</span>
-                    <span :class="$style.value">{{ activity.template.name }}</span>
-                  </div>
+                  <p :class="$style.outputText">
+                    {{ getColumnValue('outputs') || 'مراجعة شاملة لخطط الطوارئ الحالية وتحديث الإجراءات التشغيلية بما يتماشى مع أحدث المعايير الدولية، تحديد نقاط الضعف في الخطط الموجودة وأفراد التحسينات الرئيسية. إعداد تقرير مفصل بالتوصيات والإجراءات المطلوبة مع جدول زمني للتنفيذ.' }}
+                  </p>
                 </div>
               </div>
             </div>
@@ -513,15 +517,22 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
-  gap: 24px;
+  background: white;
+  padding: 16px 24px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+  border: 1px solid #E1E4EA;
 }
 
 .headerRight {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex: 1;
+  gap: 10px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
 }
 
 .backBtn {
@@ -530,33 +541,30 @@ onMounted(() => {
   gap: 8px;
   padding: 8px 16px;
   background: transparent;
-  border: 1px solid #E1E4EA;
-  border-radius: 8px;
-  color: #717784;
+  border: none;
+  color: #A17D23;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
   flex-shrink: 0;
+  border-radius: 6px;
 }
 
 .backBtn:hover {
-  background: #f5f5f5;
-  border-color: #A17D23;
-  color: #A17D23;
+  background: #FFF8ED;
 }
 
 .backBtn i {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .pageTitle {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 600;
   color: #0E121B;
   margin: 0;
-  flex: 1;
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -566,31 +574,29 @@ onMounted(() => {
 .statusBadge {
   display: inline-flex;
   align-items: center;
-  padding: 8px 20px;
-  border-radius: 24px;
-  font-size: 14px;
-  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .statusDraft {
-  background: #FFF8ED;
-  color: #A17D23;
-  border: 1px solid #F3D6A7;
+  background: #F2F5F8;
+  color: #2B303B;
 }
 
 .statusSubmitted {
-  background: #E8F5E9;
-  color: #2E7D32;
-  border: 1px solid #A5D6A7;
+  background: #00A350;
+  color: white;
 }
 
 .editBtn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 24px;
+  padding: 10px 20px;
   background: #A17D23;
   border: none;
   border-radius: 8px;
@@ -605,8 +611,6 @@ onMounted(() => {
 
 .editBtn:hover {
   background: #8a6b1e;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(161, 125, 35, 0.25);
 }
 
 .editBtn i {
@@ -714,6 +718,31 @@ onMounted(() => {
   color: #0E121B;
   font-weight: 500;
   text-align: left;
+}
+
+/* ==================== INFO GRID (2 columns layout) ==================== */
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px 20px;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.infoLabel {
+  font-size: 14px;
+  color: #717784;
+  font-weight: 400;
+}
+
+.infoValue {
+  font-size: 14px;
+  color: #0E121B;
+  font-weight: 500;
 }
 
 .greenText {
@@ -978,34 +1007,40 @@ onMounted(() => {
   }
 
   .pageHeader {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+    padding: 16px;
+  }
+  
+  .headerRight {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .headerLeft {
+    width: 100%;
   }
   
   .editBtn {
-    margin-top: 0;
     width: 100%;
     justify-content: center;
   }
 
-  .breadcrumb {
-    font-size: 12px;
-  }
-
   .pageTitle {
-    font-size: 24px;
-  }
-
-  .titleRow {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+    font-size: 20px;
   }
 
   .detailCard,
   .sideCard {
     padding: 16px;
+  }
+  
+  .infoGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
   
   .leftColumn {

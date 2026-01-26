@@ -6,6 +6,7 @@ import { userActivitiesService, type UserActivityDetailResponse, type TitleColum
 import FormInput from '@/components/shared/FormInput.vue'
 import FormTextarea from '@/components/shared/FormTextarea.vue'
 import FormSelect from '@/components/shared/FormSelect.vue'
+import FormRadio from '@/components/shared/FormRadio.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,7 +24,7 @@ const successMessage = ref('')
 // Activity data
 const activity = ref<UserActivityDetailResponse | null>(null)
 const columns = ref<TitleColumn[]>([])
-const formData = ref<Record<string, string>>({})
+const formData = ref<Record<string, any>>({})
 const formErrors = ref<Record<string, string>>({})
 
 // Attachment state
@@ -31,6 +32,33 @@ const existingAttachments = ref<Record<string, ActivityAttachment>>({})
 const newAttachments = ref<Record<string, File | null>>({})
 const attachmentPreviews = ref<Record<string, string>>({})
 const deletedAttachments = ref<number[]>([])
+
+// Add meeting minutes and outputs handlers
+const handleMeetingMinutesUpload = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  
+  if (file) {
+    newAttachments.value.meeting_minutes = file
+  }
+}
+
+const removeMeetingMinutes = () => {
+  newAttachments.value.meeting_minutes = null
+}
+
+const handleOutputsUpload = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  
+  if (file) {
+    newAttachments.value.outputs_file = file
+  }
+}
+
+const removeOutputsFile = () => {
+  newAttachments.value.outputs_file = null
+}
 
 // Computed
 const isSubmitted = computed(() => activity.value?.is_submitted || false)
@@ -449,6 +477,281 @@ onMounted(() => {
     <!-- Form Content -->
     <div v-else :class="$style.mainContent">
       <form :class="$style.form" @submit.prevent="handleSave">
+        
+        <!-- Section 1: نوع النشاط -->
+        <div :class="$style.formSection">
+          <FormInput
+            v-model="formData.activity_type"
+            label="نوع النشاط"
+            placeholder="ادخل نوع النشاط"
+            type="text"
+            :required="true"
+            :disabled="!canEdit"
+          />
+        </div>
+
+        <!-- Section 2: يوجد محضر اجتماع + Upload -->
+        <div :class="$style.formSection">
+          <FormRadio
+            v-model="formData.has_meeting_minutes"
+            label="يوجد محضر اجتماع"
+            :required="true"
+            :disabled="!canEdit"
+          />
+
+          <!-- Conditional Attachment Upload -->
+          <div v-if="formData.has_meeting_minutes" :class="$style.attachmentSection">
+            <label :class="$style.attachmentLabel">
+              <i class="fas fa-paperclip"></i>
+              رفع محضر الاجتماع
+              <span :class="$style.required">*</span>
+            </label>
+            
+            <!-- Existing Attachment -->
+            <div v-if="existingAttachments.meeting_minutes" :class="$style.existingAttachment">
+              <div :class="$style.fileInfo">
+                <i :class="getFileIcon(existingAttachments.meeting_minutes)"></i>
+                <div :class="$style.fileDetails">
+                  <span :class="$style.fileName">{{ existingAttachments.meeting_minutes.original_filename }}</span>
+                  <span :class="$style.fileSize">{{ formatFileSize(existingAttachments.meeting_minutes.file_size) }}</span>
+                </div>
+              </div>
+              <div :class="$style.attachmentActions">
+                <button 
+                  type="button"
+                  @click="handleExistingDownload(existingAttachments.meeting_minutes)"
+                  :class="$style.downloadBtn"
+                  title="تحميل"
+                >
+                  <i class="fas fa-download"></i>
+                </button>
+                <button 
+                  v-if="existingAttachments.meeting_minutes.is_image"
+                  type="button"
+                  @click="handleExistingPreview(existingAttachments.meeting_minutes)"
+                  :class="$style.previewBtn"
+                  title="معاينة"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button 
+                  v-if="canEdit"
+                  type="button" 
+                  :class="$style.removeBtn" 
+                  @click="markAttachmentForDeletion('meeting_minutes')"
+                  title="حذف"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            
+            <!-- New File Input -->
+            <template v-else-if="canEdit">
+              <div v-if="!newAttachments.meeting_minutes" :class="$style.attachmentUpload">
+                <input
+                  type="file"
+                  id="attachment-meeting-minutes"
+                  @change="handleMeetingMinutesUpload"
+                  :class="$style.fileInput"
+                  accept=".pdf,.doc,.docx"
+                />
+                <label for="attachment-meeting-minutes" :class="$style.uploadLabel">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
+                  <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
+                </label>
+              </div>
+              
+              <!-- File Preview -->
+              <div v-else :class="$style.attachmentPreview">
+                <div :class="$style.fileInfo">
+                  <i :class="getFileIcon(newAttachments.meeting_minutes!)"></i>
+                  <div :class="$style.fileDetails">
+                    <span :class="$style.fileName">{{ newAttachments.meeting_minutes!.name }}</span>
+                    <span :class="$style.fileSize">{{ formatFileSize(newAttachments.meeting_minutes!.size) }}</span>
+                  </div>
+                </div>
+                <button type="button" :class="$style.removeBtn" @click="removeMeetingMinutes">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Section 3: القسم المعني + اسم النشاط -->
+        <div :class="$style.formSection">
+          <div :class="$style.gridRow">
+            <FormInput
+              v-model="formData.department"
+              label="القسم المعني"
+              placeholder="ادخل القسم المعني"
+              type="text"
+              :required="true"
+              :disabled="!canEdit"
+            />
+            <FormInput
+              v-model="formData.activity_name"
+              label="اسم النشاط"
+              placeholder="ادخل اسم النشاط"
+              type="text"
+              :required="true"
+              :disabled="!canEdit"
+            />
+          </div>
+        </div>
+
+        <!-- Section 4: نوع التمثيل + نطاق النشاط -->
+        <div :class="$style.formSection">
+          <div :class="$style.gridRow">
+            <FormSelect
+              v-model="formData.representation_type"
+              label="نوع التمثيل"
+              placeholder="اختر نوع التمثيل"
+              :options="[
+                { value: 'type1', label: 'نوع 1' },
+                { value: 'type2', label: 'نوع 2' },
+                { value: 'type3', label: 'نوع 3' }
+              ]"
+              :searchable="true"
+              :required="true"
+              :disabled="!canEdit"
+            />
+            <FormSelect
+              v-model="formData.activity_scope"
+              label="نطاق النشاط"
+              placeholder="اختر نطاق النشاط"
+              :options="[
+                { value: 'local', label: 'محلي' },
+                { value: 'regional', label: 'إقليمي' },
+                { value: 'international', label: 'دولي' }
+              ]"
+              :searchable="true"
+              :required="true"
+              :disabled="!canEdit"
+            />
+          </div>
+        </div>
+
+        <!-- Section 5: مصدر النشاط + الجهات المشاركة -->
+        <div :class="$style.formSection">
+          <div :class="$style.gridRow">
+            <FormSelect
+              v-model="formData.activity_source"
+              label="مصدر النشاط"
+              placeholder="اختر مصدر النشاط"
+              :options="[
+                { value: 'internal', label: 'داخلي' },
+                { value: 'external', label: 'خارجي' },
+                { value: 'partnership', label: 'شراكة' }
+              ]"
+              :searchable="true"
+              :required="true"
+              :disabled="!canEdit"
+            />
+            <FormInput
+              v-model="formData.participating_parties"
+              label="الجهات المشاركة"
+              placeholder="ادخل الجهات المشاركة"
+              type="text"
+              :required="false"
+              :disabled="!canEdit"
+            />
+          </div>
+        </div>
+
+        <!-- Section 6: المخرجات + المرفقات -->
+        <div :class="$style.formSection">
+          <FormInput
+            v-model="formData.outputs"
+            label="المخرجات"
+            placeholder="ادخل المخرجات"
+            type="text"
+            :required="false"
+            :disabled="!canEdit"
+          />
+
+          <!-- Attachments -->
+          <div :class="$style.attachmentSection">
+            <label :class="$style.attachmentLabel">
+              <i class="fas fa-paperclip"></i>
+              المرفقات
+            </label>
+            
+            <!-- Existing Attachment -->
+            <div v-if="existingAttachments.outputs_file" :class="$style.existingAttachment">
+              <div :class="$style.fileInfo">
+                <i :class="getFileIcon(existingAttachments.outputs_file)"></i>
+                <div :class="$style.fileDetails">
+                  <span :class="$style.fileName">{{ existingAttachments.outputs_file.original_filename }}</span>
+                  <span :class="$style.fileSize">{{ formatFileSize(existingAttachments.outputs_file.file_size) }}</span>
+                </div>
+              </div>
+              <div :class="$style.attachmentActions">
+                <button 
+                  type="button"
+                  @click="handleExistingDownload(existingAttachments.outputs_file)"
+                  :class="$style.downloadBtn"
+                  title="تحميل"
+                >
+                  <i class="fas fa-download"></i>
+                </button>
+                <button 
+                  v-if="existingAttachments.outputs_file.is_image"
+                  type="button"
+                  @click="handleExistingPreview(existingAttachments.outputs_file)"
+                  :class="$style.previewBtn"
+                  title="معاينة"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button 
+                  v-if="canEdit"
+                  type="button" 
+                  :class="$style.removeBtn" 
+                  @click="markAttachmentForDeletion('outputs_file')"
+                  title="حذف"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            
+            <!-- New File Input -->
+            <template v-else-if="canEdit">
+              <div v-if="!newAttachments.outputs_file" :class="$style.attachmentUpload">
+                <input
+                  type="file"
+                  id="attachment-outputs"
+                  @change="handleOutputsUpload"
+                  :class="$style.fileInput"
+                  accept=".pdf,.doc,.docx,.bmp,.svg,.webp,.gif,.png,.jpeg,.jpg"
+                />
+                <label for="attachment-outputs" :class="$style.uploadLabel">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
+                  <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
+                </label>
+              </div>
+              
+              <!-- File Preview -->
+              <div v-else :class="$style.attachmentPreview">
+                <div :class="$style.fileInfo">
+                  <i :class="getFileIcon(newAttachments.outputs_file!)"></i>
+                  <div :class="$style.fileDetails">
+                    <span :class="$style.fileName">{{ newAttachments.outputs_file!.name }}</span>
+                    <span :class="$style.fileSize">{{ formatFileSize(newAttachments.outputs_file!.size) }}</span>
+                  </div>
+                </div>
+                <button type="button" :class="$style.removeBtn" @click="removeOutputsFile">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <div v-for="column in columns" :key="column.key" :class="$style.formRow">
           <!-- Boolean/Checkbox Field -->
           <div v-if="isBooleanColumn(column)" :class="$style.checkboxField">
@@ -847,6 +1150,19 @@ onMounted(() => {
 }
 
 .form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formSection {
+  border: 1px solid #E1E4EA;
+  border-radius: 10px;
+  padding: 20px;
+  background: white;
+}
+
+.gridRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
@@ -904,10 +1220,7 @@ onMounted(() => {
 
 /* ==================== ATTACHMENT STYLES ==================== */
 .attachmentSection {
-  grid-column: 1 / -1;
-  margin-top: 0;
-  padding-top: 16px;
-  border-top: 1px dashed #E1E4EA;
+  margin-top: 16px;
 }
 
 .attachmentLabel {
@@ -976,6 +1289,12 @@ onMounted(() => {
 .uploadLabel small {
   font-size: 12px;
   color: #9CA3AF;
+}
+
+@media (max-width: 768px) {
+  .gridRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 .attachmentPreview,

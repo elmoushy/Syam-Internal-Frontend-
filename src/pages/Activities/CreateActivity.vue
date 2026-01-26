@@ -3,8 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { userActivitiesService, type TitleColumn } from '@/services/activityService'
 import FormInput from '@/components/shared/FormInput.vue'
-import FormTextarea from '@/components/shared/FormTextarea.vue'
 import FormSelect from '@/components/shared/FormSelect.vue'
+import FormRadio from '@/components/shared/FormRadio.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,12 +20,16 @@ const errorMessage = ref('')
 // Template and columns data
 const templateInfo = ref<{ id: number; name: string; description: string } | null>(null)
 const columns = ref<TitleColumn[]>([])
-const formData = ref<Record<string, string>>({})
+const formData = ref<Record<string, any>>({
+  has_meeting_minutes: false
+})
 const formErrors = ref<Record<string, string>>({})
 
 // Attachment state
-const attachments = ref<Record<string, File | null>>({})
-const attachmentPreviews = ref<Record<string, string>>({})
+const attachments = ref<Record<string, File | null>>({
+  meeting_minutes: null,
+  outputs_file: null
+})
 
 // Load template columns
 const loadTemplateColumns = async () => {
@@ -53,79 +57,34 @@ const loadTemplateColumns = async () => {
   }
 }
 
-// Get input type based on column data type
-const getInputType = (column: TitleColumn): 'text' | 'number' | 'date' | 'email' | 'tel' | 'password' | 'url' | 'time' | 'datetime-local' => {
-  switch (column.data_type) {
-    case 'number':
-      return 'number'
-    case 'date':
-      return 'date'
-    case 'email':
-      return 'email'
-    case 'tel':
-      return 'tel'
-    default:
-      return 'text'
-  }
-}
-
-// Check if column should use textarea
-const isTextareaColumn = (column: TitleColumn): boolean => {
-  return column.data_type === 'text' || column.data_type === 'textarea'
-}
-
-// Check if column should use select
-const isSelectColumn = (column: TitleColumn): boolean => {
-  return column.data_type === 'select' || (column.options && column.options.length > 0)
-}
-
-// Check if column is boolean type
-const isBooleanColumn = (column: TitleColumn): boolean => {
-  return column.data_type === 'boolean'
-}
-
-// Percentage column keys
-const PERCENTAGE_COLUMN_KEYS = ['required_achievement_percentage', 'actual_achievement_percentage']
-
-// Check if column is a percentage column
-const isPercentageColumn = (column: TitleColumn): boolean => {
-  return PERCENTAGE_COLUMN_KEYS.includes(column.key)
-}
-
-// Get select options for a column
-const getSelectOptions = (column: TitleColumn) => {
-  if (!column.options) return []
-  return column.options.map((opt) => ({
-    value: opt,
-    label: opt
-  }))
-}
-
-// Handle file selection for attachment
-const handleFileSelect = (column: TitleColumn, event: Event) => {
+// Handle meeting minutes file upload
+const handleMeetingMinutesUpload = (event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   
   if (file) {
-    attachments.value[column.key] = file
-    
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        attachmentPreviews.value[column.key] = e.target?.result as string
-      }
-      reader.readAsDataURL(file)
-    } else {
-      attachmentPreviews.value[column.key] = ''
-    }
+    attachments.value.meeting_minutes = file
   }
 }
 
-// Remove attachment
-const removeAttachment = (columnKey: string) => {
-  attachments.value[columnKey] = null
-  attachmentPreviews.value[columnKey] = ''
+// Remove meeting minutes
+const removeMeetingMinutes = () => {
+  attachments.value.meeting_minutes = null
+}
+
+// Handle outputs file upload
+const handleOutputsUpload = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  
+  if (file) {
+    attachments.value.outputs_file = file
+  }
+}
+
+// Remove outputs file
+const removeOutputsFile = () => {
+  attachments.value.outputs_file = null
 }
 
 // Get file icon based on type
@@ -164,29 +123,11 @@ const validateForm = (): boolean => {
       }
     }
     
-    // Percentage validation (0-100)
-    if (isPercentageColumn(column) && value !== undefined && value !== null && value !== '') {
-      const numValue = Number(value)
-      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
-        formErrors.value[column.key] = 'النسبة يجب أن تكون بين 0 و 100'
-        isValid = false
-      }
-    }
-    
     // Check attachment required
     if (column.attachment_required && !attachments.value[column.key]) {
       formErrors.value[column.key] = `المرفق مطلوب لـ ${column.label}`
       isValid = false
     }
-  }
-  
-  // Special validation: actual achievement cannot exceed required achievement
-  const requiredAchievement = Number(formData.value['required_achievement_percentage'])
-  const actualAchievement = Number(formData.value['actual_achievement_percentage'])
-  
-  if (!isNaN(requiredAchievement) && !isNaN(actualAchievement) && actualAchievement > requiredAchievement) {
-    formErrors.value['actual_achievement_percentage'] = 'نسبة الإنجاز الفعلية لا يمكن أن تتجاوز نسبة الإنجاز المطلوبة'
-    isValid = false
   }
   
   return isValid
@@ -312,137 +253,190 @@ onMounted(() => {
     <!-- Form Content -->
     <div v-else :class="$style.mainContent">
       <form :class="$style.form" @submit.prevent="handleSubmit">
-        <div v-for="column in columns" :key="column.key" :class="$style.formRow">
-          <!-- Boolean/Checkbox Field -->
-          <div v-if="isBooleanColumn(column)" :class="$style.checkboxField">
-            <label :class="$style.checkboxLabel">
-              <input
-                type="checkbox"
-                v-model="formData[column.key]"
-                :class="$style.checkboxInput"
-                :true-value="'true'"
-                :false-value="'false'"
-              />
-              <span :class="$style.checkboxText">
-                {{ column.label }}
-                <span v-if="column.is_required" :class="$style.required">*</span>
-              </span>
-            </label>
-            <div v-if="formErrors[column.key]" :class="$style.fieldError">
-              {{ formErrors[column.key] }}
-            </div>
-          </div>
-          
-          <!-- Select Field -->
-          <FormSelect
-            v-else-if="isSelectColumn(column)"
-            v-model="formData[column.key]"
-            :label="column.label"
-            :placeholder="`اختر ${column.label}`"
-            :options="getSelectOptions(column)"
-            :searchable="true"
-            :required="column.is_required"
-            :error="formErrors[column.key]"
-          />
-          
-          <!-- Textarea Field -->
-          <FormTextarea
-            v-else-if="isTextareaColumn(column)"
-            v-model="formData[column.key]"
-            :label="column.label"
-            :placeholder="`ادخل ${column.label}`"
-            :rows="4"
-            :required="column.is_required"
-            :error="formErrors[column.key]"
-          />
-          
-          <!-- Percentage Field -->
-          <div v-else-if="isPercentageColumn(column)" :class="$style.percentageField">
-            <label :class="$style.percentageLabel">
-              {{ column.label }}
-              <span v-if="column.is_required" :class="$style.required">*</span>
-            </label>
-            <div :class="$style.percentageInputWrapper">
-              <input
-                v-model="formData[column.key]"
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                :placeholder="`ادخل ${column.label}`"
-                :class="[$style.percentageInput, formErrors[column.key] ? $style.hasError : '']"
-              />
-              <span :class="$style.percentageSymbol">%</span>
-              <div :class="$style.percentageBar">
-                <div 
-                  :class="$style.percentageFill" 
-                  :style="{ width: `${Math.min(100, Math.max(0, Number(formData[column.key]) || 0))}%` }"
-                ></div>
-              </div>
-            </div>
-            <div v-if="formErrors[column.key]" :class="$style.fieldError">
-              {{ formErrors[column.key] }}
-            </div>
-          </div>
-          
-          <!-- Input Field -->
+        
+        <!-- Section 1: نوع النشاط -->
+        <div :class="$style.formSection">
           <FormInput
-            v-else
-            v-model="formData[column.key]"
-            :label="column.label"
-            :placeholder="`ادخل ${column.label}`"
-            :type="getInputType(column)"
-            :required="column.is_required"
-            :error="formErrors[column.key]"
+            v-model="formData.activity_type"
+            label="نوع النشاط"
+            placeholder="ادخل نوع النشاط"
+            type="text"
+            :required="true"
           />
-          
-          <!-- Attachment Upload (if column allows) -->
-          <div v-if="column.allows_attachment" :class="$style.attachmentSection">
+        </div>
+
+        <!-- Section 2: يوجد محضر اجتماع + Upload -->
+        <div :class="$style.formSection">
+          <FormRadio
+            v-model="formData.has_meeting_minutes"
+            label="يوجد محضر اجتماع"
+            :required="true"
+          />
+
+          <!-- Conditional Attachment Upload -->
+          <div v-if="formData.has_meeting_minutes" :class="$style.attachmentSection">
             <label :class="$style.attachmentLabel">
               <i class="fas fa-paperclip"></i>
-              المرفقات
-              <span v-if="column.attachment_required" :class="$style.required">*</span>
+              رفع محضر الاجتماع
+              <span :class="$style.required">*</span>
             </label>
             
             <!-- File Input -->
-            <div v-if="!attachments[column.key]" :class="$style.attachmentUpload">
+            <div v-if="!attachments.meeting_minutes" :class="$style.attachmentUpload">
               <input
                 type="file"
-                :id="`attachment-${column.key}`"
-                @change="handleFileSelect(column, $event)"
+                id="attachment-meeting-minutes"
+                @change="handleMeetingMinutesUpload"
                 :class="$style.fileInput"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
+                accept=".pdf,.doc,.docx"
               />
-              <label :for="`attachment-${column.key}`" :class="$style.uploadLabel">
+              <label for="attachment-meeting-minutes" :class="$style.uploadLabel">
                 <i class="fas fa-cloud-upload-alt"></i>
-                <span>اختر ملف أو اسحب وأفلت</span>
-                <small>PDF, Word, Excel, Images (max 10MB)</small>
+                <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
+                <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
               </label>
             </div>
             
             <!-- File Preview -->
             <div v-else :class="$style.attachmentPreview">
               <div :class="$style.fileInfo">
-                <i :class="getFileIcon(attachments[column.key]!)"></i>
+                <i :class="getFileIcon(attachments.meeting_minutes!)"></i>
                 <div :class="$style.fileDetails">
-                  <span :class="$style.fileName">{{ attachments[column.key]!.name }}</span>
-                  <span :class="$style.fileSize">{{ formatFileSize(attachments[column.key]!.size) }}</span>
+                  <span :class="$style.fileName">{{ attachments.meeting_minutes!.name }}</span>
+                  <span :class="$style.fileSize">{{ formatFileSize(attachments.meeting_minutes!.size) }}</span>
                 </div>
               </div>
-              <button type="button" :class="$style.removeBtn" @click="removeAttachment(column.key)">
+              <button type="button" :class="$style.removeBtn" @click="removeMeetingMinutes">
                 <i class="fas fa-times"></i>
               </button>
             </div>
-            
-            <!-- Image Preview -->
-            <img 
-              v-if="attachmentPreviews[column.key]" 
-              :src="attachmentPreviews[column.key]" 
-              :class="$style.imagePreview" 
-              alt="معاينة"
+          </div>
+        </div>
+
+        <!-- Section 3: القسم المعني + اسم النشاط -->
+        <div :class="$style.formSection">
+          <div :class="$style.gridRow">
+            <FormInput
+              v-model="formData.department"
+              label="القسم المعني"
+              placeholder="ادخل القسم المعني"
+              type="text"
+              :required="true"
+            />
+            <FormInput
+              v-model="formData.activity_name"
+              label="اسم النشاط"
+              placeholder="ادخل اسم النشاط"
+              type="text"
+              :required="true"
             />
           </div>
         </div>
+
+        <!-- Section 4: نوع التمثيل + نطاق النشاط -->
+        <div :class="$style.formSection">
+          <div :class="$style.gridRow">
+            <FormSelect
+              v-model="formData.representation_type"
+              label="نوع التمثيل"
+              placeholder="اختر نوع التمثيل"
+              :options="[
+                { value: 'type1', label: 'نوع 1' },
+                { value: 'type2', label: 'نوع 2' },
+                { value: 'type3', label: 'نوع 3' }
+              ]"
+              :searchable="true"
+              :required="true"
+            />
+            <FormSelect
+              v-model="formData.activity_scope"
+              label="نطاق النشاط"
+              placeholder="اختر نطاق النشاط"
+              :options="[
+                { value: 'local', label: 'محلي' },
+                { value: 'regional', label: 'إقليمي' },
+                { value: 'international', label: 'دولي' }
+              ]"
+              :searchable="true"
+              :required="true"
+            />
+          </div>
+        </div>
+
+        <!-- Section 5: مصدر النشاط + الجهات المشاركة -->
+        <div :class="$style.formSection">
+          <div :class="$style.gridRow">
+            <FormSelect
+              v-model="formData.activity_source"
+              label="مصدر النشاط"
+              placeholder="اختر مصدر النشاط"
+              :options="[
+                { value: 'internal', label: 'داخلي' },
+                { value: 'external', label: 'خارجي' },
+                { value: 'partnership', label: 'شراكة' }
+              ]"
+              :searchable="true"
+              :required="true"
+            />
+            <FormInput
+              v-model="formData.participating_parties"
+              label="الجهات المشاركة"
+              placeholder="ادخل الجهات المشاركة"
+              type="text"
+              :required="false"
+            />
+          </div>
+        </div>
+
+        <!-- Section 6: المخرجات + المرفقات -->
+        <div :class="$style.formSection">
+          <FormInput
+            v-model="formData.outputs"
+            label="المخرجات"
+            placeholder="ادخل المخرجات"
+            type="text"
+            :required="false"
+          />
+
+          <!-- Attachments -->
+          <div :class="$style.attachmentSection">
+            <label :class="$style.attachmentLabel">
+              <i class="fas fa-paperclip"></i>
+              المرفقات
+            </label>
+            
+            <!-- File Input -->
+            <div v-if="!attachments.outputs_file" :class="$style.attachmentUpload">
+              <input
+                type="file"
+                id="attachment-outputs"
+                @change="handleOutputsUpload"
+                :class="$style.fileInput"
+                accept=".pdf,.doc,.docx,.bmp,.svg,.webp,.gif,.png,.jpeg,.jpg"
+              />
+              <label for="attachment-outputs" :class="$style.uploadLabel">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
+                <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
+              </label>
+            </div>
+            
+            <!-- File Preview -->
+            <div v-else :class="$style.attachmentPreview">
+              <div :class="$style.fileInfo">
+                <i :class="getFileIcon(attachments.outputs_file!)"></i>
+                <div :class="$style.fileDetails">
+                  <span :class="$style.fileName">{{ attachments.outputs_file!.name }}</span>
+                  <span :class="$style.fileSize">{{ formatFileSize(attachments.outputs_file!.size) }}</span>
+                </div>
+              </div>
+              <button type="button" :class="$style.removeBtn" @click="removeOutputsFile">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
       </form>
     </div>
   </div>
@@ -608,23 +602,97 @@ onMounted(() => {
 }
 
 .form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formSection {
+  border: 1px solid #E1E4EA;
+  border-radius: 10px;
+  padding: 20px;
+  background: white;
+}
+
+.gridRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
-.formRow {
-  display: contents;
+.fullWidth {
+  width: 100%;
 }
 
-/* Full width for textarea fields */
-.formRow:has(.checkboxField),
-.formRow:has(> div[class*="textarea"]),
-.formRow:has(.attachmentSection) {
-  grid-column: 1 / -1;
+@media (max-width: 768px) {
+  .gridRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ==================== CHECKBOX FIELD (BOOLEAN) ==================== */
+.toggleField {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  margin-bottom: 16px;
+}
+
+.toggleLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0E121B;
+}
+
+.toggleSwitch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggleInput {
+  display: none;
+}
+
+.toggleSlider {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  background: #E1E4EA;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggleSlider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggleInput:checked + .toggleSlider {
+  background: #00A350;
+}
+
+.toggleInput:checked + .toggleSlider::before {
+  transform: translateX(24px);
+}
+
+.toggleText {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0E121B;
+  min-width: 32px;
+}
+
 .checkboxField {
   display: flex;
   flex-direction: column;
@@ -709,10 +777,7 @@ onMounted(() => {
 
 /* ==================== ATTACHMENT STYLES ==================== */
 .attachmentSection {
-  grid-column: 1 / -1;
-  margin-top: 0;
-  padding-top: 16px;
-  border-top: 1px dashed #E1E4EA;
+  margin-top: 16px;
 }
 
 .attachmentLabel {
