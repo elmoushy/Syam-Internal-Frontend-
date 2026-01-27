@@ -184,10 +184,6 @@ const goToPage = (page: number) => {
   }
 }
 
-// Get activity column value by key
-const getColumnValue = (activity: UserActivity, colKey: string): string => {
-  return activity.data?.[colKey] || ''
-}
 
 // Watch for route changes
 watch(templateId, (newVal) => {

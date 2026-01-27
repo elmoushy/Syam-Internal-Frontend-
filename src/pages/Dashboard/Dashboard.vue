@@ -1,169 +1,171 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import StatKpiCard from '../../components/Dashboard/StatKpiCard.vue';
 import StatusDonutChart from '../../components/Dashboard/StatusDonutChart.vue';
 import QuarterlyBarChart from '../../components/Dashboard/QuarterlyBarChart.vue';
 import MonthlyPlannedActualLineChart from '../../components/Dashboard/MonthlyPlannedActualLineChart.vue';
 import ProgramPerformanceCard from '../../components/Dashboard/ProgramPerformanceCard.vue';
+import { dashboardService } from '../../services/dashboardService';
+import type { KPICardData, ProgramPerformance } from '../../types/dashboard.types';
 
-// Mock Data for KPI Cards
-const kpiData: {
-	title: string;
-	icon: string;
-	value: number | string;
-	valueLabel: string;
-	trend: 'up' | 'down' | 'flat';
-	percentage: number;
-	footerText: string;
-}[] = [
+// Loading and error states
+const isLoading = ref(true);
+const error = ref<string | null>(null);
+
+// Year selection
+const selectedYear = ref(new Date().getFullYear());
+const years = ref<number[]>([]);
+
+// Search for programs
+const programSearch = ref('');
+
+// KPI Card Data - reactive from API
+const kpiData = ref<KPICardData[]>([
 	{
 		title: 'إجمالي الأنشطة',
-		icon: 'bi bi-building',
-		value: 300,
+		icon: 'bi bi-activity',
+		value: 0,
 		valueLabel: 'نشاط',
 		trend: 'flat',
-		percentage: 10,
+		percentage: 0,
 		footerText: 'في هذا الشهر'
 	},
 	{
 		title: 'الأقسام المشاركة',
 		icon: 'bi bi-building',
-		value: 18,
+		value: 0,
 		valueLabel: 'قسم مشارك',
-		trend: 'down',
-		percentage: 10,
+		trend: 'flat',
+		percentage: 0,
 		footerText: 'في هذا الشهر'
 	},
 	{
 		title: 'الأقسام غير المشاركة',
 		icon: 'bi bi-x-circle',
-		value: 5,
+		value: 0,
 		valueLabel: 'أقسام غير مشاركة',
 		trend: 'flat',
-		percentage: 10,
+		percentage: 0,
 		footerText: 'في هذا الشهر'
 	},
 	{
 		title: 'معدل الإنجاز الإجمالي',
 		icon: 'bi bi-check-circle',
-		value: '78%',
+		value: '0%',
 		valueLabel: '',
-		trend: 'down',
-		percentage: 10,
+		trend: 'flat',
+		percentage: 0,
 		footerText: 'في هذا الشهر'
 	}
-];
+]);
 
-// Mock Data for Donut Chart
-const selectedYear = ref(2026);
-const years = [2024, 2025, 2026];
+// Donut Chart Data - reactive from API
+const donutData = ref<Record<number, { total: number; items: { label: string; value: number; color: string }[] }>>({});
 
-const donutData = {
-	2026: {
-		total: 300,
-		items: [
-			{ label: 'مكتمل', value: 180, color: '#00A651' },
-			{ label: 'قيد التنفيذ', value: 70, color: '#FFD166' },
-			{ label: 'لم يبدأ', value: 50, color: '#E76F51' }
-		]
-	},
-	2025: {
-		total: 250,
-		items: [
-			{ label: 'مكتمل', value: 100, color: '#00A651' },
-			{ label: 'قيد التنفيذ', value: 100, color: '#FFD166' },
-			{ label: 'لم يبدأ', value: 50, color: '#E76F51' }
-		]
-	},
-	2024: {
-		total: 200,
-		items: [
-			{ label: 'مكتمل', value: 50, color: '#00A651' },
-			{ label: 'قيد التنفيذ', value: 50, color: '#FFD166' },
-			{ label: 'لم يبدأ', value: 100, color: '#E76F51' }
-		]
+// Bar Chart Data - reactive from API  
+const barChartData = ref<Record<number, { quarters: { label: string; planned: number; actual: number }[] }>>({});
+
+// Line Chart Data - reactive from API
+const lineMonths = ref<string[]>([]);
+const lineActualSeries = ref<{ label: string; value: number }[]>([]);
+const linePlannedSeries = ref<{ label: string; value: number }[]>([]);
+
+// Programs Data - reactive from API
+const programCards = ref<ProgramPerformance[]>([]);
+
+// Filtered programs based on search
+const filteredPrograms = computed(() => {
+	if (!programSearch.value.trim()) {
+		return programCards.value;
 	}
-};
+	const searchTerm = programSearch.value.toLowerCase();
+	return programCards.value.filter(program =>
+		program.title.toLowerCase().includes(searchTerm) ||
+		program.description.toLowerCase().includes(searchTerm)
+	);
+});
 
-const barChartData = {
-	2026: {
-		quarters: [
-			{ label: 'Q1', planned: 50, actual: 130 },
-			{ label: 'Q2', planned: 140, actual: 160 },
-			{ label: 'Q3', planned: 150, actual: 180 },
-			{ label: 'Q4', planned: 70, actual: 120 }
-		]
-	},
-	2025: {
-		quarters: [
-			{ label: 'Q1', planned: 60, actual: 90 },
-			{ label: 'Q2', planned: 90, actual: 120 },
-			{ label: 'Q3', planned: 120, actual: 140 },
-			{ label: 'Q4', planned: 80, actual: 100 }
-		]
-	},
-	2024: {
-		quarters: [
-			{ label: 'Q1', planned: 40, actual: 60 },
-			{ label: 'Q2', planned: 70, actual: 90 },
-			{ label: 'Q3', planned: 110, actual: 120 },
-			{ label: 'Q4', planned: 60, actual: 80 }
-		]
+// Fetch all dashboard data
+async function fetchDashboardData() {
+	isLoading.value = true;
+	error.value = null;
+	
+	try {
+		// Fetch full dashboard data in single request
+		const data = await dashboardService.getFullDashboard({ year: selectedYear.value });
+		
+		// Update available years
+		years.value = data.availableYears;
+		
+		// Update KPI cards using transform helper
+		kpiData.value = dashboardService.transformToKPICards(data.kpis);
+		
+		// Update donut chart data
+		donutData.value = dashboardService.transformStatusDistributionByYear(
+			data.statusDistribution,
+			years.value
+		);
+		
+		// Update bar chart data
+		barChartData.value = dashboardService.transformQuarterlyDataByYear(
+			data.quarterlyData,
+			years.value
+		);
+		
+		// Update line chart data
+		const monthlyData = dashboardService.transformMonthlyTrend(data.monthlyTrend);
+		lineMonths.value = monthlyData.months;
+		lineActualSeries.value = monthlyData.actualSeries;
+		linePlannedSeries.value = monthlyData.plannedSeries;
+		
+		// Update programs
+		programCards.value = data.programs;
+		
+	} catch (err: any) {
+		console.error('Failed to fetch dashboard data:', err);
+		error.value = err.response?.data?.error || 'فشل في تحميل بيانات لوحة المعلومات';
+	} finally {
+		isLoading.value = false;
 	}
-};
+}
 
-const lineMonths = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو'];
+// Search programs with debounce
+let searchTimeout: ReturnType<typeof setTimeout>;
+async function searchPrograms() {
+	clearTimeout(searchTimeout);
+	searchTimeout = setTimeout(async () => {
+		if (programSearch.value.trim()) {
+			try {
+				const programs = await dashboardService.getPrograms({
+					year: selectedYear.value,
+					search: programSearch.value
+				});
+				programCards.value = programs;
+			} catch (err) {
+				console.error('Failed to search programs:', err);
+			}
+		} else {
+			// If search cleared, reload all programs
+			const programs = await dashboardService.getPrograms({ year: selectedYear.value });
+			programCards.value = programs;
+		}
+	}, 300);
+}
 
-const lineActualSeries = [
-	{ label: 'يناير', value: 18 },
-	{ label: 'فبراير', value: 22 },
-	{ label: 'مارس', value: 28 },
-	{ label: 'أبريل', value: 24 },
-	{ label: 'مايو', value: 30 },
-	{ label: 'يونيو', value: 35 }
-];
+// Watch for year changes
+watch(selectedYear, () => {
+	fetchDashboardData();
+});
 
-const linePlannedSeries = [
-	{ label: 'يناير', value: 22 },
-	{ label: 'فبراير', value: 20 },
-	{ label: 'مارس', value: 24 },
-	{ label: 'أبريل', value: 26 },
-	{ label: 'مايو', value: 32 },
-	{ label: 'يونيو', value: 32 }
-];
+// Watch for search changes
+watch(programSearch, () => {
+	searchPrograms();
+});
 
-const programCards = [
-	{
-		title: 'حصر الأنشطة',
-		description:
-			'هذا نص تجريبي يُستخدم لملء المساحات المخصصة للوصف، ولا يعبّر عن محتوى فعلي، وهدفه فقط إلى عرض شكل النص.',
-		completionRate: 58,
-		departmentsCount: 20,
-		activitiesTotal: 124,
-		mode: 'gold' as const,
-		detailsLink: '/programs/details/1'
-	},
-	{
-		title: 'الفعاليات والأنشطة المجتمعية',
-		description:
-			'هذا نص تجريبي يُستخدم لملء المساحات المخصصة للوصف، ولا يعبّر عن محتوى فعلي، وهدفه فقط إلى عرض شكل النص.',
-		completionRate: 11,
-		departmentsCount: 24,
-		activitiesTotal: 124,
-		mode: 'danger' as const,
-		detailsLink: '/programs/details/2'
-	},
-	{
-		title: 'البرامج التدريبية',
-		description:
-			'هذا نص تجريبي يُستخدم لملء المساحات المخصصة للوصف، ولا يعبّر عن محتوى فعلي، وهدفه فقط إلى عرض شكل النص.',
-		completionRate: 50,
-		departmentsCount: 2,
-		activitiesTotal: 124,
-		mode: 'gold' as const,
-		detailsLink: '/programs/details/3'
-	}
-];
+// Initial load
+onMounted(() => {
+	fetchDashboardData();
+});
 </script>
 
 <template>
@@ -171,11 +173,11 @@ const programCards = [
 		<div class="dashboard-header">
 			<h1 class="page-title">لوحة أداء الاستراتيجية</h1>
 			<div class="header-actions">
-				<!-- Year Filter Button (Mock) -->
-				<button class="btn-filter">
-					2026 <i class="bi bi-chevron-down"></i>
-				</button>
-				<!-- Export Button (Mock) -->
+				<!-- Year Filter Dropdown -->
+				<select v-model="selectedYear" class="btn-filter">
+					<option v-for="year in years" :key="year" :value="year">{{ year }}</option>
+				</select>
+				<!-- Export Button -->
 				<button class="btn-export">
 					<i class="bi bi-download"></i> تصدير البيانات
 				</button>
@@ -210,7 +212,7 @@ const programCards = [
 				<div class="programs-header">
 					<div class="search-wrapper">
 						<i class="bi bi-search"></i>
-						<input class="search-input" type="text" placeholder="البحث في النماذج" />
+						<input v-model="programSearch" class="search-input" type="text" placeholder="البحث في النماذج" />
 					</div>
 					<div class="programs-title-group">
 						<h2 class="programs-title">إدارة النماذج</h2>
@@ -219,7 +221,7 @@ const programCards = [
 				</div>
 
 				<div class="programs-grid">
-					<ProgramPerformanceCard v-for="program in programCards" :key="program.title" v-bind="program" />
+					<ProgramPerformanceCard v-for="program in filteredPrograms" :key="program.title" v-bind="program" />
 				</div>
 			</div>
 		</div>

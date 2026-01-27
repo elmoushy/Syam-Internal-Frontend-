@@ -1,85 +1,133 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
+import { useRoute } from 'vue-router';
 import StatKpiCard from '../../components/Dashboard/StatKpiCard.vue';
 import OverallCompletionCard from '../../components/Dashboard/OverallCompletionCard.vue';
 import QuarterlyBarChart from '../../components/Dashboard/QuarterlyBarChart.vue';
 import DepartmentStatsCard from '../../components/Dashboard/DepartmentStatsCard.vue';
+import { dashboardService } from '@/services/dashboardService';
+import type { 
+	KPICardData, 
+	BarChartDataByYear,
+	ProgramDepartmentStats 
+} from '@/types/dashboard.types';
 
-const selectedYear = ref(2026);
-const years = [2024, 2025, 2026];
+// Route
+const route = useRoute();
+const programId = computed(() => Number(route.params.id));
 
-const kpiData: {
-	title: string;
-	icon: string;
-	value: number | string;
-	valueLabel: string;
-	trend: 'up' | 'down' | 'flat';
-	percentage: number;
-	footerText: string;
-}[] = [
-	{ title: 'إجمالي الأنشطة', icon: 'bi bi-activity', value: 200, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' },
-	{ title: 'مكتمل', icon: 'bi bi-check-circle', value: 80, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' },
-	{ title: 'قيد التنفيذ', icon: 'bi bi-clock-history', value: 20, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' },
-	{ title: 'متأخر', icon: 'bi bi-exclamation-triangle', value: 10, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' },
-	{ title: 'ملغي', icon: 'bi bi-x-circle', value: 5, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' }
-];
+// State
+const loading = ref(true);
+const error = ref<string | null>(null);
+const selectedYear = ref(new Date().getFullYear());
+const years = ref<number[]>([2024, 2025, 2026]);
 
-const overall = {
-	percentage: 75,
-	completed: 169,
-	total: 225,
-	departments: 10
-};
+// Program info
+const programTitle = ref('تحميل...');
+const programDescription = ref('');
 
-const barChartData = {
-	2026: {
-		quarters: [
-			{ label: 'العلاقات العامة', planned: 60, actual: 135 },
-			{ label: 'الموارد البشرية', planned: 50, actual: 110 },
-			{ label: 'الشؤون المالية', planned: 80, actual: 180 }
-		]
-	},
-	2025: {
-		quarters: [
-			{ label: 'العلاقات العامة', planned: 50, actual: 100 },
-			{ label: 'الموارد البشرية', planned: 45, actual: 90 },
-			{ label: 'الشؤون المالية', planned: 70, actual: 150 }
-		]
+// KPI data
+const kpiData = ref<KPICardData[]>([
+	{ title: 'إجمالي الأنشطة', icon: 'bi bi-activity', value: 0, valueLabel: 'نشاط', trend: 'flat', percentage: 0, footerText: 'في هذا الشهر' },
+	{ title: 'مكتمل', icon: 'bi bi-check-circle', value: 0, valueLabel: 'نشاط', trend: 'flat', percentage: 0, footerText: 'في هذا الشهر' },
+	{ title: 'قيد التنفيذ', icon: 'bi bi-clock-history', value: 0, valueLabel: 'نشاط', trend: 'flat', percentage: 0, footerText: 'في هذا الشهر' },
+	{ title: 'متأخر', icon: 'bi bi-exclamation-triangle', value: 0, valueLabel: 'نشاط', trend: 'flat', percentage: 0, footerText: 'في هذا الشهر' },
+	{ title: 'ملغي', icon: 'bi bi-x-circle', value: 0, valueLabel: 'نشاط', trend: 'flat', percentage: 0, footerText: 'في هذا الشهر' }
+]);
+
+// Overall completion
+const overall = ref({
+	percentage: 0,
+	completed: 0,
+	total: 0,
+	departments: 0
+});
+
+// Bar chart data (by department)
+const barChartData = ref<BarChartDataByYear>({});
+
+// Department stats
+const departmentsStats = ref<ProgramDepartmentStats[]>([]);
+
+// Search
+const departmentSearch = ref('');
+
+// Filtered departments based on search
+const filteredDepartments = computed(() => {
+	if (!departmentSearch.value) {
+		return departmentsStats.value;
 	}
-};
+	const search = departmentSearch.value.toLowerCase();
+	return departmentsStats.value.filter(dept =>
+		dept.title.toLowerCase().includes(search)
+	);
+});
 
-const departmentsStats = [
-	{
-		title: 'قسم إدارة الأزمات والطوارئ',
-		completionRate: 58,
-		totalActivities: 28,
-		icon: 'bi bi-building',
-		buckets: {
-			cancelled: { label: 'ملغي', count: 1 },
-			late: { label: 'متأخر', count: 4 },
-			in_progress: { label: 'قيد التنفيذ', count: 4 },
-			completed: { label: 'مكتمل', count: 22 }
+// Fetch program data
+async function fetchProgramData() {
+	loading.value = true;
+	error.value = null;
+	
+	try {
+		const data = await dashboardService.getProgramDetail(programId.value, selectedYear.value);
+		
+		// Update program info
+		programTitle.value = data.title;
+		programDescription.value = data.description;
+		
+		// Update years
+		if (data.availableYears?.length > 0) {
+			years.value = data.availableYears;
+			if (!years.value.includes(selectedYear.value)) {
+				selectedYear.value = years.value[0];
+			}
 		}
-	},
-	{
-		title: 'العلاقات العامة',
-		completionRate: 58,
-		totalActivities: 28,
-		icon: 'bi bi-building',
-		buckets: {
-			cancelled: { label: 'ملغي', count: 1 },
-			late: { label: 'متأخر', count: 4 },
-			in_progress: { label: 'قيد التنفيذ', count: 4 },
-			completed: { label: 'مكتمل', count: 22 }
-		}
+		
+		// Update KPIs
+		kpiData.value = data.kpis;
+		
+		// Update overall completion
+		overall.value = {
+			percentage: data.overall.percentage,
+			completed: data.overall.completed,
+			total: data.overall.total,
+			departments: data.overall.departmentsCount
+		};
+		
+		// Update bar chart data
+		barChartData.value = data.barChartData;
+		
+		// Update department stats
+		departmentsStats.value = data.departmentStats;
+		
+	} catch (err: any) {
+		console.error('Failed to fetch program data:', err);
+		error.value = err.response?.data?.error || 'فشل في تحميل بيانات البرنامج';
+	} finally {
+		loading.value = false;
 	}
-];
+}
+
+// Watch for year changes
+watch(selectedYear, () => {
+	fetchProgramData();
+});
+
+// Watch for program ID changes (navigation)
+watch(programId, () => {
+	fetchProgramData();
+});
+
+// Initial load
+onMounted(() => {
+	fetchProgramData();
+});
 </script>
 
 <template>
 	<div class="details-page">
 		<div class="page-header">
-			<h1>حصر الأنشطة</h1>
+			<h1>{{ programTitle }}</h1>
 			<div class="crumbs">قائمة حصر الأنشطة / لوحة أداء الأنشطة</div>
 		</div>
 
@@ -102,17 +150,17 @@ const departmentsStats = [
 			<div class="departments-header">
 				<div class="search-wrapper">
 					<i class="bi bi-search" />
-					<input class="search-input" type="text" placeholder="بحث عن قسم..." />
+					<input v-model="departmentSearch" class="search-input" type="text" placeholder="بحث عن قسم..." />
 				</div>
 				<div class="departments-title-group">
 					<h2 class="departments-title">إحصائيات الأقسام</h2>
-					<span class="departments-subtitle">10 أقسام</span>
+					<span class="departments-subtitle">{{ filteredDepartments.length }} أقسام</span>
 				</div>
 			</div>
 
 		<div class="departments-grid">
-			<DepartmentStatsCard v-for="(dept, idx) in departmentsStats" :key="dept.title" v-bind="dept"
-				:department-id="idx + 1" />
+			<DepartmentStatsCard v-for="(dept, idx) in filteredDepartments" :key="dept.title" v-bind="dept"
+				:department-id="dept.departmentId || idx + 1" />
 		</div>
 		</div>
 	</div>
