@@ -118,9 +118,43 @@ const loadActivity = async () => {
 }
 
 // Get column value from activity data
-const getColumnValue = (columnKey: string): string => {
-  if (!activity.value) return '-'
-  return activity.value.data[columnKey] || '-'
+const getColumnValue = (columnKey: string): any => {
+  if (!activity.value) return null
+  return activity.value.data?.[columnKey] ?? null
+}
+
+// Format column value based on data type for display
+const formatColumnValue = (column: TitleColumn, value: any): string => {
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
+  
+  switch (column.data_type) {
+    case 'boolean':
+      return value === true || value === 'true' ? 'نعم' : 'لا'
+    case 'date':
+      try {
+        return new Date(value).toLocaleDateString('ar-EG', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      } catch {
+        return String(value)
+      }
+    case 'select':
+      return String(value)
+    default:
+      return String(value)
+  }
+}
+
+// Get value class based on column type and value
+const getValueClass = (column: TitleColumn, value: any): string => {
+  if (column.data_type === 'boolean') {
+    return value === true || value === 'true' ? 'greenText' : ''
+  }
+  return ''
 }
 
 // Removed unused functions - attachments now shown in sidebar only
@@ -264,35 +298,19 @@ onMounted(() => {
                 
                 <div :class="$style.cardBody">
                   <div :class="$style.infoGrid">
-                    <div :class="$style.infoItem">
-                      <span :class="$style.infoLabel">نوع النشاط</span>
-                      <span :class="$style.infoValue">{{ getColumnValue('activity_type') || 'اجتماع تنسيقي' }}</span>
-                    </div>
-                    
-                    <div :class="$style.infoItem">
-                      <span :class="$style.infoLabel">القسم المستهدف</span>
-                      <span :class="$style.infoValue">{{ getColumnValue('department') || 'قسم إدارة الأزمات والطوارئ' }}</span>
-                    </div>
-                    
-                    <div :class="$style.infoItem">
-                      <span :class="$style.infoLabel">نطاق النشاط</span>
-                      <span :class="$style.infoValue">{{ getColumnValue('activity_scope') || 'محلي - على مستوى الإمارة' }}</span>
-                    </div>
-                    
-                    <div :class="$style.infoItem">
-                      <span :class="$style.infoLabel">نوع التمويل</span>
-                      <span :class="$style.infoValue">{{ getColumnValue('funding_type') || 'تمويل حكومي' }}</span>
-                    </div>
-                    
-                    <div :class="$style.infoItem">
-                      <span :class="$style.infoLabel">مصدر النشاط</span>
-                      <span :class="$style.infoValue">{{ getColumnValue('activity_source') || 'مبادرة داخلية - قسم التخطيط' }}</span>
-                    </div>
-                    
-                    <div :class="$style.infoItem">
-                      <span :class="$style.infoLabel">يوجد محضر اجتماع</span>
-                      <span :class="[$style.infoValue, $style.greenText]">{{ getColumnValue('has_meeting_minutes') === 'true' ? 'نعم' : 'لا' }}</span>
-                    </div>
+                    <template v-for="column in columns" :key="column.key">
+                      <div :class="$style.infoItem">
+                        <span :class="$style.infoLabel">{{ column.label }}</span>
+                        <span 
+                          :class="[
+                            $style.infoValue, 
+                            getValueClass(column, getColumnValue(column.key)) ? $style[getValueClass(column, getColumnValue(column.key))] : ''
+                          ]"
+                        >
+                          {{ formatColumnValue(column, getColumnValue(column.key)) }}
+                        </span>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -310,7 +328,7 @@ onMounted(() => {
                 
                 <div :class="$style.cardBody">
                   <p :class="$style.outputText">
-                    {{ getColumnValue('outputs') || 'مراجعة شاملة لخطط الطوارئ الحالية وتحديث الإجراءات التشغيلية بما يتماشى مع أحدث المعايير الدولية، تحديد نقاط الضعف في الخطط الموجودة وأفراد التحسينات الرئيسية. إعداد تقرير مفصل بالتوصيات والإجراءات المطلوبة مع جدول زمني للتنفيذ.' }}
+                    {{ getColumnValue('outputs') || '-' }}
                   </p>
                 </div>
               </div>

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { userActivitiesService, type TitleColumn } from '@/services/activityService'
 import FormInput from '@/components/shared/FormInput.vue'
 import FormSelect from '@/components/shared/FormSelect.vue'
 import FormRadio from '@/components/shared/FormRadio.vue'
+import FormTextarea from '@/components/shared/FormTextarea.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,16 +21,117 @@ const errorMessage = ref('')
 // Template and columns data
 const templateInfo = ref<{ id: number; name: string; description: string } | null>(null)
 const columns = ref<TitleColumn[]>([])
-const formData = ref<Record<string, any>>({
-  has_meeting_minutes: false
-})
+const formData = ref<Record<string, any>>({})
 const formErrors = ref<Record<string, string>>({})
 
-// Attachment state
-const attachments = ref<Record<string, File | null>>({
-  meeting_minutes: null,
-  outputs_file: null
+// Attachment state - dynamic based on columns
+const attachments = ref<Record<string, File | null>>({})
+
+// Organize columns into layout rows
+// First row: single field (ID or first column)
+// Subsequent rows: 2 fields per row
+// Boolean fields with attachment get their own row
+const organizedRows = computed(() => {
+  const rows: Array<{ type: 'single' | 'pair' | 'boolean-with-attachment'; columns: TitleColumn[] }> = []
+  const sortedColumns = [...columns.value].sort((a, b) => (a.order || 0) - (b.order || 0))
+  
+  let i = 0
+  
+  // First column alone (usually ID or activity type)
+  if (sortedColumns.length > 0) {
+    rows.push({ type: 'single', columns: [sortedColumns[0]] })
+    i = 1
+  }
+  
+  // Process remaining columns
+  while (i < sortedColumns.length) {
+    const col = sortedColumns[i]
+    
+    // Boolean columns with attachments get their own section
+    if (col.data_type === 'boolean' && col.allows_attachment) {
+      rows.push({ type: 'boolean-with-attachment', columns: [col] })
+      i++
+      continue
+    }
+    
+    // Any column with attachment gets its own row
+    if (col.allows_attachment) {
+      rows.push({ type: 'single', columns: [col] })
+      i++
+      continue
+    }
+    
+    // Try to pair with next column
+    const nextCol = sortedColumns[i + 1]
+    
+    // If next column is boolean with attachment, current goes alone
+    if (nextCol && nextCol.data_type === 'boolean' && nextCol.allows_attachment) {
+      rows.push({ type: 'single', columns: [col] })
+      i++
+      continue
+    }
+    
+    // If next column allows attachment, current goes alone
+    if (nextCol && nextCol.allows_attachment) {
+      rows.push({ type: 'single', columns: [col] })
+      i++
+      continue
+    }
+    
+    // Pair two columns together
+    if (nextCol) {
+      rows.push({ type: 'pair', columns: [col, nextCol] })
+      i += 2
+    } else {
+      // Last odd column goes alone
+      rows.push({ type: 'single', columns: [col] })
+      i++
+    }
+  }
+  
+  return rows
 })
+
+// Get input type based on column data type
+const getInputType = (column: TitleColumn): 'text' | 'number' | 'date' | 'email' | 'tel' => {
+  switch (column.data_type) {
+    case 'number':
+    case 'integer':
+    case 'decimal':
+      return 'number'
+    case 'date':
+      return 'date'
+    case 'email':
+      return 'email'
+    case 'phone':
+      return 'tel'
+    default:
+      return 'text'
+  }
+}
+
+// Check if column should use textarea
+const isTextareaColumn = (column: TitleColumn): boolean => {
+  return column.data_type === 'textarea' || column.data_type === 'text_long'
+}
+
+// Check if column should use select
+const isSelectColumn = (column: TitleColumn): boolean => {
+  return column.data_type === 'select' && column.options && column.options.length > 0
+}
+
+// Check if column is boolean type
+const isBooleanColumn = (column: TitleColumn): boolean => {
+  return column.data_type === 'boolean'
+}
+
+// Get select options formatted for FormSelect
+const getSelectOptions = (column: TitleColumn) => {
+  return (column.options || []).map(opt => ({
+    value: opt,
+    label: opt
+  }))
+}
 
 // Load template columns
 const loadTemplateColumns = async () => {
@@ -37,14 +139,21 @@ const loadTemplateColumns = async () => {
   errorMessage.value = ''
   
   try {
-    // Use getActivities to get template info and columns
     const response = await userActivitiesService.getActivities(templateId.value, 1, 1)
     templateInfo.value = response.template
     columns.value = response.columns || []
     
-    // Initialize form data with empty values
+    // Initialize form data with empty values based on column types
     columns.value.forEach(col => {
-      formData.value[col.key] = ''
+      if (col.data_type === 'boolean') {
+        formData.value[col.key] = false
+      } else if (col.data_type === 'number' || col.data_type === 'integer' || col.data_type === 'decimal') {
+        formData.value[col.key] = ''
+      } else {
+        formData.value[col.key] = ''
+      }
+      
+      // Initialize attachment slots for columns that allow them
       if (col.allows_attachment) {
         attachments.value[col.key] = null
       }
@@ -57,34 +166,18 @@ const loadTemplateColumns = async () => {
   }
 }
 
-// Handle meeting minutes file upload
-const handleMeetingMinutesUpload = (event: Event) => {
+// Handle file upload for a specific column
+const handleFileUpload = (columnKey: string, event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
-  
   if (file) {
-    attachments.value.meeting_minutes = file
+    attachments.value[columnKey] = file
   }
 }
 
-// Remove meeting minutes
-const removeMeetingMinutes = () => {
-  attachments.value.meeting_minutes = null
-}
-
-// Handle outputs file upload
-const handleOutputsUpload = (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  
-  if (file) {
-    attachments.value.outputs_file = file
-  }
-}
-
-// Remove outputs file
-const removeOutputsFile = () => {
-  attachments.value.outputs_file = null
+// Remove attachment for a specific column
+const removeAttachment = (columnKey: string) => {
+  attachments.value[columnKey] = null
 }
 
 // Get file icon based on type
@@ -112,11 +205,10 @@ const validateForm = (): boolean => {
     const value = formData.value[column.key]
     
     if (column.is_required) {
-      // Check if value is empty based on its type
       const isEmpty = value === undefined || value === null || value === '' || 
         (typeof value === 'string' && value.trim() === '')
       
-      if (isEmpty) {
+      if (isEmpty && column.data_type !== 'boolean') {
         formErrors.value[column.key] = `${column.label} مطلوب`
         isValid = false
         continue
@@ -133,11 +225,11 @@ const validateForm = (): boolean => {
   return isValid
 }
 
-// Upload attachments for an activity
+// Upload all attachments for an activity
 const uploadAttachments = async (activityId: number) => {
   for (const column of columns.value) {
     const file = attachments.value[column.key]
-    if (file) {
+    if (file && column.allows_attachment) {
       try {
         await userActivitiesService.uploadAttachment(activityId, column.key, file)
       } catch (error) {
@@ -157,16 +249,9 @@ const handleSubmit = async () => {
   errorMessage.value = ''
   
   try {
-    // Create the activity
     const activity = await userActivitiesService.createActivity(templateId.value, formData.value)
-    
-    // Upload attachments
     await uploadAttachments(activity.id)
-    
-    // Submit this specific activity
     await userActivitiesService.submitActivity(activity.id)
-    
-    // Navigate back to the detail page
     router.push(`/activities/local/${templateId.value}`)
   } catch (error: any) {
     console.error('Error submitting activity:', error)
@@ -176,18 +261,14 @@ const handleSubmit = async () => {
   }
 }
 
-// Handle save draft (same as submit for now)
+// Handle save draft
 const handleSaveDraft = async () => {
   isSavingDraft.value = true
   errorMessage.value = ''
   
   try {
     const activity = await userActivitiesService.createActivity(templateId.value, formData.value)
-    
-    // Upload attachments
     await uploadAttachments(activity.id)
-    
-    // Navigate back to the detail page
     router.push(`/activities/local/${templateId.value}`)
   } catch (error: any) {
     console.error('Error saving draft:', error)
@@ -254,188 +335,231 @@ onMounted(() => {
     <div v-else :class="$style.mainContent">
       <form :class="$style.form" @submit.prevent="handleSubmit">
         
-        <!-- Section 1: نوع النشاط -->
-        <div :class="$style.formSection">
-          <FormInput
-            v-model="formData.activity_type"
-            label="نوع النشاط"
-            placeholder="ادخل نوع النشاط"
-            type="text"
-            :required="true"
-          />
-        </div>
-
-        <!-- Section 2: يوجد محضر اجتماع + Upload -->
-        <div :class="$style.formSection">
-          <FormRadio
-            v-model="formData.has_meeting_minutes"
-            label="يوجد محضر اجتماع"
-            :required="true"
-          />
-
-          <!-- Conditional Attachment Upload -->
-          <div v-if="formData.has_meeting_minutes" :class="$style.attachmentSection">
-            <label :class="$style.attachmentLabel">
-              <i class="fas fa-paperclip"></i>
-              رفع محضر الاجتماع
-              <span :class="$style.required">*</span>
-            </label>
-            
-            <!-- File Input -->
-            <div v-if="!attachments.meeting_minutes" :class="$style.attachmentUpload">
-              <input
-                type="file"
-                id="attachment-meeting-minutes"
-                @change="handleMeetingMinutesUpload"
-                :class="$style.fileInput"
-                accept=".pdf,.doc,.docx"
+        <!-- Dynamic Form Sections based on columns from backend -->
+        <template v-for="(row, rowIndex) in organizedRows" :key="rowIndex">
+          
+          <!-- Single field row (first field or standalone fields) -->
+          <div v-if="row.type === 'single'" :class="$style.formSection">
+            <template v-for="col in row.columns" :key="col.key">
+              <!-- Textarea -->
+              <FormTextarea
+                v-if="isTextareaColumn(col)"
+                v-model="formData[col.key]"
+                :label="col.label"
+                :placeholder="`ادخل ${col.label}`"
+                :required="col.is_required"
+                :error="formErrors[col.key]"
               />
-              <label for="attachment-meeting-minutes" :class="$style.uploadLabel">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
-                <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
-              </label>
-            </div>
-            
-            <!-- File Preview -->
-            <div v-else :class="$style.attachmentPreview">
-              <div :class="$style.fileInfo">
-                <i :class="getFileIcon(attachments.meeting_minutes!)"></i>
-                <div :class="$style.fileDetails">
-                  <span :class="$style.fileName">{{ attachments.meeting_minutes!.name }}</span>
-                  <span :class="$style.fileSize">{{ formatFileSize(attachments.meeting_minutes!.size) }}</span>
+              
+              <!-- Select -->
+              <FormSelect
+                v-else-if="isSelectColumn(col)"
+                v-model="formData[col.key]"
+                :label="col.label"
+                :placeholder="`اختر ${col.label}`"
+                :options="getSelectOptions(col)"
+                :searchable="true"
+                :required="col.is_required"
+                :error="formErrors[col.key]"
+              />
+              
+              <!-- Boolean (Checkbox) -->
+              <FormRadio
+                v-else-if="isBooleanColumn(col)"
+                v-model="formData[col.key]"
+                :label="col.label"
+                :required="col.is_required"
+                :error="formErrors[col.key]"
+              />
+              
+              <!-- Regular Input -->
+              <FormInput
+                v-else
+                v-model="formData[col.key]"
+                :label="col.label"
+                :placeholder="`ادخل ${col.label}`"
+                :type="getInputType(col)"
+                :required="col.is_required"
+                :error="formErrors[col.key]"
+              />
+              
+              <!-- Attachment section for columns that allow it (non-boolean) -->
+              <div v-if="col.allows_attachment && !isBooleanColumn(col)" :class="$style.attachmentSection">
+                <label :class="$style.attachmentLabel">
+                  <i class="fas fa-paperclip"></i>
+                  مرفق {{ col.label }}
+                  <span v-if="col.attachment_required" :class="$style.required">*</span>
+                </label>
+                
+                <div v-if="!attachments[col.key]" :class="$style.attachmentUpload">
+                  <input
+                    type="file"
+                    :id="`attachment-${col.key}`"
+                    @change="handleFileUpload(col.key, $event)"
+                    :class="$style.fileInput"
+                    accept=".pdf,.doc,.docx,.bmp,.svg,.webp,.gif,.png,.jpeg,.jpg"
+                  />
+                  <label :for="`attachment-${col.key}`" :class="$style.uploadLabel">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
+                    <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
+                  </label>
+                </div>
+                
+                <div v-else :class="$style.attachmentPreview">
+                  <div :class="$style.fileInfo">
+                    <i :class="getFileIcon(attachments[col.key]!)"></i>
+                    <div :class="$style.fileDetails">
+                      <span :class="$style.fileName">{{ attachments[col.key]!.name }}</span>
+                      <span :class="$style.fileSize">{{ formatFileSize(attachments[col.key]!.size) }}</span>
+                    </div>
+                  </div>
+                  <button type="button" :class="$style.removeBtn" @click="removeAttachment(col.key)">
+                    <i class="fas fa-times"></i>
+                  </button>
                 </div>
               </div>
-              <button type="button" :class="$style.removeBtn" @click="removeMeetingMinutes">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
+            </template>
           </div>
-        </div>
-
-        <!-- Section 3: القسم المعني + اسم النشاط -->
-        <div :class="$style.formSection">
-          <div :class="$style.gridRow">
-            <FormInput
-              v-model="formData.department"
-              label="القسم المعني"
-              placeholder="ادخل القسم المعني"
-              type="text"
-              :required="true"
-            />
-            <FormInput
-              v-model="formData.activity_name"
-              label="اسم النشاط"
-              placeholder="ادخل اسم النشاط"
-              type="text"
-              :required="true"
-            />
-          </div>
-        </div>
-
-        <!-- Section 4: نوع التمثيل + نطاق النشاط -->
-        <div :class="$style.formSection">
-          <div :class="$style.gridRow">
-            <FormSelect
-              v-model="formData.representation_type"
-              label="نوع التمثيل"
-              placeholder="اختر نوع التمثيل"
-              :options="[
-                { value: 'type1', label: 'نوع 1' },
-                { value: 'type2', label: 'نوع 2' },
-                { value: 'type3', label: 'نوع 3' }
-              ]"
-              :searchable="true"
-              :required="true"
-            />
-            <FormSelect
-              v-model="formData.activity_scope"
-              label="نطاق النشاط"
-              placeholder="اختر نطاق النشاط"
-              :options="[
-                { value: 'local', label: 'محلي' },
-                { value: 'regional', label: 'إقليمي' },
-                { value: 'international', label: 'دولي' }
-              ]"
-              :searchable="true"
-              :required="true"
-            />
-          </div>
-        </div>
-
-        <!-- Section 5: مصدر النشاط + الجهات المشاركة -->
-        <div :class="$style.formSection">
-          <div :class="$style.gridRow">
-            <FormSelect
-              v-model="formData.activity_source"
-              label="مصدر النشاط"
-              placeholder="اختر مصدر النشاط"
-              :options="[
-                { value: 'internal', label: 'داخلي' },
-                { value: 'external', label: 'خارجي' },
-                { value: 'partnership', label: 'شراكة' }
-              ]"
-              :searchable="true"
-              :required="true"
-            />
-            <FormInput
-              v-model="formData.participating_parties"
-              label="الجهات المشاركة"
-              placeholder="ادخل الجهات المشاركة"
-              type="text"
-              :required="false"
-            />
-          </div>
-        </div>
-
-        <!-- Section 6: المخرجات + المرفقات -->
-        <div :class="$style.formSection">
-          <FormInput
-            v-model="formData.outputs"
-            label="المخرجات"
-            placeholder="ادخل المخرجات"
-            type="text"
-            :required="false"
-          />
-
-          <!-- Attachments -->
-          <div :class="$style.attachmentSection">
-            <label :class="$style.attachmentLabel">
-              <i class="fas fa-paperclip"></i>
-              المرفقات
-            </label>
-            
-            <!-- File Input -->
-            <div v-if="!attachments.outputs_file" :class="$style.attachmentUpload">
-              <input
-                type="file"
-                id="attachment-outputs"
-                @change="handleOutputsUpload"
-                :class="$style.fileInput"
-                accept=".pdf,.doc,.docx,.bmp,.svg,.webp,.gif,.png,.jpeg,.jpg"
-              />
-              <label for="attachment-outputs" :class="$style.uploadLabel">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
-                <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
-              </label>
+          
+          <!-- Paired fields row (2 fields per row) -->
+          <div v-else-if="row.type === 'pair'" :class="$style.formSection">
+            <div :class="$style.gridRow">
+              <template v-for="col in row.columns" :key="col.key">
+                <!-- Textarea -->
+                <FormTextarea
+                  v-if="isTextareaColumn(col)"
+                  v-model="formData[col.key]"
+                  :label="col.label"
+                  :placeholder="`ادخل ${col.label}`"
+                  :required="col.is_required"
+                  :error="formErrors[col.key]"
+                />
+                
+                <!-- Select -->
+                <FormSelect
+                  v-else-if="isSelectColumn(col)"
+                  v-model="formData[col.key]"
+                  :label="col.label"
+                  :placeholder="`اختر ${col.label}`"
+                  :options="getSelectOptions(col)"
+                  :searchable="true"
+                  :required="col.is_required"
+                  :error="formErrors[col.key]"
+                />
+                
+                <!-- Boolean (Checkbox) -->
+                <FormRadio
+                  v-else-if="isBooleanColumn(col)"
+                  v-model="formData[col.key]"
+                  :label="col.label"
+                  :required="col.is_required"
+                  :error="formErrors[col.key]"
+                />
+                
+                <!-- Regular Input -->
+                <FormInput
+                  v-else
+                  v-model="formData[col.key]"
+                  :label="col.label"
+                  :placeholder="`ادخل ${col.label}`"
+                  :type="getInputType(col)"
+                  :required="col.is_required"
+                  :error="formErrors[col.key]"
+                />
+              </template>
             </div>
             
-            <!-- File Preview -->
-            <div v-else :class="$style.attachmentPreview">
-              <div :class="$style.fileInfo">
-                <i :class="getFileIcon(attachments.outputs_file!)"></i>
-                <div :class="$style.fileDetails">
-                  <span :class="$style.fileName">{{ attachments.outputs_file!.name }}</span>
-                  <span :class="$style.fileSize">{{ formatFileSize(attachments.outputs_file!.size) }}</span>
+            <!-- Attachments for paired fields shown below the row -->
+            <template v-for="col in row.columns" :key="`${col.key}-attachment`">
+              <div v-if="col.allows_attachment" :class="$style.attachmentSection">
+                <label :class="$style.attachmentLabel">
+                  <i class="fas fa-paperclip"></i>
+                  مرفق {{ col.label }}
+                  <span v-if="col.attachment_required" :class="$style.required">*</span>
+                </label>
+                
+                <div v-if="!attachments[col.key]" :class="$style.attachmentUpload">
+                  <input
+                    type="file"
+                    :id="`attachment-${col.key}`"
+                    @change="handleFileUpload(col.key, $event)"
+                    :class="$style.fileInput"
+                    accept=".pdf,.doc,.docx,.bmp,.svg,.webp,.gif,.png,.jpeg,.jpg"
+                  />
+                  <label :for="`attachment-${col.key}`" :class="$style.uploadLabel">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
+                    <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
+                  </label>
+                </div>
+                
+                <div v-else :class="$style.attachmentPreview">
+                  <div :class="$style.fileInfo">
+                    <i :class="getFileIcon(attachments[col.key]!)"></i>
+                    <div :class="$style.fileDetails">
+                      <span :class="$style.fileName">{{ attachments[col.key]!.name }}</span>
+                      <span :class="$style.fileSize">{{ formatFileSize(attachments[col.key]!.size) }}</span>
+                    </div>
+                  </div>
+                  <button type="button" :class="$style.removeBtn" @click="removeAttachment(col.key)">
+                    <i class="fas fa-times"></i>
+                  </button>
                 </div>
               </div>
-              <button type="button" :class="$style.removeBtn" @click="removeOutputsFile">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
+            </template>
           </div>
-        </div>
+          
+          <!-- Boolean field with conditional attachment -->
+          <div v-else-if="row.type === 'boolean-with-attachment'" :class="$style.formSection">
+            <template v-for="col in row.columns" :key="col.key">
+              <FormRadio
+                v-model="formData[col.key]"
+                :label="col.label"
+                :required="col.is_required"
+                :error="formErrors[col.key]"
+              />
+              
+              <!-- Conditional Attachment Upload (shows when boolean is true) -->
+              <div v-if="formData[col.key] && col.allows_attachment" :class="$style.attachmentSection">
+                <label :class="$style.attachmentLabel">
+                  <i class="fas fa-paperclip"></i>
+                  رفع {{ col.label }}
+                  <span v-if="col.attachment_required" :class="$style.required">*</span>
+                </label>
+                
+                <div v-if="!attachments[col.key]" :class="$style.attachmentUpload">
+                  <input
+                    type="file"
+                    :id="`attachment-${col.key}`"
+                    @change="handleFileUpload(col.key, $event)"
+                    :class="$style.fileInput"
+                    accept=".pdf,.doc,.docx,.bmp,.svg,.webp,.gif,.png,.jpeg,.jpg"
+                  />
+                  <label :for="`attachment-${col.key}`" :class="$style.uploadLabel">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>اسحب المرفق هنا أو اختر ملف من الحاسوب</span>
+                    <small>الملفات المدعومة: PDF, .bmp, .svg, .webp, .gif, .png, .jpeg, .jpg</small>
+                  </label>
+                </div>
+                
+                <div v-else :class="$style.attachmentPreview">
+                  <div :class="$style.fileInfo">
+                    <i :class="getFileIcon(attachments[col.key]!)"></i>
+                    <div :class="$style.fileDetails">
+                      <span :class="$style.fileName">{{ attachments[col.key]!.name }}</span>
+                      <span :class="$style.fileSize">{{ formatFileSize(attachments[col.key]!.size) }}</span>
+                    </div>
+                  </div>
+                  <button type="button" :class="$style.removeBtn" @click="removeAttachment(col.key)">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+          
+        </template>
 
       </form>
     </div>

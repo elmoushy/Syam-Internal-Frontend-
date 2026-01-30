@@ -617,6 +617,7 @@ export interface TitleColumn {
   options: string[]
   allows_attachment?: boolean
   attachment_required?: boolean
+  order?: number
   validations: Array<{
     rule_type: string
     rule_value: string

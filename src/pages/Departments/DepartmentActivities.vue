@@ -1,105 +1,131 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import StatKpiCard from '../../components/Dashboard/StatKpiCard.vue';
 import StatusDonutChart from '../../components/Dashboard/StatusDonutChart.vue';
 import MonthlyPlannedActualLineChart from '../../components/Dashboard/MonthlyPlannedActualLineChart.vue';
 import ActivityCard from '../../components/Dashboard/ActivityCard.vue';
+import { dashboardService } from '../../services/dashboardService';
+import type { KPICardData, DepartmentActivityItem } from '../../types/dashboard.types';
 
 const route = useRoute();
-const departmentId = route.params.id as string;
+const departmentId = computed(() => route.params.id as string);
 const statusFilter = route.query.status as string | undefined;
 
-const selectedYear = ref(2026);
-const years = [2024, 2025, 2026];
+// Loading and error state
+const isLoading = ref(true);
+const error = ref<string | null>(null);
 
-const kpiData: {
-	title: string;
-	icon: string;
-	value: number | string;
-	valueLabel: string;
-	trend: 'up' | 'down' | 'flat';
-	percentage: number;
-	footerText: string;
-}[] = [
-	{ title: 'إجمالي الأنشطة', icon: 'bi bi-activity', value: 200, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' },
-	{ title: 'مكتمل', icon: 'bi bi-check-circle', value: 80, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' },
-	{ title: 'قيد التنفيذ', icon: 'bi bi-clock-history', value: 20, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' },
-	{ title: 'ملغي', icon: 'bi bi-x-circle', value: 5, valueLabel: 'نشاط', trend: 'flat', percentage: 10, footerText: 'في هذا الشهر' }
-];
+// Department info
+const departmentName = ref('');
 
-const donutData = {
-	2026: {
-		total: 300,
-		items: [
-			{ label: 'مكتمل', value: 180, color: '#00A651' },
-			{ label: 'قيد التنفيذ', value: 70, color: '#FFD166' },
-			{ label: 'الملغاة', value: 50, color: '#E76F51' }
-		]
-	},
-	2025: {
-		total: 250,
-		items: [
-			{ label: 'مكتمل', value: 120, color: '#00A651' },
-			{ label: 'قيد التنفيذ', value: 100, color: '#FFD166' },
-			{ label: 'الملغاة', value: 30, color: '#E76F51' }
-		]
+// Dynamic data from API
+const selectedYear = ref(new Date().getFullYear());
+const years = ref<number[]>([]);
+const kpiData = ref<KPICardData[]>([]);
+const allActivities = ref<DepartmentActivityItem[]>([]);
+
+// Donut chart data
+const donutData = ref<Record<number, { total: number; items: { label: string; value: number; color: string }[] }>>({});
+
+// Line chart data
+const lineMonths = ref<string[]>([]);
+const lineActualSeries = ref<{ label: string; value: number }[]>([]);
+const linePlannedSeries = ref<{ label: string; value: number }[]>([]);
+
+// Search query for activities
+const searchQuery = ref('');
+
+/**
+ * Fetch department data from API
+ */
+async function fetchDepartmentData() {
+	isLoading.value = true;
+	error.value = null;
+	
+	try {
+		const data = await dashboardService.getDepartmentDetail(
+			Number(departmentId.value),
+			selectedYear.value
+		);
+		
+		// Set department info
+		departmentName.value = data.name;
+		
+		// Set available years
+		years.value = data.availableYears.length > 0 
+			? data.availableYears 
+			: [new Date().getFullYear()];
+		
+		// Set KPIs
+		kpiData.value = data.kpis;
+		
+		// Set donut chart data
+		donutData.value = {
+			[data.statusDistribution.year]: {
+				total: data.statusDistribution.total,
+				items: data.statusDistribution.items
+			}
+		};
+		
+		// Set line chart data (weekly trend)
+		lineMonths.value = data.weeklyTrend.weeks;
+		lineActualSeries.value = data.weeklyTrend.weeks.map((week, index) => ({
+			label: week,
+			value: data.weeklyTrend.actual[index] || 0
+		}));
+		linePlannedSeries.value = data.weeklyTrend.weeks.map((week, index) => ({
+			label: week,
+			value: data.weeklyTrend.planned[index] || 0
+		}));
+		
+		// Set activities
+		allActivities.value = data.activities;
+		
+	} catch (err: any) {
+		console.error('Error fetching department data:', err);
+		error.value = err?.response?.data?.error || 'حدث خطأ أثناء تحميل البيانات';
+	} finally {
+		isLoading.value = false;
 	}
-};
+}
 
-const lineMonths = ['الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الأسبوع 4'];
-
-const lineActualSeries = [
-	{ label: 'الأسبوع 1', value: 18 },
-	{ label: 'الأسبوع 2', value: 22 },
-	{ label: 'الأسبوع 3', value: 25 },
-	{ label: 'الأسبوع 4', value: 30 }
-];
-
-const linePlannedSeries = [
-	{ label: 'الأسبوع 1', value: 22 },
-	{ label: 'الأسبوع 2', value: 20 },
-	{ label: 'الأسبوع 3', value: 24 },
-	{ label: 'الأسبوع 4', value: 26 }
-];
-
-const allActivities = [
-	{
-		title: 'تحديث قائمة جهات الاتصال في حالات الطوارئ',
-		status: 'completed' as const,
-		assignee: 'أحمد محمد السعيدي',
-		startDate: '02 يناير 2026',
-		endDate: '08 يناير 2026',
-		completionRate: 50
-	},
-	{
-		title: 'تحديث قائمة جهات الاتصال في حالات الطوارئ',
-		status: 'in_progress' as const,
-		assignee: 'أحمد محمد السعيدي',
-		startDate: '02 يناير 2026',
-		endDate: '08 يناير 2026',
-		completionRate: 40
-	},
-	{
-		title: 'تحديث قائمة جهات الاتصال في حالات الطوارئ',
-		status: 'completed' as const,
-		assignee: 'أحمد محمد السعيدي',
-		startDate: '02 يناير 2026',
-		endDate: '08 يناير 2026',
-		completionRate: 100
-	}
-];
-
+// Filtered activities based on status and search
 const filteredActivities = computed(() => {
-	if (!statusFilter) return allActivities;
-	const statusMap: Record<string, 'completed' | 'in_progress' | 'late' | 'cancelled'> = {
-		completed: 'completed',
-		in_progress: 'in_progress',
-		late: 'late',
-		cancelled: 'cancelled'
-	};
-	const targetStatus = statusMap[statusFilter];
-	return allActivities.filter(activity => activity.status === targetStatus);
+	let result = allActivities.value;
+	
+	// Filter by status if specified
+	if (statusFilter) {
+		const statusMap: Record<string, 'completed' | 'in_progress' | 'late' | 'cancelled'> = {
+			completed: 'completed',
+			in_progress: 'in_progress',
+			late: 'late',
+			cancelled: 'cancelled'
+		};
+		const targetStatus = statusMap[statusFilter];
+		result = result.filter(activity => activity.status === targetStatus);
+	}
+	
+	// Filter by search query
+	if (searchQuery.value.trim()) {
+		const query = searchQuery.value.trim().toLowerCase();
+		result = result.filter(activity => 
+			activity.title.toLowerCase().includes(query) ||
+			activity.assignee.toLowerCase().includes(query)
+		);
+	}
+	
+	return result;
+});
+
+// Watch for year changes to refetch data
+watch(selectedYear, () => {
+	fetchDepartmentData();
+});
+
+// Fetch data on mount
+onMounted(() => {
+	fetchDepartmentData();
 });
 </script>
 
@@ -109,54 +135,73 @@ const filteredActivities = computed(() => {
 			<div class="breadcrumbs">
 				<span class="breadcrumb-item">قائمة حصر الانشطة</span>
 				<span class="breadcrumb-sep">/</span>
-				<span class="breadcrumb-item active">لوحة أداء الأنشطة</span>
+				<span class="breadcrumb-item active">{{ departmentName || 'لوحة أداء الأنشطة' }}</span>
 			</div>
 			<div class="header-actions">
 				<button class="btn-filter btn-gold">
 					اختر قسم <i class="bi bi-chevron-down"></i>
 				</button>
-				<button class="btn-filter">
-					2026 <i class="bi bi-chevron-down"></i>
-				</button>
+				<select v-model="selectedYear" class="btn-filter">
+					<option v-for="year in years" :key="year" :value="year">{{ year }}</option>
+				</select>
 				<button class="btn-export">
 					<i class="bi bi-download"></i> تصدير البيانات
 				</button>
 			</div>
 		</div>
 
-		<div class="kpi-grid">
-			<StatKpiCard v-for="(kpi, idx) in kpiData" :key="idx" v-bind="kpi" />
+		<!-- Loading State -->
+		<div v-if="isLoading" class="loading-state">
+			<i class="bi bi-arrow-repeat spin"></i>
+			<span>جاري تحميل البيانات...</span>
 		</div>
 
-		<div class="charts-row">
-			
-			<div class="chart-card">
-				<StatusDonutChart v-model="selectedYear" :years="years" :data-by-year="donutData"
-					title="الأنشطة حسب الحالة" />
-			</div>
-			<div class="chart-card">
-				<MonthlyPlannedActualLineChart title="المخطط مقابل الفعلي - اسبوعياً" :months="lineMonths"
-					:actual-series="lineActualSeries" :planned-series="linePlannedSeries" :year-options="years" />
-			</div>
+		<!-- Error State -->
+		<div v-else-if="error" class="error-state">
+			<i class="bi bi-exclamation-triangle"></i>
+			<span>{{ error }}</span>
+			<button @click="fetchDepartmentData" class="btn-retry">إعادة المحاولة</button>
 		</div>
 
-		<div class="activities-section">
-			<div class="activities-header">
-				<div class="search-wrapper">
-					<i class="bi bi-search"></i>
-					<input class="search-input" type="text" placeholder="ابحث عن قسم..." />
-					<span class="search-shortcut">⌘ F</span>
+		<!-- Content -->
+		<template v-else>
+			<div class="kpi-grid">
+				<StatKpiCard v-for="(kpi, idx) in kpiData" :key="idx" v-bind="kpi" />
+			</div>
+
+			<div class="charts-row">
+				<div class="chart-card">
+					<StatusDonutChart v-model="selectedYear" :years="years" :data-by-year="donutData"
+						title="الأنشطة حسب الحالة" />
 				</div>
-				<div class="activities-title-group">
-					<h2 class="activities-title">جميع الأنشطة</h2>
-					<span class="activities-subtitle">{{ filteredActivities.length }} نشاط</span>
+				<div class="chart-card">
+					<MonthlyPlannedActualLineChart title="المخطط مقابل الفعلي - اسبوعياً" :months="lineMonths"
+						:actual-series="lineActualSeries" :planned-series="linePlannedSeries" :year-options="years" />
 				</div>
 			</div>
 
-			<div class="activities-grid">
-				<ActivityCard v-for="(activity, idx) in filteredActivities" :key="idx" v-bind="activity" />
+			<div class="activities-section">
+				<div class="activities-header">
+					<div class="search-wrapper">
+						<i class="bi bi-search"></i>
+						<input v-model="searchQuery" class="search-input" type="text" placeholder="ابحث عن نشاط..." />
+						<span class="search-shortcut">⌘ F</span>
+					</div>
+					<div class="activities-title-group">
+						<h2 class="activities-title">جميع الأنشطة</h2>
+						<span class="activities-subtitle">{{ filteredActivities.length }} نشاط</span>
+					</div>
+				</div>
+
+				<div v-if="filteredActivities.length > 0" class="activities-grid">
+					<ActivityCard v-for="(activity, idx) in filteredActivities" :key="idx" v-bind="activity" />
+				</div>
+				<div v-else class="empty-state">
+					<i class="bi bi-inbox"></i>
+					<span>لا توجد أنشطة</span>
+				</div>
 			</div>
-		</div>
+		</template>
 	</div>
 </template>
 
@@ -334,6 +379,57 @@ const filteredActivities = computed(() => {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
 	gap: 1.25rem;
+}
+
+/* Loading, Error, and Empty States */
+.loading-state,
+.error-state,
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	padding: 3rem;
+	background: #ffffff;
+	border-radius: 16px;
+	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+	color: #6b7280;
+	font-size: 1rem;
+}
+
+.loading-state i,
+.error-state i,
+.empty-state i {
+	font-size: 2.5rem;
+	color: #a67c1e;
+}
+
+.error-state i {
+	color: #ef4444;
+}
+
+.spin {
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+.btn-retry {
+	background: #a67c1e;
+	color: white;
+	border: none;
+	padding: 0.5rem 1.5rem;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 0.875rem;
+}
+
+.btn-retry:hover {
+	background: #8c6818;
 }
 
 @media (max-width: 1024px) {

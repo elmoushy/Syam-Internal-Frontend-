@@ -210,3 +210,45 @@ export interface ProgramDetailData {
   departmentStats: ProgramDepartmentStats[]
   availableYears: number[]
 }
+
+// ============================================================================
+// Department Detail Types (for DepartmentActivities page)
+// ============================================================================
+
+/**
+ * Activity item in department activities list
+ */
+export interface DepartmentActivityItem {
+  id: number
+  title: string
+  status: 'completed' | 'in_progress' | 'late' | 'cancelled'
+  assignee: string
+  startDate: string
+  endDate: string
+  completionRate: number
+}
+
+/**
+ * Weekly trend data for line chart
+ */
+export interface WeeklyTrend {
+  weeks: string[]
+  planned: number[]
+  actual: number[]
+}
+
+/**
+ * Department detail response from API
+ */
+export interface DepartmentDetailData {
+  id: number
+  name: string
+  code: string
+  description: string
+  kpis: KPICardData[]
+  statusDistribution: StatusDistribution
+  weeklyTrend: WeeklyTrend
+  activities: DepartmentActivityItem[]
+  totalActivities: number
+  availableYears: number[]
+}

@@ -15,6 +15,7 @@ import type {
   DashboardQueryParams,
   KPICardData,
   ProgramDetailData,
+  DepartmentDetailData,
 } from '@/types/dashboard.types'
 
 const BASE_URL = '/activities/dashboard'
@@ -173,6 +174,24 @@ export const dashboardService = {
     const url = queryParams.toString()
       ? `${BASE_URL}/programs/${templateId}/?${queryParams}`
       : `${BASE_URL}/programs/${templateId}/`
+    
+    const response = await apiClient.get(url)
+    return response.data
+  },
+
+  /**
+   * Get detailed statistics for a specific department
+   * Used for DepartmentActivities page
+   * @param departmentId - ID of the Department
+   * @param year - Year to get stats for
+   */
+  async getDepartmentDetail(departmentId: number, year?: number): Promise<DepartmentDetailData> {
+    const queryParams = new URLSearchParams()
+    if (year) queryParams.append('year', year.toString())
+    
+    const url = queryParams.toString()
+      ? `${BASE_URL}/departments/${departmentId}/?${queryParams}`
+      : `${BASE_URL}/departments/${departmentId}/`
     
     const response = await apiClient.get(url)
     return response.data

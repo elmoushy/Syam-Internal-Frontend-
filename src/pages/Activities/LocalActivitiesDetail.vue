@@ -184,6 +184,47 @@ const goToPage = (page: number) => {
   }
 }
 
+// Get column value from activity data
+const getColumnValue = (activity: UserActivity, columnKey: string): any => {
+  return activity.data?.[columnKey] ?? null
+}
+
+// Format column value based on data type for display
+const formatColumnValue = (column: TitleColumn, value: any): string => {
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
+  
+  switch (column.data_type) {
+    case 'boolean':
+      return value === true || value === 'true' ? 'نعم' : 'لا'
+    case 'date':
+      try {
+        return new Date(value).toLocaleDateString('ar-EG', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      } catch {
+        return String(value)
+      }
+    case 'select':
+      return String(value)
+    default:
+      return String(value)
+  }
+}
+
+// Check if column is boolean type
+const isBooleanColumn = (column: TitleColumn): boolean => {
+  return column.data_type === 'boolean'
+}
+
+// Get boolean display class
+const getBooleanClass = (value: any): string => {
+  return value === true || value === 'true' ? 'greenText' : 'redText'
+}
+
 
 // Watch for route changes
 watch(templateId, (newVal) => {
@@ -379,55 +420,22 @@ onMounted(() => {
 
         <!-- Activity Details Sections - Dynamic from columns -->
         <div :class="$style.detailsContainer">
-          <!-- <template v-for="column in columns" :key="column.key">
-            <div v-if="getColumnValue(selectedActivity, column.key)" :class="$style.detailSection">
-              <h3 :class="$style.sectionTitle">{{ column.label }}</h3>
-              <div :class="$style.detailItem">
-                <span :class="$style.itemValue">{{ getColumnValue(selectedActivity, column.key) }}</span>
-              </div>
-            </div>
-          </template> -->
-          
-
-               <div :class="$style.detailSection">
-            <h3 :class="$style.sectionTitle">ملخص النشاط</h3>
-            <div :class="$style.detailItem">
-              <span :class="$style.itemLabel">القسم / الجهة المستهدفة</span>
-              <span :class="$style.itemValue">{{ selectedActivity.author }}</span>
-            </div>
-            <div :class="$style.detailItem">
-              <span :class="$style.itemLabel">نطاق النشاط</span>
-              <span :class="$style.itemValue">{{ formatDate(selectedActivity.created_at) }}</span>
-            </div>
-            <div :class="$style.detailItem">
-              <span :class="$style.itemLabel">الجهات المشاركة</span>
-              <span :class="$style.itemValue">{{ formatDate(selectedActivity.updated_at) }}</span>
-            </div>
-            <div :class="$style.detailItem">
-              <span :class="$style.itemLabel">مصدر النشاط</span>
-              <span :class="[$style.itemValue, selectedActivity.is_submitted ? $style.greenText : '']">
-                {{ selectedActivity.is_submitted ? 'تم التقديم' : 'مسودة' }}
-              </span>
-              
-            </div>
-               <div :class="$style.detailItem">
-              <span :class="$style.itemLabel">يوجد محضر اجتماع</span>
-              <span :class="[$style.itemValue, selectedActivity.is_submitted ? $style.greenText : $style.redText]">
-                {{ selectedActivity.is_submitted ? 'نعم' : 'لا' }}
-              </span>
-              
-            </div>
-          </div>
-
-          <!-- Main Outputs Section -->
+          <!-- Dynamic Activity Data Section -->
           <div :class="$style.detailSection">
-            <h3 :class="$style.sectionTitle">المخرجات الرئيسية</h3>
-            <div :class="$style.outputContent">
-              <p :class="$style.outputText">
-                مراجعة شاملة لخطط الطوارئ الحالية وتحديث الإجراءات التشغيلية بها بتماشي مع أحدث المعايير الدولية. تحديد نقاط الضعف في الخطط الموجودة واقتراح التحسينات اللازمة. إعداد تقرير مفصل بالتوصيات والإجراءات المطلوبة مع جدول زمني للتنفيذ.
-              </p>
-              <a :class="$style.viewMoreLink">عرض المزيد</a>
-            </div>
+            <h3 :class="$style.sectionTitle">ملخص النشاط</h3>
+            <template v-for="column in columns" :key="column.key">
+              <div :class="$style.detailItem">
+                <span :class="$style.itemLabel">{{ column.label }}</span>
+                <span 
+                  :class="[
+                    $style.itemValue, 
+                    isBooleanColumn(column) ? $style[getBooleanClass(getColumnValue(selectedActivity, column.key))] : ''
+                  ]"
+                >
+                  {{ formatColumnValue(column, getColumnValue(selectedActivity, column.key)) }}
+                </span>
+              </div>
+            </template>
           </div>
 
           <!-- System Info Section -->
