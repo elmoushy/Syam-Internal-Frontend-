@@ -195,6 +195,13 @@
       <div :class="$style.formHeader">
         <div :class="$style.formTitleSection">
           <h2 :class="$style.formTitle">{{ survey.title }}</h2>
+          <p
+            v-if="survey.description?.trim()"
+            :class="$style.formDescription"
+            role="region"
+            aria-label="وصف الاستبيان"
+            tabindex="0"
+          >{{ survey.description.trim() }}</p>
           <p :class="$style.formSubtitle">استطلاع محمي</p>
         </div>
         

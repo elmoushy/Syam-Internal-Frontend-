@@ -87,6 +87,13 @@
       <div :class="$style.formHeader">
         <div :class="$style.formTitleSection">
           <h1 :class="$style.formTitle">{{ survey.title }}</h1>
+          <p
+            v-if="survey.description?.trim()"
+            :class="$style.formDescription"
+            role="region"
+            aria-label="وصف الاستبيان"
+            tabindex="0"
+          >{{ survey.description.trim() }}</p>
           <div :class="$style.formSubtitle">
             <i class="fas fa-user-edit"></i>
             <span>يرجى الإجابة على الأسئلة التالية بعناية</span>

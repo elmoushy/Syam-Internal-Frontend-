@@ -383,6 +383,28 @@
   margin: 0 0 var(--space-2) 0;
 }
 
+.formDescription {
+  max-width: 65ch;
+  max-height: 35vh;
+  margin: 0 auto var(--space-3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: var(--font-fluid-sm);
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  opacity: 0.95;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
+}
+
+.formDescription:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
 .formSubtitle {
   display: flex;
   align-items: center;
